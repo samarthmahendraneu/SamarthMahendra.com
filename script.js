@@ -538,6 +538,11 @@ document.addEventListener('DOMContentLoaded', function () {
         card.appendChild(glare);
 
         card.addEventListener('mousemove', (e) => {
+            // Don't apply tilt if hovering over a link or image
+            if (e.target.tagName === 'A' || e.target.tagName === 'IMG' || e.target.closest('a')) {
+                return;
+            }
+
             const rect = card.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
@@ -545,10 +550,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const centerX = rect.width / 2;
             const centerY = rect.height / 2;
 
-            // Increased intensity (was 5, now 12 for dramatic effect)
-            // Lower perspective (800px) for more depth
-            const rotateX = ((y - centerY) / centerY) * -12;
-            const rotateY = ((x - centerX) / centerX) * 12;
+            // Reduced intensity for timeline items (3 degrees instead of 12)
+            // Keep higher intensity for bento and project cards
+            let intensity = 12;
+            if (card.classList.contains('timeline-content')) {
+                intensity = 3; // Much less dramatic for experience section
+            }
+
+            const rotateX = ((y - centerY) / centerY) * -intensity;
+            const rotateY = ((x - centerX) / centerX) * intensity;
 
             card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`;
 
