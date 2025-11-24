@@ -228,7 +228,51 @@ img {
 
 .bento-item:hover {
     border-color: rgba(138, 66, 209, 0.5);
-    transform: translateY(-5px);
+    /* transform: translateY(-5px);  <-- Removed to prevent conflict with JS Tilt */
+    z-index: 10;
+    /* Bring to front on hover */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* 3D Depth & Glare */
+.bento-item,
+.project-card,
+.timeline-content {
+    transform-style: preserve-3d;
+    will-change: transform;
+}
+
+.bento-item>*,
+.project-card>*,
+.timeline-content>* {
+    transform: translateZ(30px);
+    /* Lift content */
+    pointer-events: none;
+    /* Pass clicks through to card (except buttons) */
+}
+
+.bento-item a,
+.bento-item button,
+.project-card a,
+.project-card button {
+    pointer-events: auto;
+    /* Re-enable clicks on interactive elements */
+    transform: translateZ(40px);
+    /* Lift buttons even higher */
+}
+
+.glare {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    transform: translateZ(1px);
+    /* Sit just above background */
+    opacity: 0;
+    transition: opacity 0.3s;
 }
 
 .intro-card {
@@ -352,12 +396,18 @@ img {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    align-items: center;
+    /* Added for horizontal centering of children */
     text-align: center;
+    height: 100%;
+    /* Ensure it fills the grid cell */
 }
 
 .tech-card h3 {
     margin-bottom: 20px;
     font-family: var(--font-heading);
+    width: 100%;
+    /* Ensure heading takes full width */
 }
 
 .tech-icons {
@@ -693,9 +743,10 @@ img {
 }
 
 .project-card:hover {
-    transform: translateY(-10px);
-    border-color: var(--accent-secondary);
+    /* transform: translateY(-10px); <-- Removed for JS Tilt */
+    border-color: var(--accent-primary);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    z-index: 10;
 }
 
 .project-icon {

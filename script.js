@@ -461,5 +461,42 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // --- 3D Tilt Effect & Glare ---
+    // Applying to Bento items, Project cards, and Timeline content
+    const cards = document.querySelectorAll('.bento-item, .project-card, .timeline-content');
+
+    cards.forEach(card => {
+        // Create Glare Element
+        const glare = document.createElement('div');
+        glare.classList.add('glare');
+        card.appendChild(glare);
+
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+
+            // Increased intensity (was 5, now 12 for dramatic effect)
+            // Lower perspective (800px) for more depth
+            const rotateX = ((y - centerY) / centerY) * -12;
+            const rotateY = ((x - centerX) / centerX) * 12;
+
+            card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`;
+
+            // Glare Position
+            glare.style.left = `${x - 100}px`; // Center glare (200px width / 2)
+            glare.style.top = `${y - 100}px`;
+            glare.style.opacity = '1';
+        });
+
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = 'perspective(800px) rotateX(0) rotateY(0) scale(1)';
+            glare.style.opacity = '0';
+        });
+    });
+
     fetchLeetCodeStats();
 });
