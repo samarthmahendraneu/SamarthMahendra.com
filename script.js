@@ -99,7 +99,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const contentDiv = document.createElement('div');
         contentDiv.classList.add('message-content');
-        contentDiv.innerHTML = linkify(escapeHTML(text));
+        // First escape HTML, then convert newlines to <br>, then linkify
+        contentDiv.innerHTML = linkify(nl2br(escapeHTML(text)));
 
         msgDiv.appendChild(contentDiv);
         chatbotMessages.appendChild(msgDiv);
@@ -133,6 +134,11 @@ document.addEventListener('DOMContentLoaded', function () {
             };
             return chars[tag] || tag;
         });
+    }
+
+    // Helper: Convert newlines to <br>
+    function nl2br(str) {
+        return str.replace(/\n/g, '<br>');
     }
 
     // Helper: Linkify
