@@ -724,6 +724,22 @@ img {
     margin-bottom: 8px;
 }
 
+.job-tech-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.job-tech-stack span {
+    font-size: 0.75rem;
+    color: var(--accent-secondary);
+    background: rgba(76, 201, 240, 0.1);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(76, 201, 240, 0.2);
+}
+
 /* Projects Section */
 .projects-grid {
     display: grid;
