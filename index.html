@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Samarth Mahendra - Software Engineer & Backend Specialist | Portfolio">
+    <meta name="keywords"
+        content="software developer, engineer, portfolio, backend, full stack, React, Python, AWS, Kubernetes">
+    <meta name="author" content="Samarth Mahendra">
+    <title>Samarth Mahendra | Software Engineer</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- AOS Animation -->
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <!-- Particles Background -->
+    <div id="particles-js"></div>
+
+    <!-- Background Elements -->
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+
+    <!-- Custom Cursor -->
+    <div class="cursor-dot"></div>
+    <div class="cursor-outline"></div>
+
+    <!-- Scroll Progress -->
+    <div class="scroll-progress-container">
+        <div class="scroll-progress-bar" id="scroll-progress"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="#" class="logo">SM.</a>
+            <ul class="nav-links">
+                <li><a href="#home" class="magnetic-link">Home</a></li>
+                <li><a href="#about" class="magnetic-link">About</a></li>
+                <li><a href="#experience" class="magnetic-link">Experience</a></li>
+                <li><a href="#projects" class="magnetic-link">Projects</a></li>
+                <li><a href="#contact" class="magnetic-link">Contact</a></li>
+                <li><a href="https://samarthmahendra.hashnode.dev/" target="_blank" class="magnetic-link">Blog</a></li>
+            </ul>
+            <div class="nav-actions">
+                <a href="https://outlook.office.com/bookwithme/user/74b48346c31b4a70b85fef80821897ac@northeastern.edu/meetingtype/x4p_Azwdc0eqt7kyhO5fWg2?anonymous&ismsaljsauthenabled&ep=mlink"
+                    target="_blank" class="btn btn-primary btn-sm magnetic-btn">Schedule</a>
+                <a href="resumev2.pdf" class="btn btn-outline btn-sm magnetic-btn" download>Resume <i
+                        class="fas fa-download"></i></a>
+                <button class="mobile-toggle"><i class="fas fa-bars"></i></button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu">
+        <button class="mobile-close"><i class="fas fa-times"></i></button>
+        <ul class="mobile-links">
+            <li><a href="#home">Home</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="#experience">Experience</a></li>
+            <li><a href="#projects">Projects</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Hero Section (Bento Grid) -->
+        <section id="home" class="hero-section">
+            <div class="container">
+                <div class="bento-grid">
+                    <!-- Intro Card -->
+                    <div class="bento-item intro-card" data-aos="fade-up">
+                        <div class="intro-content">
+                            <span class="greeting">Hello, I'm</span>
+                            <h1 class="name">Samarth Mahendra</h1>
+                            <h2 class="role">Software Engineer & <br>Backend Specialist</h2>
+                            <p class="tagline">"Turning code into poetry. Automating the tedious. Designing for the next
+                                billion users."</p>
+                            <div class="hero-btns">
+                                <a href="#projects" class="btn btn-primary">View Work</a>
+                                <a href="#contact" class="btn btn-secondary">Contact Me</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Photo Card -->
+                    <div class="bento-item photo-card" data-aos="fade-up" data-aos-delay="100">
+                        <img src="https://avatars.githubusercontent.com/u/6503425?v=4" alt="Samarth Mahendra"
+                            class="profile-img">
+                        <div class="status-badge">
+                            <span class="status-dot"></span> Open to work
+                        </div>
+                    </div>
+
+                    <!-- Stats Card -->
+                    <div class="bento-item stats-card" data-aos="fade-up" data-aos-delay="200">
+                        <h3>Experience</h3>
+                        <div class="stat-number">2</div>
+                        <div class="stat-label">Years</div>
+                    </div>
+
+                    <!-- Tech Stack Card -->
+                    <div class="bento-item tech-card" data-aos="fade-up" data-aos-delay="300">
+                        <h3>Tech Stack</h3>
+                        <div class="tech-icons">
+                            <i class="fab fa-python" title="Python"></i>
+                            <i class="fab fa-js" title="JavaScript"></i>
+                            <i class="fab fa-react" title="React"></i>
+                            <i class="fab fa-aws" title="AWS"></i>
+                            <i class="fab fa-docker" title="Docker"></i>
+                            <i class="fas fa-database" title="SQL"></i>
+                            <i class="fab fa-java" title="Java"></i>
+                            <i class="fab fa-node" title="Node.js"></i>
+                            <i class="fas fa-code" title="C++"></i>
+                            <i class="fab fa-git-alt" title="Git"></i>
+                        </div>
+                    </div>
+
+                    <!-- Socials Card -->
+                    <div class="bento-item social-card" data-aos="fade-up" data-aos-delay="400">
+                        <a href="https://www.linkedin.com/in/samarth-mahendra-7aab5a114/" target="_blank"
+                            class="social-link"><i class="fab fa-linkedin-in"></i></a>
+                        <a href="https://github.com/SamarthMahendraneu" target="_blank" class="social-link"><i
+                                class="fab fa-github"></i></a>
+                        <a href="mailto:samarth.mahendragowda@gmail.com" class="social-link"><i
+                                class="fas fa-envelope"></i></a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Section -->
+        <section id="about" class="section">
+            <div class="container">
+                <div class="section-header" data-aos="fade-up">
+                    <h2 class="section-title">About Me</h2>
+                    <p class="section-subtitle">Passionate about backend systems, distributed architecture, and AI.</p>
+                </div>
+
+                <div class="about-content">
+                    <div class="about-text" data-aos="fade-right">
+                        <p>I am a Master's student in Computer Science at Northeastern University with a strong
+                            foundation in backend engineering and distributed systems. I have experience building
+                            scalable applications, optimizing database queries, and integrating AI models into
+                            real-world solutions.</p>
+                        <p>Currently, I'm working on a distributed job tracking system scraping 50,000+ records daily.
+                            I'm always looking to collaborate on LLM-powered tools and real-time data processing
+                            systems.</p>
+
+                        <div class="education-block">
+                            <h3><i class="fas fa-graduation-cap"></i> Education</h3>
+                            <div class="edu-item">
+                                <h4>Northeastern University</h4>
+                                <p>MS in Computer Science (Jan 2024 – Dec 2025)</p>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px;">
+                                    Coursework: Distributed Systems, Algorithms, NLP/ML, Database Systems, Mobile Dev
+                                </p>
+                            </div>
+                            <div class="edu-item">
+                                <h4>Dayananda Sagar College of Engineering</h4>
+                                <p>BE in Computer Science (Aug 2018 – Jul 2022)</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="skills-wrapper" data-aos="fade-left">
+                        <h3>Skills</h3>
+                        <div class="skill-tags">
+                            <span>Python</span><span>JavaScript</span><span>TypeScript</span><span>Java</span><span>C++</span>
+                            <span>Django</span><span>FastAPI</span><span>React</span><span>Flask</span><span>Node.js</span>
+                            <span>PostgreSQL</span><span>MongoDB</span><span>Redis</span><span>Elasticsearch</span>
+                            <span>AWS</span><span>Kubernetes</span><span>Docker</span><span>Terraform</span><span>Prometheus</span>
+                            <span>TCP/IP</span><span>Multithreading</span><span>System
+                                Design</span><span>Microservices</span><span>Async I/O</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Experience Section -->
+        <section id="experience" class="section alt-bg">
+            <div class="container">
+                <div class="section-header" data-aos="fade-up">
+                    <h2 class="section-title">Experience</h2>
+                    <p class="section-subtitle">My professional journey.</p>
+                </div>
+
+                <div class="timeline">
+                    <!-- Jobstats.fyi Founder -->
+                    <div class="timeline-item" data-aos="fade-up">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-date">Oct 2025 – Present</div>
+                            <h3>Founder & Developer</h3>
+                            <h4>Jobstats.fyi · Remote</h4>
+                            <ul>
+                                <li>Built real-time analytics platform visualizing 15K+ interview submissions from 3.7K+
+                                    candidates.</li>
+                                <li>Designed ingestion pipelines (Discord harvesting, ETL into MongoDB, Redis caching)
+                                    with Flask API.</li>
+                                <li>Added full observability with Datadog RUM and custom dashboards to track ingestion
+                                    lag and API latency.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Draup Full Time -->
+                    <div class="timeline-item" data-aos="fade-up">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-date">Aug 2022 – Nov 2023</div>
+                            <h3>Associate Software Development Engineer</h3>
+                            <h4>Draup · Bengaluru, India</h4>
+                            <ul>
+                                <li>Designed internal framework for dynamic query generation, improving chatbot
+                                    performance by 60%.</li>
+                                <li>Migrated APIs to Elasticsearch for 5x faster aggregation.</li>
+                                <li>Reduced platform downtime from 4% to 1% using Datadog & AWS CloudWatch.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Draup Intern -->
+                    <div class="timeline-item" data-aos="fade-up">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-date">Apr 2022 – Jul 2022</div>
+                            <h3>Backend Engineering Intern</h3>
+                            <h4>Draup · Bengaluru, India</h4>
+                            <ul>
+                                <li>Reduced incident response time by 30% via Datadog monitoring.</li>
+                                <li>Cut image load times by 70% using Redis caching.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Research Assistant -->
+                    <div class="timeline-item" data-aos="fade-up">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-date">Nov 2021 – Sep 2023</div>
+                            <h3>Research Assistant</h3>
+                            <h4>Dayananda Sagar College of Engineering</h4>
+                            <ul>
+                                <li>Co-inventor for patent on Myocardium Wall Motion Mapping.</li>
+                                <li>Optimized MRI analysis algorithms by 60x using GPU acceleration.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Projects Section -->
+        <section id="projects" class="section">
+            <div class="container">
+                <div class="section-header" data-aos="fade-up">
+                    <h2 class="section-title">Featured Projects</h2>
+                    <p class="section-subtitle">What I've been building.</p>
+                </div>
+
+                <div class="projects-grid">
+                    <!-- Project 1 -->
+                    <div class="project-card" data-aos="fade-up">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-microphone-alt"></i></div>
+                            <h3>Real-Time AI Voice Assistant</h3>
+                            <p>Full-stack AI assistant handling two-way voice calls via Twilio & GPT-4o with sub-500ms
+                                latency.</p>
+                            <div class="project-tags">
+                                <span>FastAPI</span><span>Redis</span><span>Twilio</span><span>GPT-4o</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 2 -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="100">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-chart-bar"></i></div>
+                            <h3>JobStats Analytics</h3>
+                            <p>Distributed scraping pipeline tracking 50K+ postings/day with 99.9% uptime.</p>
+                            <div class="project-tags">
+                                <span>Celery</span><span>Puppeteer</span><span>Prometheus</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 3 -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="200">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-robot"></i></div>
+                            <h3>Intelligent Agent System</h3>
+                            <p>Multi-LLM framework using GPT-4 & Gemini with Discord integration.</p>
+                            <div class="project-tags">
+                                <span>FastAPI</span><span>Gemini</span><span>MongoDB</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 4 -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="300">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fab fa-linkedin"></i></div>
+                            <h3>LinkedIn Assist</h3>
+                            <p>Chrome extension for real-time job filtering using GPT-3.5 and vector search.</p>
+                            <div class="project-tags">
+                                <span>Flask</span><span>Chrome Ext</span><span>ChromaDB</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 5: ButterDB -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="400">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-database"></i></div>
+                            <h3>ButterDB</h3>
+                            <p>Buffered B-tree implementation in C++ combining SQL reliability with NoSQL write speeds
+                                using log-structured buffers.</p>
+                            <div class="project-tags">
+                                <span>C++</span><span>B-Tree</span><span>Multithreading</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 6: Secret Hitler AI -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="500">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-user-secret"></i></div>
+                            <h3>Secret Hitler AI</h3>
+                            <p>AI-powered game with 5+ GPT-5 agents that bluff, deduce, and strategize. Features
+                                personality-driven table talk.</p>
+                            <div class="project-tags">
+                                <span>GPT-5</span><span>Agents</span><span>Game AI</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 7: StackOverflow Clone -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="600">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fab fa-stack-overflow"></i></div>
+                            <h3>StackOverflow Clone</h3>
+                            <p>Full-stack Q&A platform with voting, commenting, and reputation systems using React,
+                                Node.js, and MongoDB.</p>
+                            <div class="project-tags">
+                                <span>React</span><span>Node.js</span><span>MongoDB</span><span>TypeScript</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 8: Silent Disco -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="700">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-headphones"></i></div>
+                            <h3>Silent Disco Streaming</h3>
+                            <p>Real-time audio streaming solution using WebSockets and Python to stream system audio to
+                                multiple devices.</p>
+                            <div class="project-tags">
+                                <span>Python</span><span>WebSockets</span><span>Audio</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 9: MapReduce Grade Analysis -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="800">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-server"></i></div>
+                            <h3>MapReduce Analysis</h3>
+                            <p>Parallelized grade analysis system for large datasets using Python's multiprocessing and
+                                MapReduce paradigm.</p>
+                            <div class="project-tags">
+                                <span>Python</span><span>Multiprocessing</span><span>MapReduce</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 10: Blue Bike Rental -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="900">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-bicycle"></i></div>
+                            <h3>Blue Bike Rental</h3>
+                            <p>Bike rental platform with Azure database hosting, Digital Ocean backend, and React
+                                frontend.</p>
+                            <div class="project-tags">
+                                <span>React</span><span>Django</span><span>Azure</span><span>Redis</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 11: Portfolio Manager -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="1000">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-chart-line"></i></div>
+                            <h3>Stock Portfolio Manager</h3>
+                            <p>Java-based application for managing stock portfolios with MVC architecture and 100+ JUnit
+                                tests.</p>
+                            <div class="project-tags">
+                                <span>Java</span><span>MVC</span><span>JUnit</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Project 12: Enigma Machine -->
+                    <div class="project-card" data-aos="fade-up" data-aos-delay="1100">
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-cogs"></i></div>
+                            <h3>Enigma Machine</h3>
+                            <p>Python simulation of the Enigma Machine with rotor configurations. Published as a PyPI
+                                library.</p>
+                            <div class="project-tags">
+                                <span>Python</span><span>Cryptography</span><span>PyPI</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                                Code
+                                <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="contact" class="section contact-section">
+            <div class="container">
+                <div class="contact-box" data-aos="zoom-in">
+                    <h2>Let's Work Together</h2>
+                    <p>I'm currently open to new opportunities. Whether you have a question or just want to say hi, I'll
+                        try my best to get back to you!</p>
+                    <div style="margin-bottom: 30px; color: var(--text-secondary);">
+                        <p><i class="fas fa-map-marker-alt"></i> Boston, MA, USA &nbsp;|&nbsp; <i
+                                class="fas fa-phone"></i> +1 (857) 707-1671</p>
+                    </div>
+                    <a href="mailto:samarth.mahendragowda@gmail.com" class="btn btn-primary btn-lg">Say Hello</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; <span id="year"></span> Samarth Mahendra.</p>
+                <div class="footer-socials">
+                    <a href="https://www.linkedin.com/in/samarth-mahendra-7aab5a114/" target="_blank"><i
+                            class="fab fa-linkedin-in"></i></a>
+                    <a href="https://github.com/SamarthMahendraneu" target="_blank"><i class="fab fa-github"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Chatbot Widget -->
+    <div id="chatbot-container" class="chatbot-container">
+        <div class="chatbot-header">
+            <div class="chatbot-title">
+                <i class="fas fa-robot"></i> Luma AI
+            </div>
+            <button id="chatbot-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="chatbot-messages" class="chatbot-messages">
+            <div class="message bot-message">
+                <div class="message-content">
+                    👋 Hi! I'm <b>Luma</b>, Samarth's AI assistant. Ask me anything about his work!
+                </div>
+            </div>
+            <div id="chatbot-starter-prompts" class="starter-prompts"></div>
+        </div>
+        <div class="chatbot-input-area">
+            <input type="text" id="chatbot-input" placeholder="Type a message..." autocomplete="off">
+            <button id="chatbot-send"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <button id="chatbot-toggle" class="chatbot-toggle">
+        <i class="fas fa-comment-dots"></i>
+    </button>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
