@@ -461,6 +461,66 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // --- GitHub Stats ---
+    async function fetchGitHubStats() {
+        const username = 'SamarthMahendraneu';
+
+        try {
+            // Fetch user data
+            const userResponse = await fetch(`https://api.github.com/users/${username}`);
+            const userData = await userResponse.json();
+
+            // Update basic stats
+            document.getElementById('gh-repos').textContent = userData.public_repos || 0;
+
+            // Fetch contributions from last year
+            const currentYear = new Date().getFullYear();
+            const contributionsResponse = await fetch(`https://github-contributions-api.jogruber.de/v4/${username}?y=${currentYear}`);
+            const contributionsData = await contributionsResponse.json();
+
+            // Calculate total contributions for current year
+            const totalContributions = contributionsData.total?.[currentYear] || 0;
+            document.getElementById('gh-contributions').textContent = totalContributions;
+
+            // Fetch all repos to calculate stars and languages
+            const reposResponse = await fetch(`https://api.github.com/users/${username}/repos?per_page=100`);
+            const repos = await reposResponse.json();
+
+            // Calculate total stars
+            const totalStars = repos.reduce((sum, repo) => sum + (repo.stargazers_count || 0), 0);
+            document.getElementById('gh-stars').textContent = totalStars;
+
+            // Calculate top languages
+            const languages = {};
+            repos.forEach(repo => {
+                if (repo.language) {
+                    languages[repo.language] = (languages[repo.language] || 0) + 1;
+                }
+            });
+
+            // Sort and get top 5 languages
+            const topLanguages = Object.entries(languages)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([lang]) => lang);
+
+            // Display top languages
+            const langTagsContainer = document.getElementById('gh-lang-tags');
+            langTagsContainer.innerHTML = topLanguages.map(lang =>
+                `<span>${lang}</span>`
+            ).join('');
+
+        } catch (error) {
+            console.error('Error fetching GitHub stats:', error);
+            document.getElementById('gh-repos').textContent = '50+';
+            document.getElementById('gh-stars').textContent = '100+';
+            document.getElementById('gh-contributions').textContent = '500+';
+            document.getElementById('gh-lang-tags').innerHTML = '<span>Python</span><span>JavaScript</span><span>TypeScript</span>';
+        }
+    }
+
+    fetchGitHubStats();
+
     // --- 3D Tilt Effect & Glare ---
     // Applying to Bento items, Project cards, and Timeline content
     const cards = document.querySelectorAll('.bento-item, .project-card, .timeline-content');
