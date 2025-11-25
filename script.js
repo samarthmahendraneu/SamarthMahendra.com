@@ -470,8 +470,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const variables = {
                 userSlug: "samarthmahendra"
             };
-            // const SERVER_URL = 'https://samarthmahendra-github-io.onrender.com';
-            const SERVER_URL = 'http://0.0.0.0:8000';
+            const SERVER_URL = 'https://samarthmahendra-github-io.onrender.com';
+            // const SERVER_URL = 'http://0.0.0.0:8000';
             const response = await fetch(`${SERVER_URL}/leetcode/proxy`, {
                 method: 'POST',
                 headers: {
@@ -524,6 +524,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+
+
     // --- LeetCode Calendar Stats (2025 Active Days & Streak) ---
     async function fetchLeetCodeCalendarStats() {
         console.log('Fetching LeetCode calendar stats...');
@@ -543,10 +545,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const variables = {
                 username: "samarthmahendra",
-                year: new Date().getFullYear()
             };
-            // const SERVER_URL = 'https://samarthmahendra-github-io.onrender.com';
-            const SERVER_URL = 'http://0.0.0.0:8000';
+            const SERVER_URL = 'https://samarthmahendra-github-io.onrender.com';
+            // const SERVER_URL = 'http://0.0.0.0:8000';
 
             const response = await fetch(`${SERVER_URL}/leetcode/proxy`, {
                 method: 'POST',
