@@ -1,0 +1,18 @@
+# Core server
+fastapi
+uvicorn
+python-dotenv
+pymongo
+redis
+celery
+discord.py
+httpx
+requests
+# Optional: For async tasks
+
+# For Discord bot (if needed)
+
+# For CORS if using frontend
+fastapi[all]
+openai
+bcrypt

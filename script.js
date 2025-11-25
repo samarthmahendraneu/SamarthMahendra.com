@@ -471,7 +471,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 userSlug: "samarthmahendra"
             };
 
-            const response = await fetch('https://leetcode.com/graphql/', {
+            const response = await fetch('${SERVER_URL}/leetcode/proxy', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -545,7 +545,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 year: new Date().getFullYear()
             };
 
-            const response = await fetch('https://leetcode.com/graphql/', {
+            const response = await fetch('${SERVER_URL}/leetcode/proxy', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
