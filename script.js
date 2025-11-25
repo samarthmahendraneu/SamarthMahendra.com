@@ -696,7 +696,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (profileImg) {
             // Store the original source
             const originalSrc = profileImg.getAttribute('src'); // Get the attribute value directly
-            const hoverSrc = 'serious_face.png';
+            const hoverSrc = 'display_picturev2.png';
 
             console.log('Hover effect initialized for photo-card.');
             console.log('Original Image Source:', originalSrc);
@@ -717,4 +717,5 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     }
+    // --- End of Profile Image Hover Effect ---
 });
