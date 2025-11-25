@@ -688,4 +688,33 @@ document.addEventListener('DOMContentLoaded', function () {
 
     fetchLeetCodeStats();
     fetchLeetCodeCalendarStats();
+
+    // --- Profile Image Hover Effect ---
+    const photoCard = document.querySelector('.photo-card');
+    if (photoCard) {
+        const profileImg = photoCard.querySelector('.profile-img');
+        if (profileImg) {
+            // Store the original source
+            const originalSrc = profileImg.getAttribute('src'); // Get the attribute value directly
+            const hoverSrc = 'serious_face.png';
+
+            console.log('Hover effect initialized for photo-card.');
+            console.log('Original Image Source:', originalSrc);
+            console.log('Hover Image Source:', hoverSrc);
+
+            // Preload the hover image
+            const preloadImg = new Image();
+            preloadImg.src = hoverSrc;
+
+            photoCard.addEventListener('mouseenter', () => {
+                console.log('Mouse enter photo-card: switching to', hoverSrc);
+                profileImg.setAttribute('src', hoverSrc);
+            });
+
+            photoCard.addEventListener('mouseleave', () => {
+                console.log('Mouse leave photo-card: switching to', originalSrc);
+                profileImg.setAttribute('src', originalSrc);
+            });
+        }
+    }
 });
