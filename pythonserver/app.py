@@ -483,4 +483,30 @@ async def chat(request: Request):
     })
 
 
+import requests
+from fastapi import HTTPException
 
+LEETCODE_GRAPHQL_URL = "https://leetcode.com/graphql/"
+
+@app.post("/leetcode/proxy")
+async def leetcode_proxy(request: Request):
+    """
+    Proxy any GraphQL request to LeetCode API (bypasses CORS restrictions).
+    Your frontend will call this endpoint instead of LeetCode directly.
+    """
+    try:
+        payload = await request.json()
+
+        resp = requests.post(
+            LEETCODE_GRAPHQL_URL,
+            json=payload,
+            headers={
+                "Content-Type": "application/json",
+            }
+        )
+
+        return JSONResponse(resp.json())
+
+    except Exception as e:
+        print("LeetCode Proxy Error:", e)
+        raise HTTPException(status_code=500, detail="Error contacting LeetCode API")
