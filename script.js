@@ -470,8 +470,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const variables = {
                 userSlug: "samarthmahendra"
             };
-            const SERVER_URL = 'https://samarthmahendra-github-io.onrender.com';
-            const response = await fetch('${SERVER_URL}/leetcode/proxy', {
+            // const SERVER_URL = 'https://samarthmahendra-github-io.onrender.com';
+            const SERVER_URL = 'http://0.0.0.0:8000';
+            const response = await fetch(`${SERVER_URL}/leetcode/proxy`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -544,7 +545,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 username: "samarthmahendra",
                 year: new Date().getFullYear()
             };
-            const SERVER_URL = 'https://samarthmahendra-github-io.onrender.com';
+            // const SERVER_URL = 'https://samarthmahendra-github-io.onrender.com';
+            const SERVER_URL = 'http://0.0.0.0:8000';
 
             const response = await fetch(`${SERVER_URL}/leetcode/proxy`, {
                 method: 'POST',

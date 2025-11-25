@@ -24,6 +24,8 @@ app.add_middleware(
 )
 
 
+
+
 import discord_tool
 import asyncio
 import mongo_tool
@@ -37,7 +39,7 @@ from fastapi import Body
 
 
 # get api key from environment variable
-api_key = os.getenv("OPENAI_API_KEY")
+api_key = os.getenv("OPENAI_API_KEY", '')
 
 
 # models : gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
@@ -491,8 +493,8 @@ LEETCODE_GRAPHQL_URL = "https://leetcode.com/graphql/"
 @app.post("/leetcode/proxy")
 async def leetcode_proxy(request: Request):
     """
-    Proxy any GraphQL request to LeetCode API (bypasses CORS restrictions).
-    Your frontend will call this endpoint instead of LeetCode directly.
+    Proxy any GraphQL request to the LeetCode GraphQL API.
+    Bypasses CORS restrictions by doing the request server-side.
     """
     try:
         payload = await request.json()
@@ -505,8 +507,9 @@ async def leetcode_proxy(request: Request):
             }
         )
 
+        # Forward response back to browser
         return JSONResponse(resp.json())
 
     except Exception as e:
-        print("LeetCode Proxy Error:", e)
+        print("❌ LeetCode Proxy Error:", e)
         raise HTTPException(status_code=500, detail="Error contacting LeetCode API")
