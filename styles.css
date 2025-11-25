@@ -709,6 +709,39 @@ img {
     font-weight: 700;
 }
 
+/* LeetCode Calendar Stats */
+.leetcode-calendar-stats {
+    display: flex;
+    gap: 15px;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+.lc-calendar-stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+}
+
+.lc-calendar-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--accent-secondary);
+    font-family: var(--font-heading);
+    line-height: 1;
+}
+
+.lc-calendar-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
 /* About Section */
 .about-content {
     display: grid;

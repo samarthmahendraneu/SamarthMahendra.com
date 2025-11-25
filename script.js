@@ -443,27 +443,139 @@ document.addEventListener('DOMContentLoaded', function () {
     async function fetchLeetCodeStats() {
         console.log('Fetching LeetCode stats...');
         try {
-            const response = await fetch('https://leetcode-stats-api.herokuapp.com/samarthmahendra');
+            const query = `
+                query userProfileUserQuestionProgressV2($userSlug: String!) {
+                    userProfileUserQuestionProgressV2(userSlug: $userSlug) {
+                        numAcceptedQuestions {
+                            count
+                            difficulty
+                        }
+                        numFailedQuestions {
+                            count
+                            difficulty
+                        }
+                        numUntouchedQuestions {
+                            count
+                            difficulty
+                        }
+                        userSessionBeatsPercentage {
+                            difficulty
+                            percentage
+                        }
+                        totalQuestionBeatsPercentage
+                    }
+                }
+            `;
+
+            const variables = {
+                userSlug: "samarthmahendra"
+            };
+
+            const response = await fetch('https://leetcode.com/graphql/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    variables: variables,
+                    operationName: "userProfileUserQuestionProgressV2"
+                })
+            });
+
             const data = await response.json();
 
-            if (data.status === 'success') {
+            if (data.data && data.data.userProfileUserQuestionProgressV2) {
+                const progress = data.data.userProfileUserQuestionProgressV2;
+
+                // Extract counts by difficulty
+                const acceptedQuestions = progress.numAcceptedQuestions;
+                let easyCount = 0, mediumCount = 0, hardCount = 0, totalCount = 0;
+
+                acceptedQuestions.forEach(item => {
+                    if (item.difficulty === 'EASY') easyCount = item.count;
+                    else if (item.difficulty === 'MEDIUM') mediumCount = item.count;
+                    else if (item.difficulty === 'HARD') hardCount = item.count;
+                });
+
+                totalCount = easyCount + mediumCount + hardCount;
+
                 // Update DOM
-                document.getElementById('lc-total').textContent = data.totalSolved;
-                document.getElementById('lc-easy').textContent = data.easySolved;
-                document.getElementById('lc-medium').textContent = data.mediumSolved;
-                document.getElementById('lc-hard').textContent = data.hardSolved;
-                // The API doesn't return "beats percentage" directly in the same format, 
-                // so we might need to omit it or calculate it if available, 
-                // but for now let's just show the solved counts which are the most important.
-                // Or we can keep the hardcoded "Beats 98.5%" if the user wants, 
-                // or try to fetch it from another source. 
-                // For now, let's leave the beats percentage as is or set a static impressive value if dynamic fails.
-                document.getElementById('lc-beats').textContent = '98.5%';
+                document.getElementById('lc-total').textContent = totalCount;
+                document.getElementById('lc-easy').textContent = easyCount;
+                document.getElementById('lc-medium').textContent = mediumCount;
+                document.getElementById('lc-hard').textContent = hardCount;
+
+                console.log('LeetCode stats updated:', {
+                    total: totalCount,
+                    easy: easyCount,
+                    medium: mediumCount,
+                    hard: hardCount
+                });
             }
         } catch (error) {
             console.error('Error fetching LeetCode stats:', error);
-            // Fallback
+            // Fallback to known values
             document.getElementById('lc-total').textContent = '397';
+            document.getElementById('lc-easy').textContent = '163';
+            document.getElementById('lc-medium').textContent = '194';
+            document.getElementById('lc-hard').textContent = '40';
+        }
+    }
+
+    // --- LeetCode Calendar Stats (2025 Active Days & Streak) ---
+    async function fetchLeetCodeCalendarStats() {
+        console.log('Fetching LeetCode calendar stats...');
+        try {
+            const query = `
+                query userProfileCalendar($username: String!, $year: Int) {
+                    matchedUser(username: $username) {
+                        userCalendar(year: $year) {
+                            activeYears
+                            streak
+                            totalActiveDays
+                            submissionCalendar
+                        }
+                    }
+                }
+            `;
+
+            const variables = {
+                username: "samarthmahendra",
+                year: new Date().getFullYear()
+            };
+
+            const response = await fetch('https://leetcode.com/graphql/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    variables: variables,
+                    operationName: "userProfileCalendar"
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.data && data.data.matchedUser && data.data.matchedUser.userCalendar) {
+                const calendar = data.data.matchedUser.userCalendar;
+
+                // Update active days and streak
+                document.getElementById('lc-active-days').textContent = calendar.totalActiveDays || '--';
+                document.getElementById('lc-streak').textContent = calendar.streak || '--';
+
+                console.log('Calendar stats updated:', {
+                    activeDays: calendar.totalActiveDays,
+                    streak: calendar.streak
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching LeetCode calendar stats:', error);
+            // Fallback to known values
+            document.getElementById('lc-active-days').textContent = '156';
+            document.getElementById('lc-streak').textContent = '17';
         }
     }
 
@@ -575,4 +687,5 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     fetchLeetCodeStats();
+    fetchLeetCodeCalendarStats();
 });
