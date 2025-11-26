@@ -25,10 +25,10 @@ html {
 
 body {
     font-family: var(--font-body);
-    background-color: var(--bg-dark);
+    background: var(--bg-dark);
     color: var(--text-primary);
-    line-height: 1.6;
     overflow-x: hidden;
+    line-height: 1.6;
 }
 
 a {
@@ -125,8 +125,8 @@ img {
     left: 0;
     width: 100%;
     height: 100%;
-    background: radial-gradient(circle at 20% 50%, rgba(138, 66, 209, 0.15), transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(76, 201, 240, 0.15), transparent 50%);
+    background: radial-gradient(circle at 20% 50%, rgba(138, 66, 209, 0.10), transparent 30%),
+        radial-gradient(circle at 80% 80%, rgba(76, 202, 240, 0.10), transparent 30%);
     pointer-events: none;
     z-index: -2;
 }
@@ -908,8 +908,32 @@ img {
     color: var(--accent-secondary);
 }
 
-.skill-tags span:hover .skill-logo {
-    transform: scale(1.1);
+.skill-tags span:body.hovering .cursor-outline {
+    transform: translate(-50%, -50%) scale(1.5);
+}
+
+/* Cursor Trail Particles */
+.cursor-trail {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 1;
+    animation: cursorTrailFade 0.6s ease-out forwards;
+}
+
+@keyframes cursorTrailFade {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(0.3);
+    }
 }
 
 /* Experience Section */
@@ -925,19 +949,57 @@ img {
     position: absolute;
     left: 0;
     top: 0;
-    height: 100%;
+    height: 0;
     width: 2px;
-    background: var(--border-color);
+    background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
     z-index: 0;
+    animation: timelineGrow 2s ease-out forwards;
+    animation-delay: 0.5s;
+}
+
+@keyframes timelineGrow {
+    to {
+        height: 100%;
+    }
 }
 
 .timeline-item {
     position: sticky;
     top: 100px;
+    opacity: 0;
+    animation: timelineItemFadeIn 0.8s ease-out forwards;
     padding-left: 40px;
     margin-bottom: 50px;
     transform-style: preserve-3d;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timeline-item:nth-child(1) {
+    animation-delay: 0.6s;
+}
+
+.timeline-item:nth-child(2) {
+    animation-delay: 0.8s;
+}
+
+.timeline-item:nth-child(3) {
+    animation-delay: 1.0s;
+}
+
+.timeline-item:nth-child(4) {
+    animation-delay: 1.2s;
+}
+
+@keyframes timelineItemFadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 .timeline-dot {
@@ -951,6 +1013,21 @@ img {
     box-shadow: 0 0 0 4px rgba(138, 66, 209, 0.2);
     z-index: 5;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 4px rgba(138, 66, 209, 0.2);
+    }
+
+    50% {
+        transform: scale(1.2);
+        box-shadow: 0 0 0 8px rgba(138, 66, 209, 0.4);
+    }
 }
 
 .timeline-content {

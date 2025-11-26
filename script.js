@@ -302,19 +302,25 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // --- Magnetic Buttons ---
-    const magneticElements = document.querySelectorAll('.magnetic-btn, .magnetic-link');
+    // --- Magnetic Buttons - ENHANCED ---
+    const magneticElements = document.querySelectorAll('.magnetic-btn, .magnetic-link, .btn');
     magneticElements.forEach(el => {
         el.addEventListener('mousemove', function (e) {
             const rect = el.getBoundingClientRect();
             const x = e.clientX - rect.left - rect.width / 2;
             const y = e.clientY - rect.top - rect.height / 2;
 
-            el.style.transform = `translate(${x * 0.3}px, ${y * 0.3}px)`;
+            // Enhanced magnetic strength (0.3 → 0.6)
+            el.style.transform = `translate(${x * 0.6}px, ${y * 0.6}px) scale(1.05)`;
         });
 
         el.addEventListener('mouseleave', function () {
-            el.style.transform = 'translate(0, 0)';
+            el.style.transform = 'translate(0, 0) scale(1)';
+            el.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        });
+
+        el.addEventListener('mouseenter', function () {
+            el.style.transition = 'transform 0.1s ease-out';
         });
     });
 
@@ -994,4 +1000,140 @@ document.addEventListener('DOMContentLoaded', function () {
     updateNavbar();
     // updateParallax(); // Disabled per user preference
     revealOnScroll();
+
+    // --- Smooth Anchor Scrolling ---
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            const href = this.getAttribute('href');
+            if (href === '#') return;
+
+            e.preventDefault();
+            const target = document.querySelector(href);
+            if (target) {
+                const navbarHeight = 80;
+                const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
+
+                window.scrollTo({
+                    top: targetPosition,
+                    behavior: 'smooth'
+                });
+
+                history.pushState(null, null, href);
+            }
+        });
+    });
+
+    // --- Cursor Trail Effect ---
+    let particles = [];
+    const maxParticles = 20;
+    const colors = ['#8A42D1', '#6B5FCD', '#4CC9F0', '#5BBEF0'];
+
+    if (!('ontouchstart' in window)) {
+        document.addEventListener('mousemove', (e) => {
+            const particle = document.createElement('div');
+            particle.className = 'cursor-trail';
+
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            particle.style.background = color;
+            particle.style.left = e.clientX + 'px';
+            particle.style.top = e.clientY + 'px';
+
+            document.body.appendChild(particle);
+            particles.push(particle);
+
+            setTimeout(() => {
+                particle.remove();
+                particles.shift();
+            }, 600);
+
+            if (particles.length > maxParticles) {
+                const oldParticle = particles.shift();
+                oldParticle.remove();
+            }
+        });
+    }
+
+    // --- Text Scramble Animation ---
+    class TextScramble {
+        constructor(el) {
+            this.el = el;
+            this.chars = '!<>-_\\/[]{}—=+*^?#________';
+            this.update = this.update.bind(this);
+        }
+
+        setText(newText) {
+            const oldText = this.el.innerText;
+            const length = Math.max(oldText.length, newText.length);
+            const promise = new Promise((resolve) => this.resolve = resolve);
+            this.queue = [];
+
+            for (let i = 0; i < length; i++) {
+                const from = oldText[i] || '';
+                const to = newText[i] || '';
+                const start = Math.floor(Math.random() * 40);
+                const end = start + Math.floor(Math.random() * 40);
+                this.queue.push({ from, to, start, end });
+            }
+
+            cancelAnimationFrame(this.frameRequest);
+            this.frame = 0;
+            this.update();
+            return promise;
+        }
+
+        update() {
+            let output = '';
+            let complete = 0;
+
+            for (let i = 0, n = this.queue.length; i < n; i++) {
+                let { from, to, start, end, char } = this.queue[i];
+
+                if (this.frame >= end) {
+                    complete++;
+                    output += to;
+                } else if (this.frame >= start) {
+                    if (!char || Math.random() < 0.28) {
+                        char = this.randomChar();
+                        this.queue[i].char = char;
+                    }
+                    output += char;
+                } else {
+                    output += from;
+                }
+            }
+
+            this.el.innerHTML = output;
+
+            if (complete === this.queue.length) {
+                this.resolve();
+            } else {
+                this.frameRequest = requestAnimationFrame(this.update);
+                this.frame++;
+            }
+        }
+
+        randomChar() {
+            return this.chars[Math.floor(Math.random() * this.chars.length)];
+        }
+    }
+
+    const sectionTitles = document.querySelectorAll('.section-title');
+    const scrambledTitles = new Set();
+
+    function scrambleTitles() {
+        sectionTitles.forEach(title => {
+            if (scrambledTitles.has(title)) return;
+
+            const rect = title.getBoundingClientRect();
+            if (rect.top < window.innerHeight * 0.8 && rect.bottom > 0) {
+                const fx = new TextScramble(title);
+                const originalText = title.textContent;
+                fx.setText(originalText);
+                scrambledTitles.add(title);
+            }
+        });
+    }
+
+    window.addEventListener('scroll', scrambleTitles);
+    scrambleTitles();
 });
