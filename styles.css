@@ -118,17 +118,17 @@ img {
     font-size: 1.1rem;
 }
 
-/* Backgrounds */
+/* Background Elements */
 .bg-gradient {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: radial-gradient(circle at 15% 50%, rgba(138, 66, 209, 0.08), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(76, 201, 240, 0.08), transparent 25%);
-    z-index: -1;
+    background: radial-gradient(circle at 20% 50%, rgba(138, 66, 209, 0.15), transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(76, 201, 240, 0.15), transparent 50%);
     pointer-events: none;
+    z-index: -2;
 }
 
 .bg-grid {
@@ -148,13 +148,24 @@ img {
 .navbar {
     position: fixed;
     top: 0;
-    left: 0;
     width: 100%;
-    padding: 20px 0;
+    background: rgba(10, 10, 15, 0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-color);
     z-index: 1000;
-    background: rgba(5, 5, 5, 0.8);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 20px 0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Navbar shrink on scroll */
+.navbar.scrolled {
+    padding: 12px 0;
+    background: rgba(10, 10, 15, 0.95);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.navbar.scrolled .logo {
+    font-size: 1.3rem;
 }
 
 .nav-container {
@@ -906,6 +917,7 @@ img {
     position: relative;
     max-width: 800px;
     margin: 0 auto;
+    perspective: 2000px;
 }
 
 .timeline::before {
@@ -916,12 +928,16 @@ img {
     height: 100%;
     width: 2px;
     background: var(--border-color);
+    z-index: 0;
 }
 
 .timeline-item {
-    position: relative;
+    position: sticky;
+    top: 100px;
     padding-left: 40px;
     margin-bottom: 50px;
+    transform-style: preserve-3d;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timeline-dot {
@@ -933,6 +949,8 @@ img {
     background: var(--accent-primary);
     border-radius: 50%;
     box-shadow: 0 0 0 4px rgba(138, 66, 209, 0.2);
+    z-index: 5;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timeline-content {
@@ -940,12 +958,13 @@ img {
     padding: 25px;
     border-radius: 15px;
     border: 1px solid var(--border-color);
-    transition: var(--transition);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: center center;
+    will-change: transform, opacity;
 }
 
 .timeline-content:hover {
     border-color: var(--accent-primary);
-    transform: translateX(5px);
 }
 
 .timeline-date {
@@ -1531,5 +1550,65 @@ footer {
 
     .endorser-list {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Scroll Reveal Animations */
+.scroll-reveal {
+    opacity: 0;
+    transform: translateY(50px);
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+        transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scroll-reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Staggered reveal for grid items */
+.scroll-reveal.delay-1 {
+    transition-delay: 0.1s;
+}
+
+.scroll-reveal.delay-2 {
+    transition-delay: 0.2s;
+}
+
+.scroll-reveal.delay-3 {
+    transition-delay: 0.3s;
+}
+
+.scroll-reveal.delay-4 {
+    transition-delay: 0.4s;
+}
+
+.scroll-reveal.delay-5 {
+    transition-delay: 0.5s;
+}
+
+.scroll-reveal.delay-6 {
+    transition-delay: 0.6s;
+}
+
+/* Counter animation */
+.counter {
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+.counter.counting {
+    animation: counterPulse 0.5s ease;
+}
+
+@keyframes counterPulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
     }
 }

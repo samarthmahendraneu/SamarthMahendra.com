@@ -501,11 +501,32 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 totalCount = easyCount + mediumCount + hardCount;
 
-                // Update DOM
-                document.getElementById('lc-total').textContent = totalCount;
-                document.getElementById('lc-easy').textContent = easyCount;
-                document.getElementById('lc-medium').textContent = mediumCount;
-                document.getElementById('lc-hard').textContent = hardCount;
+                // Set initial to 0, store target, and animate immediately
+                const lcTotal = document.getElementById('lc-total');
+                const lcEasy = document.getElementById('lc-easy');
+                const lcMedium = document.getElementById('lc-medium');
+                const lcHard = document.getElementById('lc-hard');
+
+                if (lcTotal) {
+                    lcTotal.textContent = '0';
+                    lcTotal.setAttribute('data-target', totalCount);
+                    animateCounter(lcTotal, totalCount, 1500);
+                }
+                if (lcEasy) {
+                    lcEasy.textContent = '0';
+                    lcEasy.setAttribute('data-target', easyCount);
+                    animateCounter(lcEasy, easyCount, 1500);
+                }
+                if (lcMedium) {
+                    lcMedium.textContent = '0';
+                    lcMedium.setAttribute('data-target', mediumCount);
+                    animateCounter(lcMedium, mediumCount, 1500);
+                }
+                if (lcHard) {
+                    lcHard.textContent = '0';
+                    lcHard.setAttribute('data-target', hardCount);
+                    animateCounter(lcHard, hardCount, 1500);
+                }
 
                 console.log('LeetCode stats updated:', {
                     total: totalCount,
@@ -592,9 +613,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const userResponse = await fetch(`https://api.github.com/users/${username}`);
             const userData = await userResponse.json();
 
-            // Update basic stats
-            document.getElementById('gh-repos').textContent = userData.public_repos || 0;
-
             // Fetch contributions from last year
             const currentYear = new Date().getFullYear();
             const contributionsResponse = await fetch(`https://github-contributions-api.jogruber.de/v4/${username}?y=${currentYear}`);
@@ -602,7 +620,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Calculate total contributions for current year
             const totalContributions = contributionsData.total?.[currentYear] || 0;
-            document.getElementById('gh-contributions').textContent = totalContributions;
 
             // Fetch all repos to calculate stars and languages
             const reposResponse = await fetch(`https://api.github.com/users/${username}/repos?per_page=100`);
@@ -610,7 +627,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Calculate total stars
             const totalStars = repos.reduce((sum, repo) => sum + (repo.stargazers_count || 0), 0);
-            document.getElementById('gh-stars').textContent = totalStars;
+
+            // Set initial to 0, store target, and animate immediately
+            const ghRepos = document.getElementById('gh-repos');
+            const ghStars = document.getElementById('gh-stars');
+            const ghContributions = document.getElementById('gh-contributions');
+
+            if (ghRepos) {
+                ghRepos.textContent = '0';
+                ghRepos.setAttribute('data-target', userData.public_repos || 0);
+                animateCounter(ghRepos, userData.public_repos || 0, 1500);
+            }
+            if (ghStars) {
+                ghStars.textContent = '0';
+                ghStars.setAttribute('data-target', totalStars);
+                animateCounter(ghStars, totalStars, 1500);
+            }
+            if (ghContributions) {
+                ghContributions.textContent = '0';
+                ghContributions.setAttribute('data-target', totalContributions);
+                animateCounter(ghContributions, totalContributions, 1500);
+            }
 
             // Calculate top languages
             const languages = {};
@@ -735,4 +772,226 @@ document.addEventListener('DOMContentLoaded', function () {
             card.style.setProperty('--mouse-y', `${y}px`);
         });
     });
+
+    // --- 3D Stacking Scroll Effect for Experience Cards ---
+    function update3DStackEffect() {
+        const timelineItems = document.querySelectorAll('.timeline-item');
+        const stickyTop = 100; // Match the CSS sticky top value
+
+        timelineItems.forEach((item, index) => {
+            const rect = item.getBoundingClientRect();
+            const itemTop = rect.top;
+            const itemHeight = rect.height;
+
+            // Calculate how far this item has scrolled past its sticky position
+            const scrollProgress = Math.max(0, Math.min(1, (stickyTop - itemTop) / (itemHeight * 0.5)));
+
+            // Check if there's a card below this one that's approaching
+            let pushBackProgress = 0;
+            if (index < timelineItems.length - 1) {
+                const nextItem = timelineItems[index + 1];
+                const nextRect = nextItem.getBoundingClientRect();
+                const nextTop = nextRect.top;
+
+                // Calculate how close the next card is to pushing this one back
+                // When next card is within viewport height of sticky position, start pushing
+                const pushDistance = window.innerHeight * 0.6;
+                const distanceToSticky = nextTop - stickyTop;
+                pushBackProgress = Math.max(0, Math.min(1, 1 - (distanceToSticky / pushDistance)));
+            }
+
+            // Calculate scale and translateZ based on scroll progress
+            // Each subsequent card should be slightly smaller and further back
+            const baseScale = 1 - (index * 0.02); // Each card starts slightly smaller
+            const scrollScale = scrollProgress * 0.15; // Scale down as it scrolls past
+            const pushBackScale = pushBackProgress * 0.12; // Scale down when pushed by next card
+            const scale = baseScale - scrollScale - pushBackScale;
+
+            const scrollTranslateZ = -(scrollProgress * 100); // Move back when scrolled past
+            const pushBackTranslateZ = -(pushBackProgress * 80); // Move back when pushed
+            const baseTranslateZ = -(index * 20); // Base depth for stacking
+            const translateZ = scrollTranslateZ + pushBackTranslateZ + baseTranslateZ;
+
+            const opacity = 1 - (scrollProgress * 0.3) - (pushBackProgress * 0.2); // Fade on both
+
+            // Calculate blur - increases as card goes back in 3D space
+            const scrollBlur = scrollProgress * 8; // Max 8px blur when scrolled past
+            const pushBackBlur = pushBackProgress * 5; // Max 5px blur when pushed back
+            const blurAmount = scrollBlur + pushBackBlur;
+
+            // Apply transforms
+            const content = item.querySelector('.timeline-content');
+            const dot = item.querySelector('.timeline-dot');
+
+            if (content) {
+                content.style.transform = `
+                    scale(${Math.max(0.8, scale)}) 
+                    translateZ(${translateZ}px)
+                    rotateX(${(scrollProgress + pushBackProgress * 0.5) * 2}deg)
+                `;
+                content.style.opacity = Math.max(0.6, opacity);
+                content.style.filter = `brightness(${1 - (scrollProgress + pushBackProgress) * 0.2}) blur(${blurAmount}px)`;
+            }
+
+            if (dot) {
+                dot.style.transform = `scale(${1 - (scrollProgress + pushBackProgress * 0.5) * 0.3})`;
+                dot.style.opacity = Math.max(0.5, 1 - (scrollProgress + pushBackProgress * 0.5) * 0.5);
+            }
+        });
+    }
+
+    // Run on scroll
+    window.addEventListener('scroll', update3DStackEffect);
+    // Run on load
+    update3DStackEffect();
+
+    // --- Premium Scroll Effects ---
+
+    // 1. Navbar Shrink on Scroll
+    const navbar = document.querySelector('.navbar');
+    let lastScrollTop = 0;
+
+    function updateNavbar() {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+        if (scrollTop > 100) {
+            navbar.classList.add('scrolled');
+        } else {
+            navbar.classList.remove('scrolled');
+        }
+
+        lastScrollTop = scrollTop;
+    }
+
+    // 2. Parallax Background Effect - DISABLED per user preference
+    // const bgGradient = document.querySelector('.bg-gradient');
+    // const bgGrid = document.querySelector('.bg-grid');
+
+    // function updateParallax() {
+    //     const scrolled = window.pageYOffset;
+    //     const parallaxSpeed = 0.5;
+    //     
+    //     if (bgGradient) {
+    //         bgGradient.style.transform = `translateY(${scrolled * parallaxSpeed}px)`;
+    //     }
+    //     if (bgGrid) {
+    //         bgGrid.style.transform = `translateY(${scrolled * parallaxSpeed * 0.3}px)`;
+    //     }
+    // }
+
+    // Helper function to check if element is in viewport
+    function isElementInView(element) {
+        const rect = element.getBoundingClientRect();
+        return rect.top < window.innerHeight * 0.8 && rect.bottom > 0;
+    }
+
+    // 3. Scroll Reveal Animations
+    function revealOnScroll() {
+        const reveals = document.querySelectorAll('.scroll-reveal');
+
+        reveals.forEach(element => {
+            const elementTop = element.getBoundingClientRect().top;
+            const elementBottom = element.getBoundingClientRect().bottom;
+            const windowHeight = window.innerHeight;
+
+            // Reveal when element is 20% into viewport
+            if (elementTop < windowHeight * 0.8 && elementBottom > 0) {
+                element.classList.add('revealed');
+            }
+        });
+    }
+
+    // 4. Counter Animations for Stats
+    function animateCounter(element, target, duration = 2000) {
+        console.log('animateCounter called:', element.id, 'target:', target);
+        const start = 0;
+        const increment = target / (duration / 16); // 60fps
+        let current = start;
+
+        element.classList.add('counting');
+
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= target) {
+                element.textContent = target;
+                console.log('Counter animation complete:', element.id, 'final value:', target);
+                clearInterval(timer);
+                element.classList.remove('counting');
+            } else {
+                element.textContent = Math.floor(current);
+            }
+        }, 16);
+    }
+
+    // Track which counters have been animated
+    const animatedCounters = new Set();
+
+    function checkCounters() {
+        const counterElements = [
+            { id: 'gh-repos', animated: false },
+            { id: 'gh-stars', animated: false },
+            { id: 'gh-contributions', animated: false },
+            { id: 'lc-total', animated: false },
+            { id: 'lc-easy', animated: false },
+            { id: 'lc-medium', animated: false },
+            { id: 'lc-hard', animated: false }
+        ];
+
+        counterElements.forEach(counter => {
+            const element = document.getElementById(counter.id);
+            if (element && !animatedCounters.has(counter.id)) {
+                const rect = element.getBoundingClientRect();
+                const inView = rect.top < window.innerHeight * 0.8 && rect.bottom > 0;
+
+                if (inView) {
+                    // Get target from data attribute
+                    const target = parseInt(element.getAttribute('data-target'));
+                    console.log('checkCounters:', counter.id, 'data-target:', element.getAttribute('data-target'), 'parsed:', target, 'inView:', inView);
+                    if (!isNaN(target) && target > 0) {
+                        animateCounter(element, target, 1500);
+                        animatedCounters.add(counter.id);
+                    }
+                }
+            }
+        });
+    }
+
+    // 5. Add scroll-reveal class to project cards
+    function initScrollReveal() {
+        const projectCards = document.querySelectorAll('.project-card');
+        projectCards.forEach((card, index) => {
+            card.classList.add('scroll-reveal');
+            if (index < 6) {
+                card.classList.add(`delay-${index + 1}`);
+            }
+        });
+
+        // Initial check
+        revealOnScroll();
+    }
+
+    // Optimized scroll handler using requestAnimationFrame
+    let ticking = false;
+
+    function onScroll() {
+        if (!ticking) {
+            window.requestAnimationFrame(() => {
+                updateNavbar();
+                // updateParallax(); // Disabled per user preference
+                revealOnScroll();
+                checkCounters();
+                ticking = false;
+            });
+            ticking = true;
+        }
+    }
+
+    // Initialize
+    initScrollReveal();
+    window.addEventListener('scroll', onScroll);
+
+    // Run once on load
+    updateNavbar();
+    // updateParallax(); // Disabled per user preference
+    revealOnScroll();
 });
