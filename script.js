@@ -517,21 +517,25 @@ document.addEventListener('DOMContentLoaded', function () {
                     lcTotal.textContent = '0';
                     lcTotal.setAttribute('data-target', totalCount);
                     animateCounter(lcTotal, totalCount, 1500);
+                    animatedCounters.add('lc-total'); // Mark as animated
                 }
                 if (lcEasy) {
                     lcEasy.textContent = '0';
                     lcEasy.setAttribute('data-target', easyCount);
                     animateCounter(lcEasy, easyCount, 1500);
+                    animatedCounters.add('lc-easy'); // Mark as animated
                 }
                 if (lcMedium) {
                     lcMedium.textContent = '0';
                     lcMedium.setAttribute('data-target', mediumCount);
                     animateCounter(lcMedium, mediumCount, 1500);
+                    animatedCounters.add('lc-medium'); // Mark as animated
                 }
                 if (lcHard) {
                     lcHard.textContent = '0';
                     lcHard.setAttribute('data-target', hardCount);
                     animateCounter(lcHard, hardCount, 1500);
+                    animatedCounters.add('lc-hard'); // Mark as animated
                 }
 
                 console.log('LeetCode stats updated:', {
@@ -643,16 +647,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 ghRepos.textContent = '0';
                 ghRepos.setAttribute('data-target', userData.public_repos || 0);
                 animateCounter(ghRepos, userData.public_repos || 0, 1500);
+                animatedCounters.add('gh-repos'); // Mark as animated
             }
             if (ghStars) {
                 ghStars.textContent = '0';
                 ghStars.setAttribute('data-target', totalStars);
                 animateCounter(ghStars, totalStars, 1500);
+                animatedCounters.add('gh-stars'); // Mark as animated
             }
             if (ghContributions) {
                 ghContributions.textContent = '0';
                 ghContributions.setAttribute('data-target', totalContributions);
                 animateCounter(ghContributions, totalContributions, 1500);
+                animatedCounters.add('gh-contributions'); // Mark as animated
             }
 
             // Calculate top languages
