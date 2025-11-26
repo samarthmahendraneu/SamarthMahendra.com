@@ -869,12 +869,36 @@ img {
     color: var(--text-secondary);
     border: 1px solid var(--border-color);
     transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.skill-tags span i {
+    font-size: 1rem;
+    color: var(--accent-secondary);
+}
+
+.skill-tags span .skill-logo {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    transition: var(--transition);
 }
 
 .skill-tags span:hover {
     border-color: var(--accent-secondary);
     color: var(--accent-secondary);
     background: rgba(76, 201, 240, 0.1);
+    transform: translateY(-2px);
+}
+
+.skill-tags span:hover i {
+    color: var(--accent-secondary);
+}
+
+.skill-tags span:hover .skill-logo {
+    transform: scale(1.1);
 }
 
 /* Experience Section */
