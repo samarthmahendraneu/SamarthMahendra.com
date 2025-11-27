@@ -40,6 +40,9 @@
     <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css" />
 
 
+    <!-- Devicon -->
+    <link rel="stylesheet" type='text/css' href="https://cdn.jsdelivr.net/gh/devicon/devicon@latest/devicon.min.css" />
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="styles.css">
     <script>
@@ -178,16 +181,15 @@
                     <div class="bento-item tech-card" data-aos="fade-up" data-aos-delay="250">
                         <h3><i class="fas fa-layer-group"></i> Tech Stack</h3>
                         <div class="tech-icons">
-                            <i class="fab fa-python" title="Python"></i>
-                            <i class="fab fa-js-square" title="JavaScript"></i>
-                            <i class="fab fa-react" title="React"></i>
-                            <i class="fab fa-node-js" title="Node.js"></i>
-                            <i class="fab fa-docker" title="Docker"></i>
-                            <i class="fas fa-database" title="SQL"></i>
-                            <i class="fab fa-java" title="Java"></i>
-                            <i class="fab fa-node" title="Node.js"></i>
-                            <i class="fas fa-code" title="C++"></i>
-                            <i class="fab fa-git-alt" title="Git"></i>
+                            <i class="devicon-python-plain colored" title="Python"></i>
+                            <i class="devicon-javascript-plain colored" title="JavaScript"></i>
+                            <i class="devicon-react-original colored" title="React"></i>
+                            <i class="devicon-nodejs-plain-wordmark colored" title="Node.js"></i>
+                            <i class="devicon-docker-plain colored" title="Docker"></i>
+                            <i class="devicon-postgresql-plain colored" title="SQL"></i>
+                            <i class="devicon-java-plain colored" title="Java"></i>
+                            <i class="devicon-cplusplus-plain colored" title="C++"></i>
+                            <i class="devicon-git-plain colored" title="Git"></i>
                         </div>
                     </div>
 
@@ -326,9 +328,13 @@
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="skills-wrapper" data-aos="fade-left">
-                        <h3>Skills</h3>
+                <div class="skills-wrapper" data-aos="fade-up" style="margin-top: 60px;">
+                    <h3>Skills</h3>
+
+                    <div class="skill-category">
+                        <h4 class="skill-category-title">🟦 Backend Engineering</h4>
                         <div class="skill-tags">
                             <span><img src="https://cdn.simpleicons.org/python" alt="Python" class="skill-logo">
                                 Python</span>
@@ -336,26 +342,56 @@
                                 Java</span>
                             <span><img src="https://cdn.simpleicons.org/cplusplus/00599C" alt="C++" class="skill-logo">
                                 C/C++</span>
-                            <span><img src="https://cdn.simpleicons.org/javascript" alt="JavaScript" class="skill-logo">
-                                JavaScript</span>
-                            <span><img src="https://cdn.simpleicons.org/typescript" alt="TypeScript" class="skill-logo">
-                                TypeScript</span>
-                            <span><img src="https://cdn.simpleicons.org/postgresql" alt="SQL" class="skill-logo">
-                                SQL</span>
-                            <span><img src="https://cdn.simpleicons.org/mongodb" alt="NoSQL" class="skill-logo">
-                                NoSQL</span>
-                            <span><img src="https://cdn.simpleicons.org/html5" alt="HTML5" class="skill-logo">
-                                HTML/CSS</span>
-                            <span><img src="https://cdn.simpleicons.org/django" alt="Django" class="skill-logo"> Django
-                                REST Framework</span>
-                            <span><img src="https://cdn.simpleicons.org/flask" alt="Flask" class="skill-logo">
-                                Flask</span>
-                            <span><img src="https://cdn.simpleicons.org/react" alt="React" class="skill-logo">
-                                React</span>
-                            <span><img src="https://cdn.simpleicons.org/nodedotjs" alt="Node.js" class="skill-logo">
-                                Node.js</span>
                             <span><img src="https://cdn.simpleicons.org/fastapi" alt="FastAPI" class="skill-logo">
                                 FastAPI</span>
+                            <span><img src="https://cdn.simpleicons.org/django" alt="Django" class="skill-logo"> Django
+                                REST</span>
+                            <span><img src="https://cdn.simpleicons.org/nodedotjs" alt="Node.js" class="skill-logo">
+                                Node.js</span>
+                            <span><i class="fas fa-exchange-alt"></i> REST APIs</span>
+                            <span><i class="fas fa-plug"></i> WebSockets</span>
+                            <span><i class="fas fa-sync-alt"></i> Async I/O</span>
+                            <span><i class="fas fa-project-diagram"></i> Concurrency</span>
+                            <span><img src="https://cdn.simpleicons.org/redis" alt="Redis" class="skill-logo"> Caching
+                                (Redis)</span>
+                            <span><i class="fas fa-tachometer-alt"></i> Rate Limiting</span>
+                            <span><i class="fas fa-rocket"></i> API Optimization</span>
+                            <span><img src="https://cdn.simpleicons.org/celery" alt="Celery" class="skill-logo"> Message
+                                Queues</span>
+                            <span><i class="fas fa-network-wired"></i> gRPC & Protobuf</span>
+                            <span><img src="https://cdn.simpleicons.org/graphql" alt="GraphQL" class="skill-logo">
+                                GraphQL</span>
+                            <span><img src="https://cdn.simpleicons.org/pytest" alt="PyTest" class="skill-logo">
+                                PyTest</span>
+                            <span><img src="https://cdn.simpleicons.org/junit5" alt="JUnit" class="skill-logo">
+                                JUnit</span>
+                            <span><i class="fas fa-vial"></i> TDD</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-category">
+                        <h4 class="skill-category-title">🟪 System Design & High-Performance</h4>
+                        <div class="skill-tags">
+                            <span><i class="fas fa-cubes"></i> Microservices</span>
+                            <span><i class="fas fa-bolt"></i> Event-Driven Arch</span>
+                            <span><i class="fas fa-server"></i> Distributed Systems</span>
+                            <span><i class="fas fa-layer-group"></i> Batching & Prefetching</span>
+                            <span><i class="fas fa-memory"></i> Cache-Aware Design</span>
+                            <span><i class="fas fa-chart-line"></i> Profiling</span>
+                            <span><i class="fas fa-unlock"></i> Lock-Free Concurrency</span>
+                            <span><i class="fas fa-microchip"></i> Memory Management</span>
+                            <span><i class="fas fa-microchip"></i> CPU Microarchitecture</span>
+                            <span><i class="fas fa-balance-scale"></i> Load Balancing</span>
+                            <span><i class="fas fa-handshake"></i> Consensus</span>
+                            <span><i class="fas fa-expand-arrows-alt"></i> Horizontal Scaling</span>
+                            <span><img src="https://cdn.simpleicons.org/apachekafka" alt="Kafka" class="skill-logo">
+                                Apache Kafka</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-category">
+                        <h4 class="skill-category-title">🟩 Databases & Infra</h4>
+                        <div class="skill-tags">
                             <span><img src="https://cdn.simpleicons.org/postgresql" alt="PostgreSQL" class="skill-logo">
                                 PostgreSQL</span>
                             <span><img src="https://cdn.simpleicons.org/mongodb" alt="MongoDB" class="skill-logo">
@@ -364,41 +400,60 @@
                                 Redis</span>
                             <span><img src="https://cdn.simpleicons.org/elasticsearch" alt="Elasticsearch"
                                     class="skill-logo"> Elasticsearch</span>
-                            <span>
-                                <img src="https://cdn.simpleicons.org/amazonwebservices"
+                            <span><i class="fas fa-database"></i> DB Internals</span>
+                            <span><i class="fas fa-history"></i> MVCC</span>
+                            <span><i class="fas fa-search"></i> Query Planning</span>
+                            <span><i class="fas fa-columns"></i> Partitioning</span>
+                            <span><i class="fas fa-hdd"></i> Storage Engines</span>
+                            <span><i class="fas fa-stream"></i> Data Pipelines</span>
+                            <span><img src="https://cdn.simpleicons.org/prometheus" alt="Prometheus" class="skill-logo">
+                                Observability</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-category">
+                        <h4 class="skill-category-title">🟧 AI & Automation Systems</h4>
+                        <div class="skill-tags">
+                            <span><img src="https://cdn.simpleicons.org/openai" alt="OpenAI" class="skill-logo"> OpenAI
+                                GPT-4o</span>
+                            <span><img src="https://cdn.simpleicons.org/google" alt="Google" class="skill-logo"> Google
+                                Gemini</span>
+                            <span><i class="fas fa-robot"></i> Function-Calling Agents</span>
+                            <span><i class="fas fa-brain"></i> LLM Orchestration</span>
+                            <span><i class="fas fa-search-plus"></i> RAG/Embeddings</span>
+                            <span><img src="https://cdn.simpleicons.org/puppeteer" alt="Puppeteer" class="skill-logo">
+                                Automation</span>
+                            <span><i class="fas fa-sync"></i> Async Agents</span>
+                            <span><img src="https://cdn.simpleicons.org/twilio" alt="Twilio" class="skill-logo"> Voice
+                                Systems</span>
+                        </div>
+                    </div>
+
+                    <div class="skill-category">
+                        <h4 class="skill-category-title">🟨 Cloud & DevOps</h4>
+                        <div class="skill-tags">
+                            <span><img src="assets/logos/amazon.png"
                                     onerror="this.onerror=null; this.src='assets/logos/amazon.png';" alt="AWS Logo"
-                                    class="skill-logo" />
-                                AWS</span>
-                            <span><img src="https://cdn.simpleicons.org/kubernetes" alt="Kubernetes" class="skill-logo">
-                                Kubernetes</span>
-                            <span><img src="https://cdn.simpleicons.org/docker" alt="Docker" class="skill-logo">
-                                Docker</span>
+                                    class="skill-logo"> AWS</span>
                             <span><img src="https://cdn.simpleicons.org/terraform" alt="Terraform" class="skill-logo">
                                 Terraform</span>
-                            <span><img src="https://cdn.simpleicons.org/prometheus" alt="Prometheus" class="skill-logo">
-                                Prometheus</span>
-                            <span><img src="https://cdn.simpleicons.org/datadog" alt="Datadog" class="skill-logo">
-                                Datadog</span>
-                            <span><img src="https://cdn.simpleicons.org/celery" alt="Celery" class="skill-logo">
-                                Celery</span>
-                            <span><i class="fas fa-network-wired"></i> TCP/IP</span>
-                            <span><i class="fas fa-project-diagram"></i> Multithreading</span>
-                            <span><i class="fas fa-lock"></i> Locking</span>
-                            <span><i class="fas fa-tachometer-alt"></i> Profiling</span>
-                            <span><i class="fas fa-sync-alt"></i> Async I/O</span>
-                            <span><i class="fas fa-microchip"></i> CPU Microarchitecture</span>
-                            <span><i class="fas fa-unlock"></i> Lock-free Concurrency</span>
-                            <span><i class="fas fa-memory"></i> Cache Optimization</span>
-                            <span><i class="fas fa-project-diagram"></i> System Design</span>
-                            <span><i class="fas fa-cubes"></i> Microservices</span>
-                            <span><i class="fas fa-exchange-alt"></i> REST APIs</span>
-                            <span><i class="fas fa-server"></i> Distributed Systems</span>
-                            <span><i class="fas fa-sitemap"></i> Data Structures & Algorithms</span>
-                            <span><i class="fas fa-expand-arrows-alt"></i> Scalable Backend</span>
+                            <span><img src="https://cdn.simpleicons.org/docker" alt="Docker" class="skill-logo">
+                                Docker</span>
+                            <span><img src="https://cdn.simpleicons.org/kubernetes" alt="Kubernetes" class="skill-logo">
+                                Kubernetes</span>
+                            <span><img src="https://cdn.simpleicons.org/githubactions" alt="GitHub Actions"
+                                    class="skill-logo"> CI/CD</span>
+                            <span><i class="fas fa-code-branch"></i> IaC</span>
+                            <span><img src="https://cdn.simpleicons.org/opentelemetry" alt="OpenTelemetry"
+                                    class="skill-logo"> OpenTelemetry</span>
+                            <span><i class="fas fa-network-wired"></i> Distributed Tracing</span>
+                            <span><i class="fas fa-cloud-upload-alt"></i> Deployment</span>
+                            <span><i class="fas fa-expand"></i> Autoscaling</span>
+                            <span><img src="https://cdn.simpleicons.org/istio" alt="Istio" class="skill-logo"> Service
+                                Mesh</span>
                         </div>
                     </div>
                 </div>
-            </div>
         </section>
 
         <!-- Experience Section -->
