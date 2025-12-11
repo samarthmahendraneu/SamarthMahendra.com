@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
+    // Apply fixed zoom to make the site more condensed
+    document.documentElement.style.zoom = 0.9;
+
     // Initialize AOS Animation
     AOS.init({
         duration: 800,
@@ -740,62 +743,104 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- GitHub Stats ---
     async function fetchGitHubStats() {
-        const username = 'SamarthMahendraneu';
+        const usernames = ['SamarthMahendraneu', 'SamarthMahendra-Draup'];
 
         try {
-            // Fetch user data
-            const userResponse = await fetch(`https://api.github.com/users/${username}`);
-            const userData = await userResponse.json();
+            let totalRepos = 0;
+            let totalContributionsAllTime = 0;
+            let lastYearContributions = 0;
+            let past5YearsContributions = 0;
+            const allLanguages = {};
 
-            // Fetch contributions from last year
             const currentYear = new Date().getFullYear();
-            const contributionsResponse = await fetch(`https://github-contributions-api.jogruber.de/v4/${username}?y=${currentYear}`);
-            const contributionsData = await contributionsResponse.json();
+            const lastYear = currentYear; // 2024
+            const past5YearsStart = currentYear - 5; // 2020
 
-            // Calculate total contributions for current year
-            const totalContributions = contributionsData.total?.[currentYear] || 0;
+            // Fetch data for both usernames
+            for (const username of usernames) {
+                try {
+                    // Fetch user data
+                    const userResponse = await fetch(`https://api.github.com/users/${username}`);
+                    const userData = await userResponse.json();
 
-            // Fetch all repos to calculate stars and languages
-            const reposResponse = await fetch(`https://api.github.com/users/${username}/repos?per_page=100`);
-            const repos = await reposResponse.json();
+                    // Add to total repos
+                    totalRepos += userData.public_repos || 0;
 
-            // Calculate total stars
-            const totalStars = repos.reduce((sum, repo) => sum + (repo.stargazers_count || 0), 0);
+                    // Fetch all repos to get languages
+                    const reposResponse = await fetch(`https://api.github.com/users/${username}/repos?per_page=100`);
+                    const repos = await reposResponse.json();
+
+                    // Aggregate languages
+                    repos.forEach(repo => {
+                        if (repo.language) {
+                            allLanguages[repo.language] = (allLanguages[repo.language] || 0) + 1;
+                        }
+                    });
+
+                    // Fetch contributions for all available years
+                    // We'll fetch from 2018 to current year to get all contributions
+                    for (let year = 2018; year <= currentYear; year++) {
+                        try {
+                            const contributionsResponse = await fetch(
+                                `https://github-contributions-api.jogruber.de/v4/${username}?y=${year}`
+                            );
+                            const contributionsData = await contributionsResponse.json();
+                            const yearContributions = contributionsData.total?.[year] || 0;
+
+                            // Add to total contributions
+                            totalContributionsAllTime += yearContributions;
+
+                            // Add to last year if it's 2024
+                            if (year === lastYear) {
+                                lastYearContributions += yearContributions;
+                            }
+
+                            // Add to past 5 years if within range (2020-2024)
+                            if (year >= past5YearsStart && year <= currentYear) {
+                                past5YearsContributions += yearContributions;
+                            }
+                        } catch (yearError) {
+                            console.warn(`Could not fetch contributions for ${username} in ${year}:`, yearError);
+                        }
+                    }
+                } catch (userError) {
+                    console.warn(`Could not fetch data for ${username}:`, userError);
+                }
+            }
 
             // Set initial to 0, store target, and animate immediately
+            const ghTotalContributions = document.getElementById('gh-total-contributions');
             const ghRepos = document.getElementById('gh-repos');
-            const ghStars = document.getElementById('gh-stars');
-            const ghContributions = document.getElementById('gh-contributions');
+            const ghLastYear = document.getElementById('gh-last-year');
+            const ghPast5Years = document.getElementById('gh-past-5-years');
 
+            if (ghTotalContributions) {
+                ghTotalContributions.textContent = '0';
+                ghTotalContributions.setAttribute('data-target', totalContributionsAllTime);
+                animateCounter(ghTotalContributions, totalContributionsAllTime, 1500);
+                animatedCounters.add('gh-total-contributions');
+            }
             if (ghRepos) {
                 ghRepos.textContent = '0';
-                ghRepos.setAttribute('data-target', userData.public_repos || 0);
-                animateCounter(ghRepos, userData.public_repos || 0, 1500);
-                animatedCounters.add('gh-repos'); // Mark as animated
+                ghRepos.setAttribute('data-target', totalRepos);
+                animateCounter(ghRepos, totalRepos, 1500);
+                animatedCounters.add('gh-repos');
             }
-            if (ghStars) {
-                ghStars.textContent = '0';
-                ghStars.setAttribute('data-target', totalStars);
-                animateCounter(ghStars, totalStars, 1500);
-                animatedCounters.add('gh-stars'); // Mark as animated
+            if (ghLastYear) {
+                ghLastYear.textContent = '0';
+                ghLastYear.setAttribute('data-target', lastYearContributions);
+                animateCounter(ghLastYear, lastYearContributions, 1500);
+                animatedCounters.add('gh-last-year');
             }
-            if (ghContributions) {
-                ghContributions.textContent = '0';
-                ghContributions.setAttribute('data-target', totalContributions);
-                animateCounter(ghContributions, totalContributions, 1500);
-                animatedCounters.add('gh-contributions'); // Mark as animated
+            if (ghPast5Years) {
+                ghPast5Years.textContent = '0';
+                ghPast5Years.setAttribute('data-target', past5YearsContributions);
+                animateCounter(ghPast5Years, past5YearsContributions, 1500);
+                animatedCounters.add('gh-past-5-years');
             }
-
-            // Calculate top languages
-            const languages = {};
-            repos.forEach(repo => {
-                if (repo.language) {
-                    languages[repo.language] = (languages[repo.language] || 0) + 1;
-                }
-            });
 
             // Sort and get top 5 languages
-            const topLanguages = Object.entries(languages)
+            const topLanguages = Object.entries(allLanguages)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 5)
                 .map(([lang]) => lang);
@@ -806,11 +851,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 `<span>${lang}</span>`
             ).join('');
 
+            console.log('GitHub stats updated:', {
+                totalContributions: totalContributionsAllTime,
+                repos: totalRepos,
+                lastYear: lastYearContributions,
+                past5Years: past5YearsContributions
+            });
+
         } catch (error) {
             console.error('Error fetching GitHub stats:', error);
-            document.getElementById('gh-repos').textContent = '50+';
-            document.getElementById('gh-stars').textContent = '100+';
-            document.getElementById('gh-contributions').textContent = '500+';
+            document.getElementById('gh-total-contributions').textContent = '5000+';
+            document.getElementById('gh-repos').textContent = '80+';
+            document.getElementById('gh-last-year').textContent = '800+';
+            document.getElementById('gh-past-5-years').textContent = '4000+';
             document.getElementById('gh-lang-tags').innerHTML = '<span>Python</span><span>JavaScript</span><span>TypeScript</span>';
         }
     }
@@ -1065,9 +1118,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function checkCounters() {
         const counterElements = [
+            { id: 'gh-total-contributions', animated: false },
             { id: 'gh-repos', animated: false },
-            { id: 'gh-stars', animated: false },
-            { id: 'gh-contributions', animated: false },
+            { id: 'gh-last-year', animated: false },
+            { id: 'gh-past-5-years', animated: false },
             { id: 'lc-total', animated: false },
             { id: 'lc-easy', animated: false },
             { id: 'lc-medium', animated: false },

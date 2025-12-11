@@ -48,7 +48,7 @@ img {
 
 /* Utilities */
 .container {
-    max-width: 1200px;
+    max-width: 1300px;
     margin: 0 auto;
     padding: 0 20px;
 }
@@ -96,12 +96,12 @@ img {
 }
 
 .section {
-    padding: 100px 0;
+    padding: 70px 0;
 }
 
 .section-header {
     text-align: center;
-    margin-bottom: 60px;
+    margin-bottom: 40px;
 }
 
 .section-title {
@@ -223,7 +223,9 @@ img {
 .bento-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(2, auto);
+    grid-auto-flow: row;
+    /* default */
+    grid-auto-rows: auto;
     gap: 20px;
 }
 
@@ -297,7 +299,7 @@ img {
 
 .intro-card {
     grid-column: span 2;
-    grid-row: span 2;
+    grid-row: span 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -386,7 +388,8 @@ img {
 }
 
 .stats-card {
-    grid-column: span 1;
+    grid-column: 4;
+    grid-row: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -464,7 +467,8 @@ img {
 }
 
 .tech-card {
-    grid-column: span 1;
+    grid-column: 3;
+    grid-row: 3;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -524,7 +528,8 @@ img {
 
 /* LeetCode Card */
 .leetcode-card {
-    grid-column: span 1;
+    grid-column: 2;
+    grid-row: 2;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -639,6 +644,7 @@ img {
 /* Expertise Card */
 .expertise-card {
     grid-row: span 2;
+    grid-column: 4;
     /* Vertical span instead of horizontal */
     display: flex;
     flex-direction: column;
@@ -696,7 +702,7 @@ img {
     grid-column: span 2;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 12px;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
     text-decoration: none;
     color: inherit;
@@ -716,10 +722,47 @@ img {
     color: var(--accent-primary);
 }
 
+.gh-usernames {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 8px;
+}
+
+.gh-username {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.gh-username i {
+    color: var(--accent-primary);
+    font-size: 0.85rem;
+}
+
+.gh-username:hover {
+    background: rgba(138, 66, 209, 0.1);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    transform: translateX(5px);
+}
+
+
 .github-stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
+    gap: 12px;
 }
 
 .gh-stat {
@@ -811,6 +854,201 @@ img {
     letter-spacing: 0.5px;
 }
 
+/* Education Card */
+.education-card {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+}
+
+.education-header {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.education-header i {
+    color: var(--accent-primary);
+}
+
+.education-items {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.edu-card-item {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
+}
+
+.edu-card-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--accent-primary);
+    transform: translateX(3px);
+}
+
+.edu-degree {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.edu-school {
+    font-size: 0.85rem;
+    color: var(--accent-secondary);
+    margin-bottom: 6px;
+}
+
+.edu-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.edu-date,
+.edu-location {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.edu-location {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+/* Work Experience Card */
+.experience-card {
+    grid-column: 3;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+}
+
+.experience-header {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.exp-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.exp-header-left i {
+    color: var(--accent-primary);
+}
+
+.exp-company-logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 0;
+    margin-bottom: 8px;
+}
+
+.draup-logo-card {
+    height: 35px;
+    width: auto;
+    border-radius: 6px;
+    transition: transform 0.3s ease;
+    filter: brightness(0.9);
+}
+
+.draup-logo-card:hover {
+    transform: scale(1.05);
+    filter: brightness(1);
+}
+
+.experience-header i {
+    color: var(--accent-primary);
+    margin-right: 5px;
+}
+
+.exp-years {
+    font-size: 0.7rem;
+    color: var(--accent-secondary);
+    background: rgba(76, 201, 240, 0.1);
+    padding: 3px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(76, 201, 240, 0.2);
+    font-weight: 600;
+}
+
+.experience-items {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.exp-card-item {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
+}
+
+.exp-card-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--accent-primary);
+    transform: translateX(3px);
+}
+
+.exp-role {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.exp-company {
+    font-size: 0.85rem;
+    color: var(--accent-secondary);
+    margin-bottom: 6px;
+}
+
+.exp-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.exp-date,
+.exp-location {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.exp-location {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
 /* About Section */
 .about-content {
     display: block;
@@ -825,16 +1063,16 @@ img {
 }
 
 .about-text p {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     color: var(--text-secondary);
     text-align: left;
     /* Keep paragraph text left-aligned */
 }
 
 .education-block {
-    margin-top: 30px;
+    margin-top: 20px;
     background: var(--bg-card);
-    padding: 25px;
+    padding: 18px;
     border-radius: 15px;
     border: 1px solid var(--border-color);
     text-align: left;
@@ -842,7 +1080,7 @@ img {
 }
 
 .education-block h3 {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -850,8 +1088,8 @@ img {
 }
 
 .edu-item {
-    margin-bottom: 15px;
-    padding-bottom: 15px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -1746,5 +1984,124 @@ footer {
 
     50% {
         transform: scale(1.1);
+    }
+}
+
+
+@media (max-width: 1024px) {
+
+    /* Adjust overall padding for smaller screens */
+    .container {
+        padding: 0 15px;
+    }
+
+    /* Reduce font sizes for smaller screens if needed */
+    .name {
+        font-size: 3rem;
+        /* Reduced from 3.5rem */
+    }
+
+    .role {
+        font-size: 1.3rem;
+        /* Reduced from 1.5rem */
+    }
+
+    /* --- Key Bento Grid Adjustment --- */
+    .bento-grid {
+        grid-template-columns: repeat(2, 1fr);
+        /* Change from 4 columns to 2 columns */
+        gap: 15px;
+        /* Slightly reduced gap */
+    }
+
+    /* The main intro card can now span the full width of the 2-column grid */
+    .intro-card {
+        grid-column: span 2;
+        grid-row: auto;
+        /* Reset row span */
+    }
+
+    /* Photo card and the new 2-column cards will use 1 column each by default */
+    .photo-card,
+    .stats-card,
+    .impact-card,
+    .leetcode-card,
+    .education-card,
+    .experience-card,
+    .expertise-card,
+    .github-card {
+        grid-column: span 1;
+        grid-row: auto;
+        /* Reset row span */
+    }
+
+    /* Make the GitHub card span 2 columns to maintain its horizontal design */
+    .github-card {
+        grid-column: span 2;
+    }
+
+    /* Put the stats card (just a number) next to a smaller card if possible */
+    /* Example: Stats and LeetCode/Education can be next to each other */
+
+    .stat-number {
+        font-size: 3rem;
+    }
+}
+
+
+@media (max-width: 768px) {
+
+    /* --- Key Bento Grid Adjustment --- */
+    .bento-grid {
+        grid-template-columns: 1fr;
+        /* Change to a single column */
+        gap: 15px;
+    }
+
+    /* All items now span the full width */
+    .bento-item {
+        grid-column: span 1 !important;
+        grid-row: auto !important;
+    }
+
+    /* Mobile Menu Toggle */
+    .nav-links {
+        display: none;
+        /* Hide desktop navigation */
+    }
+
+    .nav-actions .btn-primary {
+        display: none;
+        /* Hide Schedule button */
+    }
+
+    .mobile-toggle {
+        display: block;
+        /* Show the hamburger icon */
+    }
+
+    /* Re-center the photo card content for mobile */
+    .photo-card {
+        min-height: 250px;
+        /* Give it a set height */
+    }
+
+    /* Adjust fonts again for very small screens */
+    .name {
+        font-size: 2.5rem;
+    }
+
+    .role {
+        font-size: 1.1rem;
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+    }
+
+    /* Stack buttons for less horizontal space */
+    .hero-btns {
+        flex-direction: column;
+        align-items: stretch;
     }
 }
