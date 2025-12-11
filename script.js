@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     // Apply fixed zoom to make the site more condensed
-    document.documentElement.style.zoom = 0.9;
+    document.documentElement.style.zoom = 0.85;
 
     // Initialize AOS Animation
     AOS.init({
@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', function () {
         chatbotToggle.style.display = 'flex';
     });
 
-    // --- Custom Cursor Logic ---
+    // --- Custom Cursor Logic-- -
     const cursorDot = document.querySelector('.cursor-dot');
     const cursorOutline = document.querySelector('.cursor-outline');
 
