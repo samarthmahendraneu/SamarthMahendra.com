@@ -2107,9 +2107,7 @@ footer {
     }
 }
 
-/* html {
-    transform: scale(0.85);
-    transform-origin: top left;
-    width: calc(100% / 0.85);
-    overflow-x: hidden;
-} */
+section {
+    position: relative;
+    z-index: 1;
+}
