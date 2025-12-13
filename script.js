@@ -743,7 +743,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- GitHub Stats ---
     async function fetchGitHubStats() {
-        const usernames = ['SamarthMahendraneu', 'SamarthMahendra-Draup'];
+        const usernames = ['SamarthMahendraneu', 'SamarthMahendra-Draup', 'SamarthMahendra'];
 
         try {
             let totalRepos = 0;
