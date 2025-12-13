@@ -743,7 +743,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- GitHub Stats ---
     async function fetchGitHubStats() {
-        const usernames = ['SamarthMahendraneu', 'SamarthMahendra-Draup', 'SamarthMahendra'];
+        const usernames = ['SamarthMahendraneu', 'SamarthMahendra-Draup'];
 
         try {
             let totalRepos = 0;
@@ -840,10 +840,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // Sort and get top 5 languages
-            const topLanguages = Object.entries(allLanguages)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-                .map(([lang]) => lang);
+            // Python, Java, C++, JavaScript, TypeScript
+            const topLanguages = ['Python', 'Java', 'C++', 'JavaScript', 'TypeScript'];
 
             // Display top languages
             const langTagsContainer = document.getElementById('gh-lang-tags');
