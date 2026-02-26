@@ -2154,8 +2154,145 @@ img {
 }
 
 /* ============================================================
+   BLOG SECTION
+   ============================================================ */
+.blog-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-bottom: 40px;
+}
+
+.blog-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-decoration: none;
+    color: inherit;
+    transition: var(--transition);
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Accent top line */
+.blog-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.blog-card:hover {
+    border-color: #C7D2FE;
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-3px);
+}
+
+.blog-card:hover::before {
+    opacity: 1;
+}
+
+.blog-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.blog-tag {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-primary);
+    background: #EEF2FF;
+    border: 1px solid #C7D2FE;
+    padding: 3px 10px;
+    border-radius: 20px;
+}
+
+.blog-read-time {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.blog-read-time i {
+    font-size: 0.65rem;
+}
+
+.blog-title {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: 1.45rem;
+    line-height: 1.25;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    flex: 1;
+}
+
+.blog-excerpt {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.72;
+    flex: 1;
+}
+
+.blog-card-footer {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.blog-link-cta {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.blog-link-cta i {
+    transition: transform 0.2s ease;
+    font-size: 0.75rem;
+}
+
+.blog-card:hover .blog-link-cta i {
+    transform: translateX(4px);
+}
+
+.blog-footer-cta {
+    text-align: center;
+    margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+    .blog-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .blog-title {
+        font-size: 1.25rem;
+    }
+}
+
+/* ============================================================
    CONTACT SECTION
    ============================================================ */
+
 .contact-section {
     text-align: center;
 }
