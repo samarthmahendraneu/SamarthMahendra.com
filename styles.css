@@ -634,6 +634,23 @@ img {
     line-height: 1.55;
 }
 
+.live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #10B981;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+
 .prose-stat-sub {
     font-size: 0.78rem;
     color: var(--text-secondary);
