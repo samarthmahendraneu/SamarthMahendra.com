@@ -30,7 +30,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap"
         rel="stylesheet">
 
     <!-- Icons -->
@@ -70,13 +70,6 @@
 </head>
 
 <body>
-
-    <!-- Particles Background -->
-    <div id="particles-js"></div>
-
-    <!-- Background Elements -->
-    <div class="bg-gradient"></div>
-    <div class="bg-grid"></div>
 
     <!-- Custom Cursor -->
     <!-- <div class="cursor-dot"></div>
@@ -125,241 +118,145 @@
 
     <!-- Main Content -->
     <main>
-        <!-- Hero Section (Bento Grid) -->
         <section id="home" class="hero-section">
             <div class="container">
-                <div class="bento-grid">
-                    <!-- Intro Card -->
-                    <div class="bento-item intro-card" data-aos="fade-up">
-                        <div class="intro-content">
-                            <span class="greeting">Hello, I'm</span>
-                            <h1 class="name">Samarth Mahendra</h1>
-                            <h2 class="role">Software Engineer & <br>Backend Specialist</h2>
-                            <p class="tagline">Building data-intensive infrastructure, distributed runtimes, and scalable cloud systems.
-  Focused on storage engines, metadata-driven query planning, and real-time execution.</p>
-                            <div class="hero-btns">
-                                <a href="#projects" class="btn btn-primary">View Work</a>
-                                <a href="#contact" class="btn btn-secondary">Contact Me</a>
-                                <div class="hero-socials">
-                                    <a href="https://www.linkedin.com/in/samarth-mahendra-7aab5a114/" target="_blank"
-                                        class="social-link"><i class="fab fa-linkedin-in"></i></a>
-                                    <a href="https://github.com/SamarthMahendraneu" target="_blank"
-                                        class="social-link"><i class="fab fa-github"></i></a>
-                                    <a href="mailto:samarth.mahendragowda@gmail.com" class="social-link"><i
-                                            class="fas fa-envelope"></i></a>
-                                </div>
-                            </div>
+
+                <!-- TOP SPLIT: Name + Photo -->
+                <div class="hero-split">
+
+                    <!-- Left: Identity -->
+                    <div class="hero-identity">
+                        <div class="hero-meta-row">
+                            <span class="hero-location-tag">
+                                <span class="status-dot"></span>
+                                Boston, MA &middot; Open to Work
+                            </span>
+                        </div>
+
+                        <h1 class="hero-display-name">
+                            <span class="dn-line">Samarth</span>
+                            <span class="dn-line dn-indent">Mahendra</span>
+                        </h1>
+
+                        <div class="hero-role-strip">
+                            <span class="hero-role-main">Software Engineer</span>
+                            <span class="hero-role-dot">&middot;</span>
+                            <span class="hero-role-sub">Backend &amp; Systems</span>
+                        </div>
+
+                        <p class="hero-bio">
+                            I obsess over the parts of software that are invisible &mdash; storage engines,
+                            distributed runtimes, metadata indexing. Currently at Northeastern, Boston,
+                            building things from scratch that most people use off-the-shelf.
+                        </p>
+
+                        <div class="hero-actions">
+                            <a href="#projects" class="btn btn-primary btn-lg">View Work</a>
+                            <a href="#contact" class="btn btn-outline btn-lg">Get in touch</a>
+                        </div>
+
+                        <div class="hero-socials">
+                            <a href="https://www.linkedin.com/in/samarth-mahendra-7aab5a114/" target="_blank"
+                                class="social-link"><i class="fab fa-linkedin-in"></i></a>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="social-link"><i
+                                    class="fab fa-github"></i></a>
+                            <a href="mailto:samarth.mahendragowda@gmail.com" class="social-link"><i
+                                    class="fas fa-envelope"></i></a>
+                            <a href="resume_samarth.pdf" target="_blank" class="social-link" title="Resume"><i
+                                    class="fas fa-file-alt"></i></a>
                         </div>
                     </div>
 
-                    <!-- Photo Card -->
-                    <div class="bento-item photo-card" data-aos="fade-up" data-aos-delay="100">
-                        <img src="display_picturev1.png"
-                            alt="Samarth Mahendra - Backend Software Engineer and System Design Specialist"
-                            class="profile-img">
-                        <div class="status-badge">
+                    <!-- Right: Portrait, floating, tilted -->
+                    <div class="hero-photo-zone">
+                        <img src="display_picturev1.png" alt="Samarth Mahendra" class="hero-portrait">
+                        <div class="hero-status-chip">
                             <span class="status-dot"></span> Open to work
                         </div>
-                    </div>
-
-                    <!-- Experience & Impact Card -->
-                    <div class="bento-item stats-card impact-card" data-aos="fade-up" data-aos-delay="200">
-                        <div class="experience-section">
-                            <div class="experience-label">Experience 2 Years (Backend + Infrastructure)</div>
+                        <!-- floating skill pill -->
+                        <div class="hero-float-pill pill-top">
+                            <i class="fas fa-database"></i> Backend &amp; Systems
                         </div>
-                        <div class="impact-section">
-                            <div class="impact-list">
-  <div class="impact-item">⚙️ Built production backend systems for a $20M+ ARR data platform</div>
-  <div class="impact-item">📦 Designed storage engines (B-Trees, WAL, crash recovery)</div>
-  <div class="impact-item">🧠 Implemented hierarchical metadata pruning for lakehouse queries</div>
-  <div class="impact-item">🚀 Built a Ray-style distributed task runtime</div>
-  <div class="impact-item">📊 Improved query latency up to 5× via indexing & planning</div>
-</div>
+                        <div class="hero-float-pill pill-bottom">
+                            <i class="fas fa-map-marker-alt"></i> Boston, MA
                         </div>
                     </div>
 
-                    <!-- Tech Stack Card -->
-                    <div class="bento-item tech-card" data-aos="fade-up" data-aos-delay="250">
-                        <h3><i class="fas fa-layer-group"></i> Tech Stack</h3>
-                        <div class="tech-icons">
-                            <i class="fab fa-python" title="Python"></i>
-                            <i class="fab fa-js-square" title="JavaScript"></i>
-                            <i class="fab fa-react" title="React"></i>
-                            <i class="fab fa-node-js" title="Node.js"></i>
-                            <i class="fab fa-docker" title="Docker"></i>
-                            <i class="fas fa-database" title="SQL"></i>
-                            <i class="fab fa-java" title="Java"></i>
-                            <i class="fab fa-node" title="Node.js"></i>
-                            <i class="fas fa-code" title="C++"></i>
-                            <i class="fab fa-git-alt" title="Git"></i>
-                        </div>
+                </div>
+
+                <!-- JOURNEY RIBBON: horizontal timeline, not cards -->
+                <div class="hero-journey">
+                    <div class="journey-stop">
+                        <span class="journey-year">2022</span>
+                        <span class="journey-event">Joined Draup. Shipped APIs used by Fortune 10 clients on a $20M ARR
+                            platform.</span>
                     </div>
-
-                    <!-- Expertise Card -->
-                    <div class="bento-item expertise-card" data-aos="fade-up" data-aos-delay="300">
-                        <h3><i class="fas fa-star"></i> Core Expertise</h3>
-                        <div class="expertise-list">
-                            <div class="expertise-item">
-                                <i class="fas fa-server"></i>
-                                <span>Backend Engineering</span>
-                            </div>
-                            <div class="expertise-item">
-                                <i class="fas fa-project-diagram"></i>
-                                <span>System Design & High-Performance</span>
-                            </div>
-                            <div class="expertise-item">
-                                <i class="fas fa-database"></i>
-                                <span>Databases & Infrastructure</span>
-                            </div>
-                            <div class="expertise-item">
-                                <i class="fas fa-robot"></i>
-                                <span>AI & Automation Systems</span>
-                            </div>
-                            <div class="expertise-item">
-                                <i class="fab fa-aws"></i>
-                                <span>Cloud & DevOps</span>
-                            </div>
-                        </div>
+                    <span class="journey-arrow">&rarr;</span>
+                    <div class="journey-stop">
+                        <span class="journey-year">2023</span>
+                        <span class="journey-event">Led 100+ API migrations. PostgreSQL &rarr; Elasticsearch. 5&times;
+                            faster queries.</span>
                     </div>
-
-                    <!-- GitHub Stats Card -->
-                    <div class="bento-item github-card" data-aos="fade-up" data-aos-delay="400">
-                        <div class="github-header">
-                            <i class="fab fa-github"></i> GitHub
-                            <div class="live-badge">
-                                <span class="live-dot"></span>
-                            </div>
-                        </div>
-                        <div class="gh-usernames">
-                            <a href="https://github.com/SamarthMahendraneu" target="_blank" rel="noopener noreferrer"
-                                class="gh-username">
-                                <i class="fab fa-github"></i> SamarthMahendraneu
-                            </a>
-                            <a href="https://github.com/SamarthMahendra-Draup?tab=overview&from=2023-12-01&to=2023-12-31"
-                                target="_blank" rel="noopener noreferrer" class="gh-username">
-                                <i class="fab fa-github"></i> SamarthMahendra-Draup
-                            </a>
-                            <a href="https://github.com/SamarthMahendra" target="_blank" rel="noopener noreferrer"
-                                class="gh-username">
-                                <i class="fab fa-github"></i> SamarthMahendra
-                            </a>
-
-                        </div>
-                        <div class="github-stats-grid">
-                            <div class="gh-stat">
-                                <div class="gh-stat-value" id="gh-total-contributions">--</div>
-                                <div class="gh-stat-label">Total Contributions</div>
-                            </div>
-                            <div class="gh-stat">
-                                <div class="gh-stat-value" id="gh-repos">--</div>
-                                <div class="gh-stat-label">Repositories</div>
-                            </div>
-                        </div>
-                        <div class="gh-languages" id="gh-languages">
-                            <span class="gh-lang-label">Top Languages:</span>
-                            <div class="gh-lang-tags" id="gh-lang-tags">Loading...</div>
-                        </div>
+                    <span class="journey-arrow">&rarr;</span>
+                    <div class="journey-stop">
+                        <span class="journey-year">2024</span>
+                        <span class="journey-event">Moved to Boston. MS at Northeastern. Built a storage engine,
+                            distributed runtime &amp; lakehouse pruner from scratch.</span>
                     </div>
-
-                    <!-- LeetCode Card -->
-                    <a href="https://leetcode.com/u/samarthmahendra/" target="_blank" class="bento-item leetcode-card"
-                        data-aos="fade-up" data-aos-delay="500">
-                        <div class="leetcode-header">
-                            <i class="fas fa-code"></i> LeetCode
-                            <div class="live-badge">
-                                <span class="live-dot"></span>
-                            </div>
-                        </div>
-                        <div class="leetcode-stats">
-                            <div class="leetcode-total">
-                                <span id="lc-total">--</span>
-                                <small>Solved</small>
-                            </div>
-                            <div class="leetcode-breakdown">
-                                <div class="lc-stat easy">
-                                    <span class="lc-label">Easy</span>
-                                    <span class="lc-count" id="lc-easy">--</span>
-                                </div>
-                                <div class="lc-stat medium">
-                                    <span class="lc-label">Med</span>
-                                    <span class="lc-count" id="lc-medium">--</span>
-                                </div>
-                                <div class="lc-stat hard">
-                                    <span class="lc-label">Hard</span>
-                                    <span class="lc-count" id="lc-hard">--</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="leetcode-calendar-stats">
-                            <div class="lc-calendar-stat">
-                                <span class="lc-calendar-value" id="lc-active-days">--</span>
-                                <span class="lc-calendar-label">Active Days in Past one year</span>
-                            </div>
-                            <div class="lc-calendar-stat">
-                                <span class="lc-calendar-value" id="lc-streak">--</span>
-                                <span class="lc-calendar-label">Max Streak 🔥</span>
-                            </div>
-                        </div>
-                    </a>
-
-                    <!-- Education Card -->
-                    <div class="bento-item education-card" data-aos="fade-up" data-aos-delay="550">
-                        <div class="education-header">
-                            <i class="fas fa-graduation-cap"></i> Education
-                        </div>
-                        <div class="education-items">
-                            <div class="edu-card-item">
-                                <div class="edu-degree">MS Computer Science</div>
-                                <div class="edu-school">Northeastern University</div>
-                                <div class="edu-meta">
-                                    <span class="edu-date">2024 - 2025</span>
-                                    <span class="edu-location">📍 Boston, MA</span>
-                                </div>
-                            </div>
-                            <div class="edu-card-item">
-                                <div class="edu-degree">BE Computer Science</div>
-                                <div class="edu-school">Dayananda Sagar College</div>
-                                <div class="edu-meta">
-                                    <span class="edu-date">2018 - 2022</span>
-                                    <!-- <span class="edu-location">📍 Bangalore, India</span> -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Work Experience Card -->
-                    <div class="bento-item experience-card" data-aos="fade-up" data-aos-delay="600">
-                        <div class="experience-header">
-                            <div class="exp-header-left">
-                                <i class="fas fa-briefcase"></i> Experience
-                            </div>
-                            <span class="exp-years">1.5 Years</span>
-                        </div>
-
-                        <div class="experience-items">
-                            <div class="exp-card-item">
-                                <div class="exp-role">ASDE Backend</div>
-                                <div class="exp-company">Draup</div>
-                                <div class="exp-meta">
-                                    <span class="exp-date">Aug 2022 - Nov 2023</span>
-                                    <!-- <span class="exp-location">📍 Bangalore</span> -->
-                                </div>
-                            </div>
-                            <div class="exp-card-item">
-                                <div class="exp-role">Backend Intern</div>
-                                <div class="exp-company">Draup</div>
-                                <div class="exp-meta">
-                                    <span class="exp-date">Apr 2022 - Jul 2022</span>
-                                    <!-- <span class="exp-location">📍 Bangalore</span> -->
-                                </div>
-                            </div>
-                        </div>
+                    <span class="journey-arrow">&rarr;</span>
+                    <div class="journey-stop">
+                        <span class="journey-year">Now</span>
+                        <span class="journey-event">Building deep systems. Grinding LeetCode. Attending Boston Code
+                            &amp; Coffee.</span>
                     </div>
                 </div>
+
+                <!-- PROSE STATS: inline numbers, no card boxes -->
+                <div class="hero-prose-stats">
+                    <a href="https://leetcode.com/u/samarthmahendra/" target="_blank" class="prose-stat">
+                        <span class="prose-stat-num" id="lc-total">&mdash;</span>
+                        <span class="prose-stat-desc">
+                            problems solved on LeetCode<br>
+                            <span class="prose-stat-sub">
+                                <span class="lc-easy-inline" id="lc-easy">&mdash;</span> easy &middot;
+                                <span class="lc-med-inline" id="lc-medium">&mdash;</span> medium &middot;
+                                <span class="lc-hard-inline" id="lc-hard">&mdash;</span> hard
+                            </span>
+                        </span>
+                    </a>
+
+                    <div class="prose-stat-divider"></div>
+
+                    <div class="prose-stat">
+                        <span class="prose-stat-num" id="gh-total-contributions">&mdash;</span>
+                        <span class="prose-stat-desc">
+                            GitHub contributions<br>
+                            <span class="prose-stat-sub">
+                                <span id="gh-repos">&mdash;</span> repos &middot;
+                                <span id="gh-lang-tags" style="display:inline;">loading&hellip;</span>
+                            </span>
+                        </span>
+                    </div>
+
+                    <div class="prose-stat-divider"></div>
+
+                    <div class="prose-stat">
+                        <span class="prose-stat-num"><span id="lc-streak">&mdash;</span><span
+                                class="prose-stat-emoji">&nbsp;🔥</span></span>
+                        <span class="prose-stat-desc">
+                            max LeetCode streak<br>
+                            <span class="prose-stat-sub">
+                                <span id="lc-active-days">&mdash;</span> active days in the past year
+                            </span>
+                        </span>
+                    </div>
+                </div>
+
             </div>
         </section>
 
         <!-- About Section -->
+
         <section id="about" class="section">
             <div class="container">
                 <div class="section-header" data-aos="fade-up">
@@ -371,22 +268,24 @@
                 <div class="about-content">
                     <div class="about-text" data-aos="fade-right">
                         <p>
-I’m a Backend & Systems Engineer with a strong focus on distributed systems, storage, and
-data-intensive infrastructure. I enjoy working close to the metal—reasoning about
-performance, correctness, and failure modes in production systems.
-</p>
+                            I’m a Backend & Systems Engineer with a strong focus on distributed systems, storage, and
+                            data-intensive infrastructure. I enjoy working close to the metal—reasoning about
+                            performance, correctness, and failure modes in production systems.
+                        </p>
 
-<p>
-Previously at Draup ($20M+ ARR AI platform), I worked on core backend and data-platform
-systems including API design, database migrations, async pipelines, and query optimization.
-I led large-scale API migrations and designed dynamic query frameworks powering production workloads.
-</p>
+                        <p>
+                            Previously at Draup ($20M+ ARR AI platform), I worked on core backend and data-platform
+                            systems including API design, database migrations, async pipelines, and query optimization.
+                            I led large-scale API migrations and designed dynamic query frameworks powering production
+                            workloads.
+                        </p>
 
-<p>
-Outside of work, I build systems to deeply understand infrastructure fundamentals:
-a custom on-disk storage engine (B-Trees, WAL, crash recovery), a Ray-style distributed runtime,
-and hierarchical metadata pruning for lakehouse-style file selection and query planning.
-</p>
+                        <p>
+                            Outside of work, I build systems to deeply understand infrastructure fundamentals:
+                            a custom on-disk storage engine (B-Trees, WAL, crash recovery), a Ray-style distributed
+                            runtime,
+                            and hierarchical metadata pruning for lakehouse-style file selection and query planning.
+                        </p>
 
 
                         <div class="education-block">
@@ -394,7 +293,7 @@ and hierarchical metadata pruning for lakehouse-style file selection and query p
                             <div class="edu-item">
                                 <h4>Northeastern University</h4>
                                 <p>MS in Computer Science (Jan 2024 – Dec 2025)</p>
-                                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px;">
+                                <p style="font-size: 0.85rem; margin-top: 5px;">
                                     Coursework: Programming Design Paradigms, Algorithms, NLP/ML, Database Systems,
                                     Mobile Development, Computer Systems, Software Engineering
                                 </p>
@@ -402,6 +301,31 @@ and hierarchical metadata pruning for lakehouse-style file selection and query p
                             <div class="edu-item">
                                 <h4>Dayananda Sagar College of Engineering</h4>
                                 <p>BE in Computer Science (Aug 2018 – Jul 2022)</p>
+                            </div>
+                        </div>
+
+                        <!-- Boston Community Section -->
+                        <div class="community-block">
+                            <h3>🤝 Boston Community</h3>
+                            <div class="community-items">
+                                <div class="community-item">
+                                    <i class="fas fa-mug-hot"></i>
+                                    <div>
+                                        <strong>Boston Code &amp; Coffee</strong>
+                                        <p>Regular attendee — an awesome community of Boston developers who meet over
+                                            code and coffee. Great space for learning, side projects, and meeting fellow
+                                            builders.</p>
+                                    </div>
+                                </div>
+                                <div class="community-item">
+                                    <i class="fas fa-robot"></i>
+                                    <div>
+                                        <strong>Boston AI Meetups</strong>
+                                        <p>Active participant in Boston-area AI &amp; ML meetup community — engaging
+                                            with the latest in LLMs, agents, and real-world AI applications across the
+                                            city.</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -454,9 +378,9 @@ and hierarchical metadata pruning for lakehouse-style file selection and query p
                         <h4 class="skill-category-title">🟪 System Design & High-Performance</h4>
                         <div class="skill-tags">
                             <span><i class="fas fa-sitemap"></i> Metadata-driven Query Planning</span>
-<span><i class="fas fa-database"></i> Storage Engine Design</span>
-<span><i class="fas fa-random"></i> Task Scheduling & Runtimes</span>
-<span><i class="fas fa-shield-alt"></i> Fault Tolerance</span>
+                            <span><i class="fas fa-database"></i> Storage Engine Design</span>
+                            <span><i class="fas fa-random"></i> Task Scheduling & Runtimes</span>
+                            <span><i class="fas fa-shield-alt"></i> Fault Tolerance</span>
                             <span><i class="fas fa-cubes"></i> Microservices</span>
                             <span><i class="fas fa-bolt"></i> Event-Driven Arch</span>
                             <span><i class="fas fa-server"></i> Distributed Systems</span>
@@ -663,37 +587,37 @@ and hierarchical metadata pruning for lakehouse-style file selection and query p
 
                 <div class="projects-grid">
                     <div class="project-card">
-  <div class="project-content">
-    <div class="project-icon"><i class="fas fa-network-wired"></i></div>
-    <h3>Orion -> Ray-style Distributed Runtime</h3>
-    <p>
-      Distributed task execution runtime with dependency-aware scheduling,
-      worker pools, and concurrent execution semantics.
-    </p>
-    <div class="project-tags">
-      <span>Distributed Systems</span><span>Scheduling</span><span>Concurrency</span>
-    </div>
-      <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-network-wired"></i></div>
+                            <h3>Orion -> Ray-style Distributed Runtime</h3>
+                            <p>
+                                Distributed task execution runtime with dependency-aware scheduling,
+                                worker pools, and concurrent execution semantics.
+                            </p>
+                            <div class="project-tags">
+                                <span>Distributed Systems</span><span>Scheduling</span><span>Concurrency</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
                                 Code
                                 <i class="fas fa-arrow-right"></i></a>
-  </div>
-</div>
+                        </div>
+                    </div>
                     <div class="project-card">
-  <div class="project-content">
-    <div class="project-icon"><i class="fas fa-layer-group"></i></div>
-    <h3>Lakehouse Metadata Pruning</h3>
-    <p>
-      Hierarchical metadata index enabling efficient file pruning for
-      range queries over large lakehouse datasets.
-    </p>
-    <div class="project-tags">
-      <span>Metadata Indexing</span><span>Query Planning</span><span>Storage</span>
-    </div>
-      <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
+                        <div class="project-content">
+                            <div class="project-icon"><i class="fas fa-layer-group"></i></div>
+                            <h3>Lakehouse Metadata Pruning</h3>
+                            <p>
+                                Hierarchical metadata index enabling efficient file pruning for
+                                range queries over large lakehouse datasets.
+                            </p>
+                            <div class="project-tags">
+                                <span>Metadata Indexing</span><span>Query Planning</span><span>Storage</span>
+                            </div>
+                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="project-link">View
                                 Code
                                 <i class="fas fa-arrow-right"></i></a>
-  </div>
-</div>
+                        </div>
+                    </div>
 
                     <!-- Project 1 -->
                     <div class="project-card" data-aos="fade-up">
