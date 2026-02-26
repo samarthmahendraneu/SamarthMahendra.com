@@ -701,7 +701,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
 
-            // Set initial to 0, store target, and animate immediately
+            // Helper: format number as shorthand (2537 → "2.5k+")
+            function formatShortK(n) {
+                if (n >= 1000) {
+                    const k = n / 1000;
+                    return (Number.isInteger(k) ? k : Math.floor(k * 10) / 10) + 'k+';
+                }
+                return String(n);
+            }
+
             const ghTotalContributions = document.getElementById('gh-total-contributions');
             const ghRepos = document.getElementById('gh-repos');
             const ghLastYear = document.getElementById('gh-last-year');
@@ -709,8 +717,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (ghTotalContributions) {
                 ghTotalContributions.textContent = '0';
-                ghTotalContributions.setAttribute('data-target', totalContributionsAllTime);
+                // Animate counter, then snap to shorthand at the end
                 animateCounter(ghTotalContributions, totalContributionsAllTime, 1500);
+                setTimeout(() => {
+                    ghTotalContributions.textContent = formatShortK(totalContributionsAllTime);
+                }, 1600);
                 animatedCounters.add('gh-total-contributions');
             }
             if (ghRepos) {
@@ -719,6 +730,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 animateCounter(ghRepos, totalRepos, 1500);
                 animatedCounters.add('gh-repos');
             }
+
             if (ghLastYear) {
                 ghLastYear.textContent = '0';
                 ghLastYear.setAttribute('data-target', lastYearContributions);
@@ -732,15 +744,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 animatedCounters.add('gh-past-5-years');
             }
 
-            // Sort and get top 5 languages
-            // Python, Java, C++, JavaScript, TypeScript
+            // Show top 3 languages as clean text
             const topLanguages = ['Python', 'Java', 'C++', 'JavaScript', 'TypeScript'];
+            const top3 = topLanguages.slice(0, 3);
 
-            // Display top languages
+            // Display top languages as plain text (not pills) to avoid crowding
             const langTagsContainer = document.getElementById('gh-lang-tags');
-            langTagsContainer.innerHTML = topLanguages.map(lang =>
-                `<span>${lang}</span>`
-            ).join('');
+            if (langTagsContainer) langTagsContainer.textContent = top3.join(', ');
 
             console.log('GitHub stats updated:', {
                 totalContributions: totalContributionsAllTime,
@@ -755,7 +765,9 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('gh-repos').textContent = '80+';
             document.getElementById('gh-last-year').textContent = '800+';
             document.getElementById('gh-past-5-years').textContent = '4000+';
-            document.getElementById('gh-lang-tags').innerHTML = '<span>Python</span><span>JavaScript</span><span>TypeScript</span>';
+            if (document.getElementById('gh-lang-tags'))
+                document.getElementById('gh-lang-tags').textContent = 'Python, Java, C++';
+
         }
     }
 

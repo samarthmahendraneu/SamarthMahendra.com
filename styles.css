@@ -638,7 +638,50 @@ img {
     font-size: 0.78rem;
     color: var(--text-secondary);
     font-weight: 400;
+    display: block;
+    margin-top: 3px;
 }
+
+/* GitHub account links row */
+.prose-stat-accounts {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 5px 0 5px;
+    align-items: center;
+}
+
+.prose-gh-link {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-alt);
+    border: 1px solid var(--border-color);
+    padding: 2px 9px;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.prose-gh-link::before {
+    content: '\f09b';
+    font-family: 'Font Awesome 6 Brands';
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+}
+
+.prose-gh-link:hover {
+    background: #EEF2FF;
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+
 
 .lc-easy-inline {
     color: #059669;
