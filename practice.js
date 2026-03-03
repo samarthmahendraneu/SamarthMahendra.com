@@ -217,7 +217,7 @@ async function renderTable() {
             topic: finalTopicFilter
         });
 
-        const res = await fetch(`https://samarthmahendra-github-io.onrender.comapi/table?${queryParams.toString()}`);
+        const res = await fetch(`https://samarthmahendra-github-io.onrender.com/api/table?${queryParams.toString()}`);
         const data = await res.json();
         const items = data.items || [];
 
