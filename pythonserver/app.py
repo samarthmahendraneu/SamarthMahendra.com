@@ -235,8 +235,11 @@ async def health():
 # --- Practice Dashboard API ---
 
 from pymongo import MongoClient
+import os
+from dotenv import load_dotenv
 
-# Use the same MongoDB connection used elsewhere or a dedicated one if set
+load_dotenv()   # ← fix here
+
 PRACTICE_MONGO_URI = os.getenv("MONGO_URI", "")
 PRACTICE_DB_NAME = os.getenv("MONGO_PRACTICE_DB_NAME", "practice_db")
 
