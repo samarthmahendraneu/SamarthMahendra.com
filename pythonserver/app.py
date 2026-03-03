@@ -232,7 +232,6 @@ async def health():
     return {"status": "OK"}
 
 # --- Practice Dashboard API ---
-# --- Practice Dashboard API ---
 
 from pymongo import MongoClient
 import os

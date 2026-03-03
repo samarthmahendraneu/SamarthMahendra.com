@@ -83,7 +83,7 @@ function parseCSV(csvText) {
 async function renderDashboard() {
     // 1. Fetch dashboard stats
     try {
-        const res = await fetch('http://localhost:8000/api/dashboard_stats');
+        const res = await fetch('https://samarthmahendra-github-io.onrender.com/api/dashboard_stats');
         const data = await res.json();
         renderCalendar(data.checkIns || {}, data.streak || 0);
         renderTagCards(data.tagStats || []);
@@ -217,7 +217,7 @@ async function renderTable() {
             topic: finalTopicFilter
         });
 
-        const res = await fetch(`http://localhost:8000/api/table?${queryParams.toString()}`);
+        const res = await fetch(`https://samarthmahendra-github-io.onrender.comapi/table?${queryParams.toString()}`);
         const data = await res.json();
         const items = data.items || [];
 
@@ -288,7 +288,7 @@ async function openProblemInsights(id) {
 
     let p;
     try {
-        const res = await fetch(`http://localhost:8000/api/problem/${id}`);
+        const res = await fetch(`https://samarthmahendra-github-io.onrender.com/api/problem/${id}`);
         p = await res.json();
     } catch (err) {
         console.error(err);
@@ -350,7 +350,7 @@ function handleTableSort(col) {
 
 async function buildDailyQueue() {
     try {
-        const res = await fetch('http://localhost:8000/api/daily_queue');
+        const res = await fetch('https://samarthmahendra-github-io.onrender.com/api/daily_queue');
         dailyQueue = await res.json();
         currentIndex = 0;
         showNextCard();
@@ -481,7 +481,7 @@ function setupEventListeners() {
         };
 
         try {
-            await fetch(`http://localhost:8000/api/problem/${currentModalProblemId}`, {
+            await fetch(`https://samarthmahendra-github-io.onrender.com/api/problem/${currentModalProblemId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -513,7 +513,7 @@ async function handleAttempt(solved) {
     const notes = document.getElementById("notes-area").value;
 
     try {
-        await fetch(`http://localhost:8000/api/flashcard/submit`, {
+        await fetch(`https://samarthmahendra-github-io.onrender.com/api/flashcard/submit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -528,7 +528,7 @@ async function handleAttempt(solved) {
         showNextCard();
 
         // Refresh dashboard numbers in background without completely resetting queue
-        fetch('http://localhost:8000/api/dashboard_stats')
+        fetch('https://samarthmahendra-github-io.onrender.com/api/dashboard_stats')
             .then(res => res.json())
             .then(data => {
                 renderCalendar(data.checkIns || {}, data.streak || 0);
