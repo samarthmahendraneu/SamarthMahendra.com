@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Samarth Mahendra | Practice Dashboard</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- AOS Animation -->
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css" />
+
+    <!-- Custom CSS (Inherit portfolio base styles + practice dashboard styles) -->
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="practice.css">
+
+</head>
+
+<body class="practice-body">
+
+    <div class="scroll-progress-container">
+        <div class="scroll-progress-bar" id="scroll-progress"></div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="dashboard-container">
+
+        <!-- Header Section: Sync & Config -->
+        <header class="dashboard-header" data-aos="fade-down">
+            <div class="header-titles">
+                <h1 class="section-title">Interview Practice</h1>
+                <p class="section-subtitle">Spaced Repetition & Topic Mastery Dashboard</p>
+            </div>
+        </header>
+
+        <!-- Top Row: GitHub Contribution Calendar -->
+        <section class="db-section" id="calendar-section" data-aos="fade-up">
+            <div class="section-header-mini">
+                <h3>Daily Check-in Activity</h3>
+                <span class="streak-counter" id="streak-counter">0 Day Streak 🔥</span>
+            </div>
+            <div class="calendar-wrapper">
+                <div class="calendar-months" id="calendar-months"></div>
+                <div class="calendar-body">
+                    <div class="calendar-days" id="calendar-days"></div>
+                    <div class="calendar-grid" id="calendar-grid"></div>
+                </div>
+                <div class="calendar-legend">
+                    Less <span class="legend-cell lvl-0"></span> <span class="legend-cell lvl-1"></span> <span
+                        class="legend-cell lvl-2"></span> <span class="legend-cell lvl-3"></span> <span
+                        class="legend-cell lvl-4"></span> More
+                </div>
+            </div>
+        </section>
+
+
+        <!-- Middle Row: Topic Cards and Flashcards -->
+        <div class="dashboard-grid" style="grid-template-columns: 2fr 1.2fr;">
+
+            <!-- Left Panel: Modern Tag Mastery Cards -->
+            <section class="db-section map-section" id="tag-mastery-section" data-aos="fade-right">
+                <div class="section-header-mini map-header" style="margin-bottom: 20px;">
+                    <h3>Topic Mastery</h3>
+                </div>
+
+                <div class="tag-cards-grid" id="tag-cards-grid">
+                    <!-- Cards dynamically injected here -->
+                </div>
+            </section>
+
+            <!-- Right Panel: Spaced Repetition Flashcards -->
+            <section class="db-section flashcard-section" data-aos="fade-left">
+                <div class="section-header-mini">
+                    <h3>Today's Review Session</h3>
+                    <span class="cards-remaining" id="cards-remaining">0 / 0</span>
+                </div>
+
+                <!-- Empty State -->
+                <div class="empty-state" id="flashcard-empty">
+                    <i class="fas fa-check-circle"
+                        style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i>
+                    <h4>You're all caught up!</h4>
+                    <p>No problems due for review today.</p>
+                    <button class="btn btn-primary" id="btn-study-more" style="margin-top: 15px;">Study 5 More</button>
+                </div>
+
+                <!-- Active Flashcard -->
+                <div class="flashcard-container hidden" id="flashcard-container">
+                    <div class="flashcard" id="flashcard">
+
+                        <!-- Front of Card: Title & Difficulty -->
+                        <div class="flashcard-face flashcard-front">
+                            <span class="card-difficulty" id="q-difficulty">Difficulty</span>
+                            <span class="card-freq" id="q-freq">Freq %</span>
+                            <h2 class="card-title" id="q-title">Problem Title</h2>
+                            <p class="click-hint">Click or press Space space to reveal</p>
+                        </div>
+
+                        <!-- Back of Card: Link, Topics & Confidence Input -->
+                        <div class="flashcard-face flashcard-back">
+                            <h4 class="card-title-sm" id="q-title-back">Problem Title</h4>
+
+                            <div class="card-meta">
+                                <a href="#" target="_blank" id="q-link" class="lc-link"><i
+                                        class="fas fa-external-link-alt"></i> Open on LeetCode</a>
+                            </div>
+
+                            <div class="card-tags">
+                                <h5>Primary Topics</h5>
+                                <div class="tag-wrap" id="q-topics"></div>
+
+                                <h5 style="margin-top: 15px;">Techniques & Subtopics</h5>
+                                <div class="tag-wrap" id="q-subtopics"></div>
+                            </div>
+
+                            <div class="confidence-selector">
+                                <p>How well did you know this?</p>
+                                <div class="confidence-buttons">
+                                    <button class="btn-conf btn-conf-again"
+                                        data-score="1">Hard<br><span>(Soon)</span></button>
+                                    <button class="btn-conf btn-conf-hard"
+                                        data-score="2">Medium<br><span>(Tomorrow)</span></button>
+                                    <button class="btn-conf btn-conf-good"
+                                        data-score="3">Good<br><span>(+3d)</span></button>
+                                    <button class="btn-conf btn-conf-easy"
+                                        data-score="4">Easy<br><span>(+7d)</span></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Split Pane Editor & Notes (Hidden initially) -->
+                <div class="editor-container hidden" id="editor-container">
+                    <div class="editor-header">
+                        <h4 id="editor-title">Problem Title</h4>
+                        <div class="editor-actions">
+                            <a href="#" target="_blank" id="editor-link" class="btn btn-outline btn-sm"><i
+                                    class="fas fa-external-link-alt"></i></a>
+                            <button class="btn btn-outline btn-sm" id="btn-toggle-notes"><i
+                                    class="fas fa-sticky-note"></i> Notes</button>
+                            <button class="btn btn-primary btn-sm" id="btn-mark-solved"><i class="fas fa-check"></i>
+                                Solved</button>
+                            <button class="btn btn-danger btn-sm" id="btn-mark-failed"
+                                style="background:var(--error); border-color:var(--error); color: white;"><i
+                                    class="fas fa-times"></i> Failed</button>
+                        </div>
+                    </div>
+
+                    <div class="split-pane">
+                        <div class="pane pane-code">
+                            <div id="ace-editor"># Write your Python 3 code here...
+                            </div>
+                        </div>
+                        <div class="pane pane-notes hidden" id="pane-notes">
+                            <textarea id="notes-area"
+                                placeholder="Write down subtopics, helper hints, or trick details here..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+        </div>
+
+        <!-- Problem Table Row -->
+        <section class="db-section table-section" data-aos="fade-up" style="margin-top: 1.5rem;">
+            <div class="section-header-mini"
+                style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <h3 id="table-title">All Problems</h3>
+                <div class="table-actions" style="display:flex; gap:10px; align-items:center;">
+                    <select id="filter-level"
+                        style="padding:6px; border-radius:4px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); outline:none;">
+                        <option value="">All Levels</option>
+                        <option value="Easy">Easy</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Hard">Hard</option>
+                    </select>
+                    <select id="filter-topic"
+                        style="padding:6px; border-radius:4px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); max-width: 150px; outline:none;">
+                        <option value="">All Topics</option>
+                        <!-- Injected via JS -->
+                    </select>
+                    <input type="text" id="table-search" placeholder="Search Title, ID, Tag..."
+                        style="padding:6px 12px; border-radius:4px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); width: 220px;">
+                    <button id="btn-add-problem" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add
+                        Question</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="problem-table" id="problem-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="id">ID <i class="fas fa-sort"></i></th>
+                            <th data-sort="title">Title <i class="fas fa-sort"></i></th>
+                            <th data-sort="difficulty">Difficulty <i class="fas fa-sort"></i></th>
+                            <th data-sort="frequency">Freq % <i class="fas fa-sort"></i></th>
+                            <th>Topics / Subtopics</th>
+                            <th data-sort="confidence">Confidence <i class="fas fa-sort"></i></th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Rows injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination-controls" id="pagination-controls">
+                <span id="page-info">Showing 0 to 0 of 0 entries</span>
+                <div style="display:flex; gap:10px;">
+                    <button id="btn-prev-page" class="btn btn-outline btn-sm">Previous</button>
+                    <button id="btn-next-page" class="btn btn-outline btn-sm">Next</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Insights Modal Overlay (Hidden initially) -->
+    <div id="insights-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <input type="text" id="modal-title-input" class="modal-input-title" placeholder="Problem Title">
+                <button id="close-modal" class="btn-micro"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-meta">
+                    <div class="meta-field">
+                        <label for="modal-diff-select">Difficulty</label>
+                        <select id="modal-diff-select">
+                            <option value="Easy">Easy</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Hard">Hard</option>
+                        </select>
+                    </div>
+                    <div class="meta-field">
+                        <label for="modal-freq-input">Frequency (%)</label>
+                        <input type="number" id="modal-freq-input" step="0.1" min="0" placeholder="0.0">
+                    </div>
+                    <div class="meta-field" style="flex:1; min-width: 200px;">
+                        <label for="modal-url-input">LeetCode URL</label>
+                        <input type="text" id="modal-url-input" placeholder="https://leetcode.com/...">
+                    </div>
+                </div>
+
+                <p id="modal-last-solved" style="font-size:0.85rem; color:var(--text-muted); margin-top:5px;">Last
+                    Solved: N/A</p>
+                <p id="modal-stats" style="font-size:0.85rem; color:var(--text-muted); margin-top:5px;">Confidence: 0%
+                    (0 Solved / 0 Attempted)</p>
+
+                <div class="modal-section" style="margin-top:24px;">
+                    <h4>Tags & Categories</h4>
+                    <div id="modal-tags" class="tag-wrap" style="margin-bottom:10px; min-height: 30px;"></div>
+                    <div class="add-tag-wrapper">
+                        <input type="text" id="new-tag-input" list="all-tags-datalist"
+                            placeholder="Select or enter a new tag...">
+                        <datalist id="all-tags-datalist"></datalist>
+                        <button id="btn-add-tag" class="btn btn-primary btn-sm">Add Tag</button>
+                    </div>
+                </div>
+
+                <div class="modal-section" style="margin-top:24px;">
+                    <h4>Helper Notes</h4>
+                    <textarea id="modal-notes"
+                        placeholder="Write down subtopics, helper hints, or trick details here..."></textarea>
+                </div>
+
+                <div style="margin-top:20px;text-align:right;">
+                    <button id="btn-save-insights" class="btn btn-primary btn-sm">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ace Editor -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/theme-dracula.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/mode-python.min.js"></script>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="practice.js"></script>
+</body>
+
+</html>

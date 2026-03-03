@@ -31,7 +31,7 @@ import asyncio
 import mongo_tool
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import Body
 
 
@@ -231,7 +231,303 @@ async def mongo_query_api():
 async def health():
     return {"status": "OK"}
 
+# --- Practice Dashboard API ---
+# --- Practice Dashboard API ---
 
+from pymongo import MongoClient
+
+# Use the same MongoDB connection used elsewhere or a dedicated one if set
+PRACTICE_MONGO_URI = os.getenv("MONGO_URI", "")
+PRACTICE_DB_NAME = os.getenv("MONGO_PRACTICE_DB_NAME", "practice_db")
+
+try:
+    practice_client = MongoClient(PRACTICE_MONGO_URI)
+    practice_db = practice_client[PRACTICE_DB_NAME]
+except Exception as e:
+    print(f"Failed to connect to practice DB: {e}")
+    practice_db = None
+
+@app.get("/api/dashboard_stats")
+async def get_dashboard_stats():
+    """Return calendar check-ins, streak, and tag card statistics."""
+    if practice_db is None:
+        return JSONResponse(status_code=500, content={"error": "Database connection failed"})
+        
+    metadata = practice_db.metadata.find_one({"_id": "global_metadata"}) or {}
+    
+    # Optional pipeline to dynamically calculate tag counts if we don't want to use aggregated counts
+    # But for now, we can just aggregate from the problems collection directly
+    pipeline = [
+        {"$project": {
+            "tags": {"$setUnion": [{"$ifNull": ["$customTags", []]}, {"$ifNull": ["$topics", []]}]},
+            "attempted": {"$ifNull": ["$attempted", 0]},
+            "solved": {"$ifNull": ["$solved", 0]}
+        }},
+        {"$unwind": {"path": "$tags", "preserveNullAndEmptyArrays": True}},
+        {"$group": {
+            "_id": {"$ifNull": ["$tags", "Untagged"]},
+            "total": {"$sum": 1},
+            "attempted": {"$sum": "$attempted"},
+            "solved": {"$sum": "$solved"}
+        }},
+        {"$sort": {"total": -1}},
+        {"$limit": 30} # top 30 tags
+    ]
+    
+    tag_stats = list(practice_db.problems.aggregate(pipeline))
+    formatted_tags = []
+    for t in tag_stats:
+        formatted_tags.append({
+            "name": t["_id"],
+            "total": t["total"],
+            "attempted": t["attempted"],
+            "solved": t["solved"]
+        })
+
+    # Return a structure matching the frontend needs
+    return {
+        "streak": metadata.get("streak", 0),
+        "checkIns": metadata.get("checkIns", {}),
+        "tagStats": formatted_tags
+    }
+
+from typing import Optional
+from fastapi import Query
+import math
+import random
+
+@app.get("/api/table")
+async def get_practice_table(
+    page: int = 1, 
+    limit: int = 50, 
+    sortCol: str = "frequency", 
+    sortAsc: bool = False,
+    search: str = "",
+    level: str = "",
+    topic: str = ""
+):
+    """Return paginated, sorted, and filtered table rows."""
+    if practice_db is None:
+        return JSONResponse(status_code=500, content={"error": "Database connection failed"})
+        
+    query = {}
+    
+    if level:
+        query["difficulty"] = level
+        
+    if topic:
+        query["$or"] = [
+            {"customTags": topic},
+            {"topics": topic}
+        ]
+        
+    if search:
+        search_lower = search.lower()
+        # MongoDB text search or regex. Simple regex for now matching old frontend logic
+        query["$or"] = [
+            {"title": {"$regex": search_lower, "$options": "i"}},
+            {"customTags": {"$regex": search_lower, "$options": "i"}},
+            {"topics": {"$regex": search_lower, "$options": "i"}},
+            {"_id": {"$regex": search_lower, "$options": "i"}},
+            {"difficulty": {"$regex": search_lower, "$options": "i"}}
+        ]
+
+    # Map frontend sort column to DB field
+    sort_field = sortCol
+    # Confidence is computed, we can't easily natively sort by it, so if requested we have to fetch all and sort
+    if sortCol == "confidence":
+        cursor = practice_db.problems.find(query)
+        items = list(cursor)
+        def sort_conf(a, b):
+            valA = -1 if a.get("attempted", 0) == 0 else a.get("solved", 0) / a.get("attempted", 1)
+            valB = -1 if b.get("attempted", 0) == 0 else b.get("solved", 0) / b.get("attempted", 1)
+            if valA < valB: return -1
+            if valA > valB: return 1
+            return 0
+        import functools
+        items.sort(key=functools.cmp_to_key(sort_conf), reverse=not sortAsc)
+        total_items = len(items)
+        paginated_items = items[(page-1)*limit : page*limit]
+    else:
+        direction = 1 if sortAsc else -1
+        if sort_field == "id":
+             sort_field = "_id" # might fail if IDs are strings and not properly padded, but fits legacy logic
+             
+        cursor = practice_db.problems.find(query).sort(sort_field, direction)
+        total_items = practice_db.problems.count_documents(query)
+        paginated_items = list(cursor.skip((page - 1) * limit).limit(limit))
+
+    return {
+        "items": paginated_items,
+        "total": total_items,
+        "page": page,
+        "totalPages": math.ceil(total_items / limit) if limit else 1
+    }
+
+import time
+@app.get("/api/daily_queue")
+async def get_daily_queue():
+    """Compute and return the daily queue of flashcards."""
+    if practice_db is None:
+         return []
+         
+    # Fetch all, score in python because logic includes math.random + date math
+    # Optional: could push closer to db, but since collection is small (<2000), python is fine
+    problems = list(practice_db.problems.find())
+    
+    solved_pool = [p for p in problems if p.get("solved", 0) > 0]
+    new_pool = [p for p in problems if p.get("solved", 0) == 0]
+    
+    def score_problem(p):
+        score = p.get("frequency", 0) * 2
+        ratio = 0
+        if p.get("attempted", 0) > 0:
+            ratio = p.get("solved", 0) / p.get("attempted", 1)
+        score += (1 - ratio) * 100
+        
+        now = time.time() * 1000
+        next_review = p.get("nextReview") or 0
+        if now >= next_review:
+             score += 50
+        return score + (random.random() * 10)
+        
+    solved_pool.sort(key=score_problem, reverse=True)
+    new_pool.sort(key=score_problem, reverse=True)
+    
+    top_solved = solved_pool[:10]
+    random.shuffle(top_solved)
+    
+    top_new = new_pool[:10]
+    random.shuffle(top_new)
+    
+    selected_solved = top_solved[:3]
+    selected_new = top_new[:5 - len(selected_solved)]
+    
+    unselected_solved = [p for p in top_solved if p not in selected_solved]
+    while (len(selected_solved) + len(selected_new)) < 5 and unselected_solved:
+        selected_solved.append(unselected_solved.pop(0))
+        
+    daily_queue = selected_solved + selected_new
+    random.shuffle(daily_queue)
+    
+    return daily_queue
+
+from pydantic import BaseModel
+from typing import List, Dict, Any
+
+class AttemptPayload(BaseModel):
+    problem_id: str
+    solved: bool
+    code: str
+    notes: str
+
+@app.post("/api/flashcard/submit")
+async def submit_flashcard_attempt(payload: AttemptPayload):
+    """Handle attempt submission, update item stats and global streak."""
+    if practice_db is None:
+        return JSONResponse(status_code=500, content={"error": "Database connection failed"})
+        
+    p = practice_db.problems.find_one({"_id": payload.problem_id})
+    if not p:
+         return JSONResponse(status_code=404, content={"error": "Problem not found"})
+         
+    updates = {
+        "$inc": {"attempted": 1},
+        "$set": {"code": payload.code, "notes": payload.notes}
+    }
+    
+    ONE_DAY = 24 * 60 * 60 * 1000
+    now_ms = time.time() * 1000
+    
+    attempted = p.get("attempted", 0) + 1
+    solved_count = p.get("solved", 0)
+    
+    if payload.solved:
+        solved_count += 1
+        updates["$inc"]["solved"] = 1
+        updates["$set"]["lastSolved"] = datetime.utcnow().isoformat() + "Z"
+        
+        ratio = solved_count / attempted
+        next_review = now_ms + (ONE_DAY * 7) if ratio > 0.8 else now_ms + (ONE_DAY * 3)
+    else:
+        next_review = now_ms + ONE_DAY
+        
+    updates["$set"]["nextReview"] = next_review
+    
+    practice_db.problems.update_one({"_id": payload.problem_id}, updates)
+    
+    # Update global check-ins
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    yesterday = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    metadata = practice_db.metadata.find_one({"_id": "global_metadata"}) or {}
+    check_ins = metadata.get("checkIns", {})
+    
+    current_today = check_ins.get(today, 0)
+    check_ins[today] = current_today + 1
+    
+    streak = metadata.get("streak", 0)
+    if current_today == 0:
+        if check_ins.get(yesterday):
+            streak += 1
+        else:
+            streak = 1
+            
+    practice_db.metadata.update_one(
+        {"_id": "global_metadata"}, 
+        {"$set": {"checkIns": check_ins, "streak": streak}},
+        upsert=True
+    )
+    
+    return {"success": True}
+
+class EditPayload(BaseModel):
+    title: str
+    url: str
+    difficulty: str
+    frequency: float
+    notes: str
+    customTags: List[str]
+    topics: Optional[List[str]] = None
+    techniques: Optional[List[str]] = None
+
+@app.put("/api/problem/{id}")
+async def update_problem(id: str, payload: EditPayload):
+    if practice_db is None:
+        return JSONResponse(status_code=500, content={"error": "Database connection failed"})
+        
+    updates = {
+        "title": payload.title,
+        "url": payload.url,
+        "difficulty": payload.difficulty,
+        "frequency": payload.frequency,
+        "notes": payload.notes,
+        "customTags": payload.customTags
+    }
+    
+    if payload.topics is not None:
+         updates["topics"] = payload.topics
+    if payload.techniques is not None:
+         updates["techniques"] = payload.techniques
+         
+    res = practice_db.problems.update_one(
+         {"_id": id}, 
+         {"$set": updates},
+         upsert=True # Allow creating new problem from insights modal
+    )
+    
+    return {"success": True}
+
+@app.get("/api/problem/{id}")
+async def get_problem(id: str):
+    if practice_db is None:
+         return JSONResponse(status_code=500, content={"error": "Database connection failed"})
+    p = practice_db.problems.find_one({"_id": id})
+    if p:
+         return p
+    return {"error": "Not Found"}
+
+# ----------------------------
 
 @app.get("/")
 async def root():
