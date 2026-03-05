@@ -21,6 +21,11 @@ My core interests include:
 
 This portfolio is a **living record of my work, experiments, and learning**.
 
+Datadog Integration
+
+<img width="2394" height="1180" alt="image" src="https://github.com/user-attachments/assets/a246a8cc-58c2-4817-a469-28eff7366cef" />
+
+
 ---
 
 ## 🧩 What’s Inside
