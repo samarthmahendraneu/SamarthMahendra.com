@@ -445,12 +445,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Shuffle logos to pick unique ones
         const shuffledLogos = logos.sort(() => 0.5 - Math.random());
-        const logoCount = Math.min(shuffledLogos.length, 30);
+        // Pick fewer logos on mobile for performance
+        const isMobile = window.innerWidth < 768;
+        const logoLimit = isMobile ? 15 : 30;
+        const logoCount = Math.min(shuffledLogos.length, logoLimit);
 
         for (let i = 0; i < logoCount; i++) {
             const logo = shuffledLogos[i];
             const el = document.createElement('img');
             el.src = `https://cdn.simpleicons.org/${logo}`;
+            el.loading = 'lazy';
             el.className = 'floating-logo-item';
             
             // Random position

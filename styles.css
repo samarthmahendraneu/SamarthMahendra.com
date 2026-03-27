@@ -3393,6 +3393,7 @@ footer {
     filter: grayscale(1);
     transition: opacity 0.5s ease;
     animation: drift-logo linear infinite alternate;
+    will-change: transform, opacity;
 }
 
 @keyframes drift-logo {
