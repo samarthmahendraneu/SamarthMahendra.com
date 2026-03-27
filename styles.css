@@ -2376,26 +2376,41 @@ footer {
     position: fixed;
     bottom: 28px;
     right: 28px;
-    width: 56px;
-    height: 56px;
     background: var(--accent-primary);
-    border-radius: 50%;
+    border-radius: 50px;
     border: none;
     color: white;
-    font-size: 1.4rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    font-family: var(--font-body);
     cursor: pointer;
-    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35);
+    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4);
     transition: var(--transition);
     z-index: 1000;
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 8px;
+    padding: 13px 20px;
+    animation: chatPulse 2.8s ease-in-out infinite;
+}
+
+.chatbot-toggle-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
 }
 
 .chatbot-toggle:hover {
-    transform: scale(1.08);
+    transform: translateY(-3px) scale(1.04);
     background: #4338CA;
-    box-shadow: 0 6px 28px rgba(79, 70, 229, 0.45);
+    box-shadow: 0 8px 28px rgba(79, 70, 229, 0.55);
+    animation: none;
+}
+
+@keyframes chatPulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4); }
+    50%       { box-shadow: 0 4px 28px rgba(79, 70, 229, 0.7), 0 0 0 6px rgba(79, 70, 229, 0.12); }
 }
 
 .chatbot-container {
