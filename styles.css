@@ -179,19 +179,6 @@ img {
 /* ============================================================
    BACKGROUND — minimal, clean
    ============================================================ */
-.bg-gradient {
-    display: none;
-    /* Not needed on light theme */
-}
-
-.bg-grid {
-    display: none;
-}
-
-#particles-js {
-    display: none;
-}
-
 /* Base sections z-index */
 .section {
     position: relative;
@@ -499,6 +486,7 @@ img {
 
 .hero-portrait {
     width: 100%;
+    height: auto;
     border-radius: 24px;
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14), 0 4px 16px rgba(0, 0, 0, 0.06);
     transform: rotate(-2deg);
@@ -1827,11 +1815,11 @@ img {
 
 @keyframes scroll-marquee {
     0% {
-        transform: translateX(0);
+        transform: translate3d(0, 0, 0);
     }
 
     100% {
-        transform: translateX(-50%);
+        transform: translate3d(-50%, 0, 0);
     }
 }
 
@@ -3398,11 +3386,11 @@ footer {
 
 @keyframes drift-logo {
     from {
-        transform: translate(0, 0) rotate(0deg);
+        transform: translate3d(0, 0, 0) rotate(0deg);
     }
 
     to {
-        transform: translate(var(--drift-x), var(--drift-y)) rotate(var(--drift-rotate));
+        transform: translate3d(var(--drift-x), var(--drift-y), 0) rotate(var(--drift-rotate));
     }
 }
 /* ============================================================
