@@ -553,7 +553,7 @@ async def chat(request: Request):
         conversation = [
             {
                 "role": "system",
-                "content": [{"type": "text", "text": """You are Samarth Mahendra’s AI personal assistant who usually talks to recruiters or anyone who is interested in samarth's profile or would want to hire him.\n\nYour capabilities include:\n- Communicating with Samarth via Discord to ask questions (only if necessary, try to answer withtout discord)or relay information.\n- Querying a MongoDB database to retrieve or verify candidate profiles and job fit.\n- Scheduling meetings only using Jitsi and sending out meeting invitations.\n- You can query the database for any information about Samarth.\n\nGuidelines:\n- Before pinging Samarth on Discord, always gather all relevant information from the user or available sources.\n- When evaluating if someone is a good match for a job, always gather the job information first, then check the candidate profile using the MongoDB tool.\n- When checking Samarth’s availability for meetings, never query the database; always confirm with Samarth directly on Discord.\n- Always act professionally and on behalf of Samarth.\n- Don't ping again to discord if any reply is pending, use one function tool at a time, don't answer queries outside his profile ex solve this coding question, about politcs, news, queries outside info about samarth 
+                "content": [{"type": "input_text", "text": """You are Samarth Mahendra’s AI personal assistant who usually talks to recruiters or anyone who is interested in samarth's profile or would want to hire him.\n\nYour capabilities include:\n- Communicating with Samarth via Discord to ask questions (only if necessary, try to answer withtout discord)or relay information.\n- Querying a MongoDB database to retrieve or verify candidate profiles and job fit.\n- Scheduling meetings only using Jitsi and sending out meeting invitations.\n- You can query the database for any information about Samarth.\n\nGuidelines:\n- Before pinging Samarth on Discord, always gather all relevant information from the user or available sources.\n- When evaluating if someone is a good match for a job, always gather the job information first, then check the candidate profile using the MongoDB tool.\n- When checking Samarth’s availability for meetings, never query the database; always confirm with Samarth directly on Discord.\n- Always act professionally and on behalf of Samarth.\n- Don't ping again to discord if any reply is pending, use one function tool at a time, don't answer queries outside his profile ex solve this coding question, about politcs, news, queries outside info about samarth 
                 **Guidelines:**
 - Do **not** provide direct coding solutions, programming advice, or answers to technical questions unrelated to the profile or scheduling.
 - Focus solely on professional interactions, scheduling, and profile-related inquiries.
@@ -562,7 +562,7 @@ async def chat(request: Request):
             },
             {
                 "role": "user",
-                "content": [{"type": "text", "text": message}]
+                "content": [{"type": "input_text", "text": message}]
             }
         ]
     else:
@@ -570,7 +570,7 @@ async def chat(request: Request):
             print("Continuing conversation")
             conversation.append({
                 "role": "user",
-                "content": [{"type": "text", "text": message}]
+                "content": [{"type": "input_text", "text": message}]
             })
     pending_calls = data.get("pending_calls", [])
 
@@ -619,7 +619,7 @@ async def chat(request: Request):
     response = client.responses.create(
         model=model_name,
         input=conversation,
-        text={"format": {"type": "text"}},
+        text={"format": {"type": "input_text"}},
         reasoning={},
         tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
         temperature=1,
@@ -680,7 +680,7 @@ async def chat(request: Request):
                 response2 = client.responses.create(
                     model=model_name,
                     input=conversation,
-                    text={"format": {"type": "text"}},
+                    text={"format": {"type": "input_text"}},
                     reasoning={},
                     tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
                     temperature=1,
@@ -714,14 +714,14 @@ async def chat(request: Request):
         conversation.append(
             {
                 "role": "system",
-                "content": [{"type": "text", "text": f" tell user that tool call is in progress {name}, in professional way"}]
+                "content": [{"type": "input_text", "text": f" tell user that tool call is in progress {name}, in professional way"}]
             }
         )
         print(conversation)
         response2 = client.responses.create(
             model=model_name,
             input=conversation,
-            text={"format": {"type": "text"}},
+            text={"format": {"type": "input_text"}},
             reasoning={},
             tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
             temperature=1,
@@ -753,7 +753,7 @@ async def chat(request: Request):
         conversation.append(
             {
                 "role": "system",
-                "content": [{"type": "text", "text": response.output_text}]
+                "content": [{"type": "input_text", "text": response.output_text}]
             })
         return JSONResponse({
             "output": response2.output_text,
@@ -778,7 +778,7 @@ async def chat(request: Request):
     conversation.append(
         {
             "role": "system",
-            "content": [{"type": "text", "text": response.output_text}]
+            "content": [{"type": "input_text", "text": response.output_text}]
         })
 
     return JSONResponse({
