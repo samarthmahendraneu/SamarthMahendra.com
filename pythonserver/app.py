@@ -43,7 +43,7 @@ api_key = os.getenv("OPENAI_API_KEY", '')
 
 
 # models : gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
-model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-4.1-nano")
+model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-5.4-nano")
 
 client = OpenAI(api_key=api_key)
 
@@ -619,7 +619,7 @@ async def chat(request: Request):
     response = client.responses.create(
         model=model_name,
         input=conversation,
-        text={"format": {"type": "input_text"}},
+        text={"format": {"type": "text"}},
         reasoning={},
         tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
         temperature=1,
@@ -680,7 +680,7 @@ async def chat(request: Request):
                 response2 = client.responses.create(
                     model=model_name,
                     input=conversation,
-                    text={"format": {"type": "input_text"}},
+                    text={"format": {"type": "text"}},
                     reasoning={},
                     tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
                     temperature=1,
@@ -721,7 +721,7 @@ async def chat(request: Request):
         response2 = client.responses.create(
             model=model_name,
             input=conversation,
-            text={"format": {"type": "input_text"}},
+            text={"format": {"type": "text"}},
             reasoning={},
             tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
             temperature=1,
