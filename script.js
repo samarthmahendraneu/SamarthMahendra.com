@@ -428,6 +428,60 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // --- Floating Logos (TrueUp Style) ---
+    function initFloatingLogos() {
+        const container = document.getElementById('floating-logos');
+        if (!container) return;
+
+        const logos = [
+            'python', 'openjdk', 'cplusplus', 'rust', 'typescript', 'django', 
+            'nodedotjs', 'fastapi', 'redis', 'apachekafka', 'postgresql', 
+            'mongodb', 'elasticsearch', 'openai', 'amazonwebservices', 
+            'docker', 'kubernetes', 'react', 'nextdotjs', 'tailwind-css',
+            'googlegpu', 'pytorch', 'tensorflow', 'scikitlearn', 'pandas', 'numpy',
+            'celery', 'graphql', 'pytest', 'junit5', 'prometheus', 'puppeteer', 
+            'twilio', 'terraform', 'githubactions', 'opentelemetry', 'istio', 'jenkins'
+        ];
+
+        // Shuffle logos to pick unique ones
+        const shuffledLogos = logos.sort(() => 0.5 - Math.random());
+        const logoCount = Math.min(shuffledLogos.length, 30);
+
+        for (let i = 0; i < logoCount; i++) {
+            const logo = shuffledLogos[i];
+            const el = document.createElement('img');
+            el.src = `https://cdn.simpleicons.org/${logo}`;
+            el.className = 'floating-logo-item';
+            
+            // Random position
+            const x = Math.random() * 100;
+            const y = Math.random() * 100;
+            const size = 45; // 45px uniform size
+            
+            el.style.left = `${x}%`;
+            el.style.top = `${y}%`;
+            el.style.width = `${size}px`;
+            el.style.height = `${size}px`;
+            
+            // Increased drift variables for better movement
+            const driftX = (Math.random() - 0.5) * 400; // Even more range
+            const driftY = (Math.random() - 0.5) * 400; // Even more range
+            const driftRotate = (Math.random() - 0.5) * 360; // Potential full spin
+            const duration = 8 + Math.random() * 12; // Much faster (8s to 20s)
+            const delay = -Math.random() * duration;
+            
+            el.style.setProperty('--drift-x', `${driftX}px`);
+            el.style.setProperty('--drift-y', `${driftY}px`);
+            el.style.setProperty('--drift-rotate', `${driftRotate}deg`);
+            el.style.animationDuration = `${duration}s`;
+            el.style.animationDelay = `${delay}s`;
+            
+            container.appendChild(el);
+        }
+    }
+
+    initFloatingLogos();
+
     // --- Magnetic Buttons - ENHANCED ---
     const magneticElements = document.querySelectorAll('.magnetic-btn, .magnetic-link, .btn');
     magneticElements.forEach(el => {
@@ -459,6 +513,16 @@ document.addEventListener('DOMContentLoaded', function () {
         const progressBar = document.getElementById('scroll-progress');
         if (progressBar) {
             progressBar.style.width = `${scrolled}%`;
+        }
+
+        // Sticky Navbar Toggle
+        const navbar = document.querySelector('.navbar');
+        if (navbar) {
+            if (scrollTop > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
         }
     });
 
