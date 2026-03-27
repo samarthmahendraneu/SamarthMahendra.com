@@ -142,7 +142,9 @@ img {
 }
 
 .section.alt-bg {
-    background: transparent;
+    background: #FFFFFF;
+    position: relative;
+    z-index: 1;
 }
 
 .section-header {
@@ -246,9 +248,6 @@ img {
     border-radius: 99px;
 }
 
-.navbar.scrolled .logo {
-    display: none;
-}
 
 .navbar.scrolled .nav-links {
     gap: 16px;
@@ -273,13 +272,6 @@ img {
     align-items: center;
 }
 
-.logo {
-    font-family: var(--font-heading);
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
-}
 
 .nav-links {
     display: flex;
@@ -584,16 +576,19 @@ img {
 }
 
 /* ── Journey Ribbon ── */
+.hero-bottom-ground {
+    background: #FFFFFF;
+    position: relative;
+    z-index: 10;
+    margin-top: 60px;
+    padding: 0 40px;
+}
+
 .hero-journey {
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    padding: 24px;
-    background: rgba(255, 255, 255, 0.4);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 24px;
-    margin-top: 20px;
+    padding: 24px 0;
     overflow-x: auto;
     scrollbar-width: none;
 }
@@ -637,12 +632,7 @@ img {
 .hero-prose-stats {
     display: flex;
     align-items: stretch;
-    padding: 32px;
-    background: rgba(255, 255, 255, 0.4);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 24px;
-    margin-top: 20px;
+    padding: 40px 0 60px;
     gap: 0;
 }
 
@@ -1758,11 +1748,6 @@ img {
 .about-text {
     max-width: 840px;
     margin: 0 auto;
-    background: rgba(255, 255, 255, 0.4);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    padding: 32px;
-    border-radius: 24px;
 }
 
 .about-text p {
@@ -3418,4 +3403,16 @@ footer {
     to {
         transform: translate(var(--drift-x), var(--drift-y)) rotate(var(--drift-rotate));
     }
+}
+/* ============================================================
+   SECTION BACKGROUND OVERRIDES (ITERATIVE REFINEMENT)
+   ============================================================ */
+#about {
+    background-color: #FFFFFF !important;
+    position: relative;
+    z-index: 1;
+}
+
+#skills, #experience {
+    background-color: transparent !important;
 }
