@@ -428,7 +428,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // --- Floating Logos (TrueUp Style) ---
+    // --- Floating Logos (Physics Based) ---
     function initFloatingLogos() {
         const container = document.getElementById('floating-logos');
         if (!container) return;
@@ -450,6 +450,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const logoLimit = isMobile ? 15 : 30;
         const logoCount = Math.min(shuffledLogos.length, logoLimit);
 
+        const particles = [];
+        const size = 45;
+        const radius = size / 2;
+
         for (let i = 0; i < logoCount; i++) {
             const logo = shuffledLogos[i];
             const el = document.createElement('img');
@@ -457,31 +461,107 @@ document.addEventListener('DOMContentLoaded', function () {
             el.loading = 'lazy';
             el.className = 'floating-logo-item';
             
-            // Random position
-            const x = Math.random() * 100;
-            const y = Math.random() * 100;
-            const size = 45; // 45px uniform size
-            
-            el.style.left = `${x}%`;
-            el.style.top = `${y}%`;
+            // Disable original CSS animation to manage via JS
+            el.style.animation = 'none';
+            el.style.position = 'absolute';
             el.style.width = `${size}px`;
             el.style.height = `${size}px`;
-            
-            // Increased drift variables for better movement
-            const driftX = (Math.random() - 0.5) * 400; // Even more range
-            const driftY = (Math.random() - 0.5) * 400; // Even more range
-            const driftRotate = (Math.random() - 0.5) * 360; // Potential full spin
-            const duration = 8 + Math.random() * 12; // Much faster (8s to 20s)
-            const delay = -Math.random() * duration;
-            
-            el.style.setProperty('--drift-x', `${driftX}px`);
-            el.style.setProperty('--drift-y', `${driftY}px`);
-            el.style.setProperty('--drift-rotate', `${driftRotate}deg`);
-            el.style.animationDuration = `${duration}s`;
-            el.style.animationDelay = `${delay}s`;
-            
+            el.style.left = '0px';
+            el.style.top = '0px';
+
             container.appendChild(el);
+
+            particles.push({
+                el: el,
+                x: Math.random() * (window.innerWidth - size),
+                y: Math.random() * (window.innerHeight - size),
+                vx: (Math.random() < 0.5 ? -1 : 1) * (0.4 + Math.random() * 0.4),
+                vy: (Math.random() < 0.5 ? -1 : 1) * (0.4 + Math.random() * 0.4),
+                radius: radius,
+                mass: 1
+            });
         }
+
+        function update() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            // Move and check wall collisions
+            for (let i = 0; i < logoCount; i++) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x <= 0) {
+                    p.x = 0;
+                    p.vx *= -1;
+                } else if (p.x + size >= width) {
+                    p.x = width - size;
+                    p.vx *= -1;
+                }
+
+                if (p.y <= 0) {
+                    p.y = 0;
+                    p.vy *= -1;
+                } else if (p.y + size >= height) {
+                    p.y = height - size;
+                    p.vy *= -1;
+                }
+            }
+
+            // Check particle collisions
+            for (let i = 0; i < logoCount; i++) {
+                for (let j = i + 1; j < logoCount; j++) {
+                    let p1 = particles[i];
+                    let p2 = particles[j];
+
+                    let c1x = p1.x + p1.radius;
+                    let c1y = p1.y + p1.radius;
+                    let c2x = p2.x + p2.radius;
+                    let c2y = p2.y + p2.radius;
+
+                    let dx = c1x - c2x;
+                    let dy = c1y - c2y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    let minDistance = p1.radius + p2.radius + 10; // Extra buffer so no bounding box overlap
+
+                    if (distance < minDistance) {
+                        let overlap = minDistance - distance;
+                        if (distance === 0) { dx = 1; dy = 0; distance = 1; }
+                        let nx = dx / distance;
+                        let ny = dy / distance;
+
+                        p1.x += (nx * overlap) / 2;
+                        p1.y += (ny * overlap) / 2;
+                        p2.x -= (nx * overlap) / 2;
+                        p2.y -= (ny * overlap) / 2;
+
+                        let relativeVelocityX = p1.vx - p2.vx;
+                        let relativeVelocityY = p1.vy - p2.vy;
+                        
+                        let speed = relativeVelocityX * nx + relativeVelocityY * ny;
+
+                        if (speed < 0) {
+                            let impulse = 2 * speed / (p1.mass + p2.mass);
+                            p1.vx -= impulse * p2.mass * nx;
+                            p1.vy -= impulse * p2.mass * ny;
+                            p2.vx += impulse * p1.mass * nx;
+                            p2.vy += impulse * p1.mass * ny;
+                        }
+                    }
+                }
+            }
+
+            // Apply transformations
+            for (let i = 0; i < logoCount; i++) {
+                let p = particles[i];
+                p.el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        requestAnimationFrame(update);
     }
 
     initFloatingLogos();
