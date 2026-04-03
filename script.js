@@ -475,8 +475,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 el: el,
                 x: Math.random() * (window.innerWidth - size),
                 y: Math.random() * (window.innerHeight - size),
-                vx: (Math.random() < 0.5 ? -1 : 1) * (0.2 + Math.random() * 0.2),
-                vy: (Math.random() < 0.5 ? -1 : 1) * (0.2 + Math.random() * 0.2),
+                vx: (Math.random() < 0.5 ? -1 : 1) * (0.06 + Math.random() * 0.06),
+                vy: (Math.random() < 0.5 ? -1 : 1) * (0.06 + Math.random() * 0.06),
                 radius: radius,
                 mass: 1
             });

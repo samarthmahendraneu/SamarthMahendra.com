@@ -3402,6 +3402,6 @@ footer {
     z-index: 1;
 }
 
-#skills, #experience {
+#skills {
     background-color: transparent !important;
 }
