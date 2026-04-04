@@ -922,8 +922,8 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchGitHubStats();
 
     // --- 3D Tilt Effect & Glare ---
-    // Applying to Bento items, Project cards, and Timeline content
-    const cards = document.querySelectorAll('.bento-item, .project-card, .timeline-content');
+    // Applying to Bento items and Timeline content
+    const cards = document.querySelectorAll('.bento-item, .timeline-content');
 
     cards.forEach(card => {
         // Create Glare Element
