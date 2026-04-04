@@ -6,6 +6,7 @@ It showcases my work across **backend systems, distributed systems, databases, a
 🌐 **Live Site:** https://samarthmahendra.com  
 💼 **LinkedIn:** https://www.linkedin.com/in/samarth-mahendra-7aab5a114/
 
+## Google Search Index -> Performance stats
 
 <img width="1986" height="1228" alt="image" src="https://github.com/user-attachments/assets/9a77ecd2-2b1f-41b3-8bb3-290a04fddf25" />
 
