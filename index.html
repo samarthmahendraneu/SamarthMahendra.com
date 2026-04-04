@@ -1051,7 +1051,9 @@
                         </div>
                         <div class="project-showcase-media">
                             <div class="project-media-frame">
-                                <img src="assets/realtime-voiceagent.png" alt="Real-Time AI preview" loading="lazy">
+                                <img src="assets/realtime-voiceagent.png" data-light-src="assets/realtime-voiceagent.png"
+                                    data-dark-src="assets/realtime-voiceagent-dark.png" alt="Real-Time AI preview"
+                                    loading="lazy">
                             </div>
                             <div class="project-media-stack">
                                 <div class="project-surface-card">
@@ -1146,9 +1148,28 @@
                         <span class="stacked-section-label">Type Lab</span>
                         <h2 class="type-lab-title">Switch the site’s voice.</h2>
                         <p class="type-lab-body">Three font directions that all fit the layout, but each sends a slightly different signal about how you work and what kind of teams you belong on.</p>
-                        <div class="type-lab-live">
-                            <span class="type-lab-live-label">Active direction</span>
-                            <strong id="font-preset-label">Editorial</strong>
+                        <div class="type-lab-controls">
+                            <div class="type-lab-live">
+                                <span class="type-lab-live-label">Active direction</span>
+                                <strong id="font-preset-label">Editorial</strong>
+                            </div>
+
+                            <div class="theme-lab-live">
+                                <div class="theme-lab-head">
+                                    <span class="type-lab-live-label">Color mode</span>
+                                    <strong id="theme-preset-label">Light</strong>
+                                </div>
+                                <div class="theme-toggle" role="radiogroup" aria-label="Site color mode">
+                                    <button class="theme-choice is-active" type="button" data-theme-choice="light" data-theme-label="Light" aria-pressed="true">
+                                        <i class="fas fa-sun"></i>
+                                        <span>Light</span>
+                                    </button>
+                                    <button class="theme-choice" type="button" data-theme-choice="dark" data-theme-label="Dark" aria-pressed="false">
+                                        <i class="fas fa-moon"></i>
+                                        <span>Dark</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

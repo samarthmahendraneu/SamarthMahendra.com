@@ -103,6 +103,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const fontPresetButtons = Array.from(document.querySelectorAll('[data-font-choice]'));
     const fontPresetLabel = document.getElementById('font-preset-label');
     const fontPresetStorageKey = 'portfolio-font-preset';
+    const themePresetButtons = Array.from(document.querySelectorAll('[data-theme-choice]'));
+    const themePresetLabel = document.getElementById('theme-preset-label');
+    const themePresetStorageKey = 'portfolio-theme-preset';
+    const themeAwareImages = Array.from(document.querySelectorAll('[data-light-src][data-dark-src]'));
 
     function applyFontPreset(preset) {
         const selectedPreset = preset || 'editorial';
@@ -128,6 +132,40 @@ document.addEventListener('DOMContentLoaded', function () {
             const nextPreset = button.dataset.fontChoice;
             applyFontPreset(nextPreset);
             localStorage.setItem(fontPresetStorageKey, nextPreset);
+        });
+    });
+
+    function applyThemePreset(theme) {
+        const selectedTheme = theme || 'light';
+        document.body.dataset.theme = selectedTheme;
+
+        themeAwareImages.forEach(image => {
+            const nextSrc = selectedTheme === 'dark' ? image.dataset.darkSrc : image.dataset.lightSrc;
+            if (nextSrc && image.getAttribute('src') !== nextSrc) {
+                image.setAttribute('src', nextSrc);
+            }
+        });
+
+        themePresetButtons.forEach(button => {
+            const isActive = button.dataset.themeChoice === selectedTheme;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        const activeButton = themePresetButtons.find(button => button.dataset.themeChoice === selectedTheme);
+        if (themePresetLabel && activeButton) {
+            themePresetLabel.textContent = activeButton.dataset.themeLabel || selectedTheme;
+        }
+    }
+
+    const savedThemePreset = localStorage.getItem(themePresetStorageKey);
+    applyThemePreset(savedThemePreset || 'light');
+
+    themePresetButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const nextTheme = button.dataset.themeChoice;
+            applyThemePreset(nextTheme);
+            localStorage.setItem(themePresetStorageKey, nextTheme);
         });
     });
 
