@@ -1,6 +1,90 @@
 document.addEventListener('DOMContentLoaded', function () {
     // Clean white theme — no zoom applied
 
+    const marqueeTracks = document.querySelectorAll('.marquee-multi-track');
+
+    function updateMarqueeMetrics() {
+        marqueeTracks.forEach(track => {
+            const logos = Array.from(track.querySelectorAll('.mq-logo'));
+            const duplicateStartIndex = Math.floor(logos.length / 2);
+
+            if (duplicateStartIndex <= 0 || duplicateStartIndex >= logos.length) return;
+
+            const firstLogo = logos[0];
+            const duplicateStartLogo = logos[duplicateStartIndex];
+            const shift = duplicateStartLogo.offsetLeft - firstLogo.offsetLeft;
+
+            if (shift > 0) {
+                track.style.setProperty('--marquee-shift', `${shift}px`);
+            }
+        });
+    }
+
+    const marqueeLogos = document.querySelectorAll('.mq-logo');
+    const marqueeTooltip = document.createElement('div');
+    marqueeTooltip.className = 'marquee-tooltip';
+    document.body.appendChild(marqueeTooltip);
+
+    function positionMarqueeTooltip(event, logo) {
+        const tooltipOffset = 16;
+        const logoRect = logo.getBoundingClientRect();
+        const anchorX = event ? event.clientX : logoRect.left + (logoRect.width / 2);
+        const anchorY = event ? event.clientY : logoRect.top;
+
+        marqueeTooltip.style.left = `${anchorX}px`;
+        marqueeTooltip.style.top = `${anchorY - tooltipOffset}px`;
+
+        const tooltipRect = marqueeTooltip.getBoundingClientRect();
+        const minX = tooltipRect.width / 2 + 12;
+        const maxX = window.innerWidth - (tooltipRect.width / 2) - 12;
+        const clampedX = Math.min(Math.max(anchorX, minX), maxX);
+        const showBelow = (anchorY - tooltipRect.height - tooltipOffset) < 12;
+
+        marqueeTooltip.style.left = `${clampedX}px`;
+        marqueeTooltip.style.top = showBelow
+            ? `${logoRect.bottom + tooltipOffset}px`
+            : `${logoRect.top - tooltipOffset}px`;
+        marqueeTooltip.classList.toggle('below', showBelow);
+    }
+
+    marqueeLogos.forEach(logo => {
+        const label = logo.getAttribute('alt');
+        if (!label) return;
+
+        logo.setAttribute('aria-label', label);
+        logo.setAttribute('tabindex', '0');
+
+        const showTooltip = (event) => {
+            marqueeTooltip.textContent = label;
+            marqueeTooltip.classList.add('visible');
+            positionMarqueeTooltip(event, logo);
+        };
+
+        logo.addEventListener('mouseenter', showTooltip);
+        logo.addEventListener('mousemove', (event) => {
+            if (!marqueeTooltip.classList.contains('visible')) return;
+            positionMarqueeTooltip(event, logo);
+        });
+        logo.addEventListener('mouseleave', () => marqueeTooltip.classList.remove('visible', 'below'));
+        logo.addEventListener('focus', () => showTooltip());
+        logo.addEventListener('blur', () => marqueeTooltip.classList.remove('visible', 'below'));
+    });
+
+    updateMarqueeMetrics();
+    window.addEventListener('load', updateMarqueeMetrics);
+
+    let marqueeResizeFrame = null;
+    window.addEventListener('resize', () => {
+        if (marqueeResizeFrame) {
+            cancelAnimationFrame(marqueeResizeFrame);
+        }
+
+        marqueeResizeFrame = requestAnimationFrame(() => {
+            updateMarqueeMetrics();
+            marqueeResizeFrame = null;
+        });
+    });
+
     // Initialize AOS Animation
     AOS.init({
         duration: 800,
@@ -564,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function () {
         requestAnimationFrame(update);
     }
 
-    initFloatingLogos();
+    // initFloatingLogos(); // disabled — replaced with 3-row marquee
 
     // --- Magnetic Buttons - ENHANCED ---
     const magneticElements = document.querySelectorAll('.magnetic-btn, .magnetic-link, .btn');

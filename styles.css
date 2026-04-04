@@ -1768,59 +1768,138 @@ img {
     color: var(--accent-primary);
 }
 
-.marquee-wrapper {
+/* ─── 3-Row Logo Marquee ───────────────────────────────────── */
+.marquee-multi-wrapper {
     width: 100%;
     background: var(--bg-main);
-    padding: 30px 0;
-    overflow: hidden;
-    position: relative;
+    padding: 28px 0 32px;
     border-bottom: 1px solid var(--border-color);
-    display: block;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow: hidden;
 }
 
-.marquee-content {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    gap: 60px;
+/* Each row: clips + fades edges */
+.marquee-multi-outer {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.08) 0%,
+        rgba(0, 0, 0, 0.45) 10%,
+        black 22%,
+        black 78%,
+        rgba(0, 0, 0, 0.45) 90%,
+        rgba(0, 0, 0, 0.08) 100%
+    );
+    mask-image: linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.08) 0%,
+        rgba(0, 0, 0, 0.45) 10%,
+        black 22%,
+        black 78%,
+        rgba(0, 0, 0, 0.45) 90%,
+        rgba(0, 0, 0, 0.08) 100%
+    );
+}
+
+/* The sliding strip */
+.marquee-multi-track {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 116px;
     width: max-content;
-    animation: scroll-marquee 40s linear infinite;
-}
-
-.marquee-item {
-    display: flex !important;
-    flex-direction: row !important;
     align-items: center;
-    gap: 12px;
-    color: var(--text-secondary);
-    font-weight: 500;
-    font-size: 0.95rem;
-    white-space: nowrap;
-    flex-shrink: 0;
+    will-change: transform;
+    --marquee-shift: 1200px;
 }
 
-.marquee-logo {
-    height: 24px;
-    width: 24px;
+/* Direction animations */
+.mq-left  { animation: mq-scroll-left  45s linear infinite; }
+.mq-right { animation: mq-scroll-right 50s linear infinite; }
+.mq-slow  { animation-duration: 65s; }
+
+/* Pause on hover */
+.marquee-multi-outer:hover .marquee-multi-track {
+    animation-play-state: paused;
+}
+
+@keyframes mq-scroll-left {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(calc(var(--marquee-shift) * -1)); }
+}
+@keyframes mq-scroll-right {
+    0%   { transform: translateX(calc(var(--marquee-shift) * -1)); }
+    100% { transform: translateX(0); }
+}
+
+/* Logo icon style */
+.mq-logo {
+    width: 36px;
+    height: 36px;
     object-fit: contain;
-    filter: grayscale(1);
-    opacity: 0.7;
-    transition: var(--transition);
+    filter: grayscale(0.5);
+    opacity: 0.8;
+    transition: filter 0.25s ease, opacity 0.25s ease, transform 0.2s ease;
+    flex-shrink: 0;
+    cursor: pointer;
 }
 
-.marquee-item:hover .marquee-logo {
+.mq-logo:hover {
     filter: grayscale(0);
     opacity: 1;
+    transform: scale(1.2);
 }
 
-@keyframes scroll-marquee {
-    0% {
-        transform: translate3d(0, 0, 0);
-    }
+.mq-logo:focus-visible {
+    outline: 2px solid rgba(79, 70, 229, 0.45);
+    outline-offset: 6px;
+    filter: grayscale(0);
+    opacity: 1;
+    transform: scale(1.2);
+}
 
-    100% {
-        transform: translate3d(-50%, 0, 0);
-    }
+.marquee-tooltip {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1200;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.92);
+    color: #FFFFFF;
+    font-family: var(--font-heading);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+    opacity: 0;
+    transform: translate(-50%, calc(-100% - 6px)) scale(0.96);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.marquee-tooltip.visible {
+    opacity: 1;
+    transform: translate(-50%, calc(-100% - 10px)) scale(1);
+}
+
+.marquee-tooltip.visible.below {
+    transform: translate(-50%, 10px) scale(1);
+}
+
+/* Keep old single-row classes in case referenced elsewhere */
+.marquee-wrapper { display: none; }
+.marquee-content { display: none; }
+.marquee-item    { display: none; }
+.marquee-logo    { display: none; }
+
+@keyframes scroll-marquee {
+    0%   { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(-50%, 0, 0); }
 }
 
 .edu-item {
