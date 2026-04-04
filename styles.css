@@ -24,8 +24,9 @@
     --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.05), 0 10px 40px rgba(0, 0, 0, 0.08);
     --shadow-hover: 0 8px 30px rgba(79, 70, 229, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
 
-    --font-heading: 'Outfit', sans-serif;
-    --font-body: 'Inter', sans-serif;
+    --font-display: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    --font-heading: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    --font-body: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
     --transition: all 0.25s ease;
     --radius: 16px;
     --radius-sm: 10px;
@@ -389,10 +390,11 @@ img {
 
 /* The giant editorial name */
 .hero-display-name {
-    font-family: 'DM Serif Display', Georgia, serif;
-    font-size: clamp(3.8rem, 7vw, 6.5rem);
-    line-height: 0.95;
-    letter-spacing: -0.025em;
+    font-family: var(--font-display);
+    font-size: clamp(3.5rem, 6.8vw, 6rem);
+    font-weight: 700;
+    line-height: 0.9;
+    letter-spacing: -0.055em;
     margin-bottom: 24px;
     color: var(--text-primary);
 }
@@ -416,7 +418,7 @@ img {
 }
 
 .hero-role-main {
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-heading);
     font-size: 1.15rem;
     font-weight: 700;
     color: var(--text-primary);
@@ -595,9 +597,10 @@ img {
 }
 
 .journey-year {
-    font-family: 'DM Serif Display', Georgia, serif;
+    font-family: var(--font-display);
     font-size: 2rem;
-    font-style: italic;
+    font-style: normal;
+    font-weight: 700;
     color: var(--accent-primary);
     line-height: 1;
 }
@@ -645,11 +648,12 @@ img {
 }
 
 .prose-stat-num {
-    font-family: 'DM Serif Display', Georgia, serif;
+    font-family: var(--font-display);
     font-size: clamp(2.4rem, 4vw, 3.8rem);
+    font-weight: 700;
     line-height: 1;
     color: var(--text-primary);
-    font-style: italic;
+    font-style: normal;
     white-space: nowrap;
     transition: color 0.25s;
 }
@@ -2107,9 +2111,11 @@ img {
 }
 
 .stacked-section-title {
-    font-family: var(--font-heading);
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 650;
     font-size: clamp(2rem, 4vw, 3rem);
-    line-height: 1.05;
+    line-height: 1.04;
     letter-spacing: -0.03em;
     margin-bottom: 14px;
     color: var(--text-primary);
@@ -2151,10 +2157,12 @@ img {
 
 .about-story-title {
     margin-bottom: 16px;
-    font-family: var(--font-heading);
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 650;
     font-size: clamp(1.95rem, 3.2vw, 2.8rem);
-    line-height: 1.08;
-    letter-spacing: -0.04em;
+    line-height: 1.06;
+    letter-spacing: -0.028em;
     color: var(--text-primary);
 }
 
@@ -2275,10 +2283,12 @@ img {
 }
 
 .showcase-title {
-    font-family: var(--font-heading);
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 600;
     font-size: clamp(2rem, 3.8vw, 3.2rem);
-    line-height: 1.05;
-    letter-spacing: -0.04em;
+    line-height: 1;
+    letter-spacing: -0.045em;
     margin-bottom: 12px;
     color: var(--text-primary);
 }
@@ -2441,7 +2451,9 @@ img {
 }
 
 .project-surface-card--compact strong {
-    font-family: var(--font-heading);
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 600;
     font-size: 1.25rem;
     line-height: 1.1;
 }
@@ -2528,7 +2540,9 @@ img {
 .project-browser-column strong {
     display: block;
     margin-bottom: 10px;
-    font-family: var(--font-heading);
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 600;
     font-size: 1.12rem;
     line-height: 1.2;
     color: var(--text-primary);
@@ -2548,7 +2562,9 @@ img {
 
 .project-archive-header h3 {
     margin-bottom: 6px;
-    font-family: var(--font-heading);
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 600;
     font-size: 1.35rem;
     color: var(--text-primary);
 }
@@ -2634,9 +2650,11 @@ img {
 .writing-feature-copy h3,
 .writing-note-card h3 {
     margin-bottom: 12px;
-    font-family: var(--font-heading);
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 650;
     color: var(--text-primary);
-    letter-spacing: -0.03em;
+    letter-spacing: -0.025em;
 }
 
 .writing-feature-copy h3 {
@@ -3107,11 +3125,12 @@ img {
 }
 
 .blog-title {
-    font-family: 'DM Serif Display', Georgia, serif;
+    font-family: var(--font-display);
     font-size: 1.45rem;
+    font-weight: 650;
     line-height: 1.25;
     color: var(--text-primary);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.018em;
     flex: 1;
 }
 
@@ -3788,11 +3807,12 @@ footer {
 }
 
 .journey-quote {
-    font-family: 'DM Serif Display', Georgia, serif;
-    font-size: 1.25rem;
-    font-style: italic;
+    font-family: var(--font-display);
+    font-size: 1.12rem;
+    font-style: normal;
+    font-weight: 550;
     color: #E2E8F0;
-    line-height: 1.45;
+    line-height: 1.5;
     padding: 10px 0 14px;
     border-bottom: 1px solid #1E293B;
     border-top: 1px solid #1E293B;
@@ -3813,13 +3833,14 @@ footer {
 }
 
 .milestone-year {
-    font-family: 'DM Serif Display', Georgia, serif;
-    font-size: 1.5rem;
+    font-family: var(--font-display);
+    font-size: 1.42rem;
+    font-weight: 650;
     color: var(--accent-primary);
     min-width: 52px;
     line-height: 1;
     padding-top: 2px;
-    font-style: italic;
+    font-style: normal;
 }
 
 .milestone-content strong {
@@ -3873,11 +3894,12 @@ footer {
 }
 
 .grind-count {
-    font-family: 'DM Serif Display', Georgia, serif;
-    font-size: 4rem;
+    font-family: var(--font-display);
+    font-size: 3.6rem;
+    font-weight: 650;
     line-height: 1;
     color: var(--text-primary);
-    font-style: italic;
+    font-style: normal;
 }
 
 .grind-label {
@@ -3943,8 +3965,9 @@ footer {
 }
 
 .grind-streak-val {
-    font-family: 'DM Serif Display', Georgia, serif;
+    font-family: var(--font-display);
     font-size: 1.6rem;
+    font-weight: 650;
     color: var(--accent-primary);
     line-height: 1;
 }
@@ -3986,11 +4009,12 @@ footer {
 }
 
 .github-story-big {
-    font-family: 'DM Serif Display', Georgia, serif;
-    font-size: 3.5rem;
+    font-family: var(--font-display);
+    font-size: 3.2rem;
+    font-weight: 650;
     line-height: 1;
     color: var(--text-primary);
-    font-style: italic;
+    font-style: normal;
 }
 
 .github-story-sublabel {
@@ -4009,10 +4033,11 @@ footer {
 }
 
 .github-repos-count {
-    font-family: 'DM Serif Display', Georgia, serif;
+    font-family: var(--font-display);
     font-size: 2rem;
+    font-weight: 650;
     color: var(--accent-primary);
-    font-style: italic;
+    font-style: normal;
 }
 
 .github-repos-lbl {
@@ -4044,10 +4069,11 @@ footer {
 }
 
 .boston-headline {
-    font-family: 'DM Serif Display', Georgia, serif;
+    font-family: var(--font-display);
     font-size: 1.35rem;
+    font-weight: 650;
     color: #064E3B;
-    font-style: italic;
+    font-style: normal;
     line-height: 1.3;
 }
 
@@ -4299,8 +4325,10 @@ footer {
 
 .hero-display-name {
     margin-bottom: 24px;
-    font-size: clamp(3.8rem, 8vw, 6.8rem);
-    line-height: 0.94;
+    font-size: clamp(3.5rem, 7.2vw, 6.1rem);
+    font-weight: 680;
+    line-height: 0.98;
+    letter-spacing: -0.045em;
 }
 
 .dn-indent {
@@ -4474,6 +4502,7 @@ footer {
 
 .journey-year {
     font-size: 1.45rem;
+    font-weight: 650;
     margin-bottom: 10px;
     display: block;
 }
@@ -4503,7 +4532,8 @@ footer {
 }
 
 .hero-stats-card .prose-stat-num {
-    font-size: clamp(2rem, 4vw, 3rem);
+    font-size: clamp(1.85rem, 3.6vw, 2.7rem);
+    font-weight: 650;
 }
 
 .hero-stats-card .prose-stat-desc {
@@ -4542,9 +4572,12 @@ footer {
 
 .skills-feature-card h3 {
     margin: 8px 0 14px;
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 650;
     font-size: clamp(2rem, 3vw, 2.7rem);
-    line-height: 1.04;
-    letter-spacing: -0.04em;
+    line-height: 1.06;
+    letter-spacing: -0.026em;
 }
 
 .skills-feature-card p {
@@ -4642,9 +4675,12 @@ footer {
 
 .contact-box h3 {
     margin: 8px 0 14px;
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 650;
     font-size: clamp(2rem, 3vw, 3rem);
     line-height: 1.06;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.028em;
 }
 
 .contact-box p {
@@ -5028,7 +5064,8 @@ footer {
 }
 
 .profile-signal-card .prose-stat-num {
-    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    font-size: clamp(2rem, 3.5vw, 2.8rem);
+    font-weight: 650;
 }
 
 .profile-signal-card .prose-stat-desc {
@@ -5361,5 +5398,308 @@ footer {
 
     .nav-brand-copy strong {
         font-size: 0.84rem;
+    }
+}
+
+/* ============================================================
+   TYPE LAB + FONT PRESETS
+   ============================================================ */
+body[data-font-preset="cupertino"] {
+    --font-display: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    --font-heading: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    --font-body: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+}
+
+body[data-font-preset="editorial"] {
+    --font-display: "Newsreader", Georgia, serif;
+    --font-heading: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body[data-font-preset="studio"] {
+    --font-display: "Space Grotesk", "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-heading: "Space Grotesk", "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body[data-font-preset="editorial"] .hero-display-name,
+body[data-font-preset="editorial"] .stacked-section-title,
+body[data-font-preset="editorial"] .about-story-title,
+body[data-font-preset="editorial"] .showcase-title,
+body[data-font-preset="editorial"] .writing-feature-copy h3,
+body[data-font-preset="editorial"] .writing-note-card h3,
+body[data-font-preset="editorial"] .skills-feature-card h3,
+body[data-font-preset="editorial"] .contact-box h3 {
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.04;
+}
+
+body[data-font-preset="editorial"] .hero-display-name {
+    letter-spacing: -0.032em;
+    line-height: 0.92;
+}
+
+body[data-font-preset="editorial"] .project-surface-card--compact strong,
+body[data-font-preset="editorial"] .project-browser-column strong,
+body[data-font-preset="editorial"] .project-archive-header h3,
+body[data-font-preset="editorial"] .blog-title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.015em;
+}
+
+body[data-font-preset="editorial"] .prose-stat-num,
+body[data-font-preset="editorial"] .journey-year,
+body[data-font-preset="editorial"] .milestone-year,
+body[data-font-preset="editorial"] .grind-count,
+body[data-font-preset="editorial"] .grind-streak-val,
+body[data-font-preset="editorial"] .github-story-big,
+body[data-font-preset="editorial"] .github-repos-count {
+    font-weight: 600;
+    letter-spacing: -0.015em;
+}
+
+body[data-font-preset="studio"] .hero-display-name,
+body[data-font-preset="studio"] .stacked-section-title,
+body[data-font-preset="studio"] .about-story-title,
+body[data-font-preset="studio"] .showcase-title,
+body[data-font-preset="studio"] .writing-feature-copy h3,
+body[data-font-preset="studio"] .writing-note-card h3,
+body[data-font-preset="studio"] .skills-feature-card h3,
+body[data-font-preset="studio"] .contact-box h3 {
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    line-height: 0.98;
+}
+
+body[data-font-preset="studio"] .hero-display-name {
+    font-size: clamp(3.4rem, 6.9vw, 5.9rem);
+}
+
+body[data-font-preset="studio"] .project-surface-card--compact strong,
+body[data-font-preset="studio"] .project-browser-column strong,
+body[data-font-preset="studio"] .project-archive-header h3,
+body[data-font-preset="studio"] .blog-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+body[data-font-preset="studio"] .prose-stat-num,
+body[data-font-preset="studio"] .journey-year,
+body[data-font-preset="studio"] .milestone-year,
+body[data-font-preset="studio"] .grind-count,
+body[data-font-preset="studio"] .grind-streak-val,
+body[data-font-preset="studio"] .github-story-big,
+body[data-font-preset="studio"] .github-repos-count {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+.type-lab-section {
+    padding-top: 0;
+}
+
+.type-lab-shell {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
+    gap: 28px;
+    padding: clamp(28px, 4vw, 40px);
+    border-radius: 36px;
+    background:
+        radial-gradient(circle at top left, rgba(255, 244, 214, 0.85), transparent 34%),
+        linear-gradient(145deg, rgba(251, 248, 242, 0.98), rgba(245, 244, 255, 0.95));
+    border: 1px solid rgba(226, 229, 236, 0.92);
+    box-shadow: 0 20px 54px rgba(15, 23, 42, 0.07);
+    align-items: start;
+}
+
+.type-lab-title {
+    margin: 12px 0 12px;
+    font-family: var(--font-display);
+    font-size: clamp(2.15rem, 4vw, 3.2rem);
+    font-weight: 650;
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    color: var(--text-primary);
+}
+
+.type-lab-body {
+    max-width: 34ch;
+    color: var(--text-secondary);
+    line-height: 1.8;
+}
+
+.type-lab-live {
+    margin-top: 24px;
+    display: inline-flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 18px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(226, 229, 236, 0.92);
+}
+
+.type-lab-live-label {
+    color: var(--text-tertiary);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.type-lab-live strong {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    font-family: var(--font-heading);
+}
+
+.type-lab-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.font-choice-card {
+    appearance: none;
+    position: relative;
+    display: grid;
+    gap: 14px;
+    min-height: 100%;
+    padding: 22px;
+    border-radius: 28px;
+    border: 1px solid rgba(225, 229, 236, 0.95);
+    background: rgba(255, 255, 255, 0.74);
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+    cursor: pointer;
+}
+
+.font-choice-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 34px rgba(15, 23, 42, 0.09);
+    border-color: rgba(172, 181, 196, 0.95);
+}
+
+.font-choice-card.is-active {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 240, 255, 0.92));
+    border-color: rgba(111, 76, 194, 0.32);
+    box-shadow: 0 22px 44px rgba(79, 70, 229, 0.12);
+}
+
+.font-choice-card.is-active::after {
+    content: 'Live';
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(79, 70, 229, 0.12);
+    color: var(--accent-primary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.font-choice-card:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.2);
+    outline-offset: 3px;
+}
+
+.font-choice-kicker {
+    color: var(--text-tertiary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.font-choice-card strong {
+    font-size: 1.25rem;
+    line-height: 1.1;
+    color: var(--text-primary);
+}
+
+.font-choice-card p {
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.7;
+}
+
+.font-choice-preview {
+    margin-top: auto;
+    display: grid;
+    gap: 8px;
+    padding: 18px;
+    border-radius: 22px;
+    background: rgba(245, 247, 250, 0.92);
+    border: 1px solid rgba(229, 232, 238, 0.95);
+}
+
+.font-choice-preview span:first-child {
+    color: var(--text-primary);
+    font-size: 1.45rem;
+    line-height: 1;
+}
+
+.font-choice-preview span:last-child {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.font-choice-preview--cupertino span:first-child {
+    font-family: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.05em;
+}
+
+.font-choice-preview--cupertino span:last-child {
+    font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+}
+
+.font-choice-preview--editorial span:first-child {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+}
+
+.font-choice-preview--editorial span:last-child {
+    font-family: "Inter", sans-serif;
+}
+
+.font-choice-preview--studio span:first-child {
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.045em;
+}
+
+.font-choice-preview--studio span:last-child {
+    font-family: "Inter", sans-serif;
+}
+
+@media (max-width: 1080px) {
+    .type-lab-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .type-lab-body {
+        max-width: 60ch;
+    }
+}
+
+@media (max-width: 860px) {
+    .type-lab-options {
+        grid-template-columns: 1fr;
     }
 }

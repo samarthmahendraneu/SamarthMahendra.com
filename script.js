@@ -100,6 +100,37 @@ document.addEventListener('DOMContentLoaded', function () {
         card.style.setProperty('--skill-stack-total', skillsCards.length);
     });
 
+    const fontPresetButtons = Array.from(document.querySelectorAll('[data-font-choice]'));
+    const fontPresetLabel = document.getElementById('font-preset-label');
+    const fontPresetStorageKey = 'portfolio-font-preset';
+
+    function applyFontPreset(preset) {
+        const selectedPreset = preset || 'editorial';
+        document.body.dataset.fontPreset = selectedPreset;
+
+        fontPresetButtons.forEach(button => {
+            const isActive = button.dataset.fontChoice === selectedPreset;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        const activeButton = fontPresetButtons.find(button => button.dataset.fontChoice === selectedPreset);
+        if (fontPresetLabel && activeButton) {
+            fontPresetLabel.textContent = activeButton.dataset.fontLabel || selectedPreset;
+        }
+    }
+
+    const savedFontPreset = localStorage.getItem(fontPresetStorageKey);
+    applyFontPreset(savedFontPreset || 'editorial');
+
+    fontPresetButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const nextPreset = button.dataset.fontChoice;
+            applyFontPreset(nextPreset);
+            localStorage.setItem(fontPresetStorageKey, nextPreset);
+        });
+    });
+
     // Initialize AOS Animation
     AOS.init({
         duration: 800,
