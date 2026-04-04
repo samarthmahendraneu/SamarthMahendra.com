@@ -85,6 +85,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    const showcaseStacks = document.querySelectorAll('.showcase-stack');
+    showcaseStacks.forEach(stack => {
+        const cards = Array.from(stack.querySelectorAll('.showcase-card'));
+        cards.forEach((card, index) => {
+            card.style.setProperty('--stack-index', index);
+            card.style.setProperty('--stack-total', cards.length);
+        });
+    });
+
     // Initialize AOS Animation
     AOS.init({
         duration: 800,
