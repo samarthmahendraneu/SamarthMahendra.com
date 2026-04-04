@@ -836,30 +836,30 @@
                 </div>
 
                 <div class="writing-layout">
-                    <a href="https://samarthmahendra.hashnode.dev/rethinking-metadata-indexing-in-analytical-data-systems"
+                    <a href="https://samarthmahendra.hashnode.dev/zigzagged-deletes-mongodb-ttl-regression-caused-by-a-wiredtiger-cursor-bug"
                         target="_blank" rel="noopener noreferrer" class="writing-feature" data-aos="fade-up">
                         <div class="writing-feature-copy">
                             <div class="writing-meta-row">
-                                <span class="writing-tag">Data Systems</span>
-                                <span class="writing-read-time"><i class="fas fa-clock"></i> 8 min read</span>
+                                <span class="writing-tag">MongoDB Internals</span>
+                                <span class="writing-read-time"><i class="fas fa-microchip"></i> Perf analysis</span>
                             </div>
-                            <h3>Rethinking Metadata Indexing in Analytical Data Systems</h3>
-                            <p>How modern lakehouses handle file selection and query planning at scale, and why naive approaches break once the number of files becomes the real systems problem.</p>
+                            <h3>Zigzagged Deletes: MongoDB TTL Regression Caused by a WiredTiger Cursor Bug</h3>
+                            <p>A regression deep dive showing how descending TTL indexes in MongoDB 4.4 became nearly 57% slower, why WiredTiger was zigzagging with redundant cursor probes, and how a small direction-aware patch fixed it.</p>
                             <span class="writing-link">Read essay <i class="fas fa-arrow-right"></i></span>
                         </div>
                         <div class="writing-feature-side">
                             <div class="writing-quote-card">
                                 <span>Core question</span>
-                                <strong>What happens when metadata access becomes the bottleneck rather than the data scan itself?</strong>
+                                <strong>What happens when a storage engine keeps probing in the wrong direction on every delete?</strong>
                             </div>
                             <div class="writing-mini-grid">
                                 <div class="writing-mini-card">
                                     <span>Topic</span>
-                                    <strong>Lakehouses</strong>
+                                    <strong>WiredTiger</strong>
                                 </div>
                                 <div class="writing-mini-card">
                                     <span>Theme</span>
-                                    <strong>Query planning</strong>
+                                    <strong>Perf debugging</strong>
                                 </div>
                             </div>
                         </div>
@@ -876,15 +876,15 @@
                         <span class="writing-link">Read essay <i class="fas fa-arrow-right"></i></span>
                     </a>
 
-                    <a href="https://samarthmahendra.hashnode.dev/zigzagged-deletes-mongodb-ttl-regression-caused-by-a-wiredtiger-cursor-bug"
+                    <a href="https://samarthmahendra.hashnode.dev/rethinking-metadata-indexing-in-analytical-data-systems"
                         target="_blank" rel="noopener noreferrer" class="writing-note-card" data-aos="fade-up"
                         data-aos-delay="140">
                         <div class="writing-meta-row">
-                            <span class="writing-tag">MongoDB Internals</span>
-                            <span class="writing-read-time"><i class="fas fa-microchip"></i> Perf analysis</span>
+                            <span class="writing-tag">Data Systems</span>
+                            <span class="writing-read-time"><i class="fas fa-clock"></i> 8 min read</span>
                         </div>
-                        <h3>Zigzagged Deletes: MongoDB TTL Regression Caused by a WiredTiger Cursor Bug</h3>
-                        <p>A regression deep dive showing how descending TTL indexes in MongoDB 4.4 became nearly 57% slower, why WiredTiger was zigzagging with redundant cursor probes, and how a small direction-aware patch fixed it.</p>
+                        <h3>Rethinking Metadata Indexing in Analytical Data Systems</h3>
+                        <p>How modern lakehouses handle file selection and query planning at scale, and why naive approaches break once the number of files becomes the real systems problem.</p>
                         <span class="writing-link">Read essay <i class="fas fa-arrow-right"></i></span>
                     </a>
 
