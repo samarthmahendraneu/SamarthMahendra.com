@@ -81,6 +81,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         marqueeResizeFrame = requestAnimationFrame(() => {
             updateMarqueeMetrics();
+            updateSkillsStackMetrics();
             marqueeResizeFrame = null;
         });
     });
@@ -95,10 +96,53 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     const skillsCards = Array.from(document.querySelectorAll('.skills-wrapper .skill-category'));
-    skillsCards.forEach((card, index) => {
-        card.style.setProperty('--skill-stack-index', index);
-        card.style.setProperty('--skill-stack-total', skillsCards.length);
-    });
+    const skillsWrapper = document.querySelector('.skills-wrapper');
+    const skillsEditorial = document.querySelector('.skills-editorial');
+
+    function updateSkillsStackMetrics() {
+        if (skillsEditorial) {
+            skillsEditorial.style.setProperty('--skill-stack-total', skillsCards.length);
+        }
+        if (skillsWrapper) {
+            skillsWrapper.style.setProperty('--skill-stack-total', skillsCards.length);
+        }
+
+        skillsCards.forEach((card, index) => {
+            card.style.setProperty('--skill-stack-index', index);
+            card.style.setProperty('--skill-stack-total', skillsCards.length);
+        });
+
+        if (!skillsWrapper || !skillsEditorial || !skillsCards.length) return;
+
+        if (window.innerWidth <= 1100) {
+            skillsWrapper.style.setProperty('--skill-stack-runway', '0px');
+            skillsEditorial.style.setProperty('--skill-stack-runway', '0px');
+            skillsCards.forEach(card => {
+                card.style.minHeight = '';
+            });
+            return;
+        }
+
+        skillsCards.forEach(card => {
+            card.style.minHeight = '';
+        });
+
+        const cardHeights = skillsCards.map(card => card.getBoundingClientRect().height);
+        const tallestCard = Math.max(...cardHeights);
+        const lastCardHeight = cardHeights[cardHeights.length - 1] || tallestCard;
+        const visualOffset = parseFloat(getComputedStyle(skillsWrapper).getPropertyValue('--skill-stack-visual-offset')) || 18;
+        const exactRunway = Math.max(0, tallestCard - lastCardHeight) + (visualOffset * Math.max(0, skillsCards.length - 1)) + 12;
+
+        skillsCards.forEach(card => {
+            card.style.minHeight = `${Math.ceil(tallestCard)}px`;
+        });
+
+        const runwayValue = `${Math.ceil(exactRunway)}px`;
+        skillsWrapper.style.setProperty('--skill-stack-runway', runwayValue);
+        skillsEditorial.style.setProperty('--skill-stack-runway', runwayValue);
+    }
+
+    updateSkillsStackMetrics();
 
     const fontPresetButtons = Array.from(document.querySelectorAll('[data-font-choice]'));
     const fontPresetLabel = document.getElementById('font-preset-label');
