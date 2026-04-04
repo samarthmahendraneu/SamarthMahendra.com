@@ -92,15 +92,25 @@
     <!-- Navigation -->
     <nav class="navbar">
         <div class="container nav-container">
-            <ul class="nav-links">
-                <li><a href="#home" class="magnetic-link">Home</a></li>
-                <li><a href="#about" class="magnetic-link">About</a></li>
-                <li><a href="#skills" class="magnetic-link">Skills</a></li>
-                <li><a href="#experience" class="magnetic-link">Experience</a></li>
-                <li><a href="#projects" class="magnetic-link">Projects</a></li>
-                <li><a href="#contact" class="magnetic-link">Contact</a></li>
-                <li><a href="#blog" class="magnetic-link">Blog</a></li>
-            </ul>
+            <a href="#home" class="nav-brand" aria-label="Go to homepage">
+                <span class="nav-brand-mark">SM</span>
+                <span class="nav-brand-copy">
+                    <strong>Samarth Mahendra</strong>
+                    <span>Software Engineer</span>
+                </span>
+            </a>
+
+            <div class="nav-link-shell">
+                <ul class="nav-links">
+                    <li><a href="#home" class="magnetic-link">Home</a></li>
+                    <li><a href="#about" class="magnetic-link">About</a></li>
+                    <li><a href="#skills" class="magnetic-link">Skills</a></li>
+                    <li><a href="#experience" class="magnetic-link">Experience</a></li>
+                    <li><a href="#projects" class="magnetic-link">Projects</a></li>
+                    <li><a href="#contact" class="magnetic-link">Contact</a></li>
+                    <li><a href="#blog" class="magnetic-link">Blog</a></li>
+                </ul>
+            </div>
             <div class="nav-actions">
                 <a href="https://outlook.office.com/bookwithme/user/74b48346c31b4a70b85fef80821897ac@northeastern.edu/meetingtype/x4p_Azwdc0eqt7kyhO5fWg2?anonymous&ismsaljsauthenabled&ep=mlink"
                     target="_blank" class="btn btn-primary btn-sm magnetic-btn"
@@ -118,9 +128,12 @@
         <ul class="mobile-links">
             <li><a href="#home">Home</a></li>
             <li><a href="#about">About</a></li>
+            <li><a href="#skills">Skills</a></li>
             <li><a href="#experience">Experience</a></li>
             <li><a href="#projects">Projects</a></li>
             <li><a href="#contact">Contact</a></li>
+            <li><a href="#blog">Blog</a></li>
+            <li><a href="Resume Systems V3.pdf" download>Resume</a></li>
         </ul>
     </div>
 
@@ -128,160 +141,89 @@
     <main>
         <section id="home" class="hero-section">
             <div class="container">
+                <div class="hero-editorial">
+                    <div class="hero-main-column">
+                        <article class="hero-main-card" data-aos="fade-up">
+                            <div class="hero-main-top">
+                                <span class="hero-location-tag">
+                                    <span class="status-dot"></span>
+                                    Boston, MA &middot; Open to Work
+                                </span>
+                                <span class="hero-availability-note">Backend, full stack, systems</span>
+                            </div>
 
-                <!-- TOP SPLIT: Name + Photo -->
-                <div class="hero-split">
+                            <h1 class="hero-display-name">
+                                <span class="dn-line">Samarth</span>
+                                <span class="dn-line dn-indent">Mahendra</span>
+                            </h1>
 
-                    <!-- Left: Identity -->
-                    <div class="hero-identity">
-                        <div class="hero-meta-row">
-                            <span class="hero-location-tag">
-                                <span class="status-dot"></span>
-                                Boston, MA &middot; Open to Work
-                            </span>
-                        </div>
+                            <p class="hero-lead">
+                                Software engineer working across product-facing applications, backend platforms, and the system internals that quietly determine performance, reliability, and scale.
+                            </p>
 
-                        <h1 class="hero-display-name">
-                            <span class="dn-line">Samarth</span>
-                            <span class="dn-line dn-indent">Mahendra</span>
-                        </h1>
+                            <p class="hero-bio">
+                                I like building software end-to-end: user-facing product experiences, backend APIs, storage-heavy systems, and the profiling work needed to understand where real bottlenecks live.
+                            </p>
 
-                        <div class="hero-role-strip">
-                            <span class="hero-role-main">Software Engineer</span>
-                            <span class="hero-role-dot">&middot;</span>
-                            <span class="hero-role-sub">Backend, Full Stack &amp; Systems</span>
-                        </div>
+                            <div class="hero-focus-pills">
+                                <span>Backend platforms</span>
+                                <span>Distributed systems</span>
+                                <span>Storage engines</span>
+                                <span>Performance debugging</span>
+                            </div>
 
-                        <p class="hero-bio">
-                            I build robust and scalable software, from responsive full-stack applications down to the invisible storage engines and distributed runtimes. 
-                            Currently at Northeastern, Boston, transforming complex requirements into reliable, high-performance systems.
-                        </p>
+                            <div class="hero-actions">
+                                <a href="#projects" class="btn btn-primary btn-lg">View Work</a>
+                                <a href="#contact" class="btn btn-outline btn-lg">Get in touch</a>
+                            </div>
 
-                        <div class="hero-actions">
-                            <a href="#projects" class="btn btn-primary btn-lg">View Work</a>
-                            <a href="#contact" class="btn btn-outline btn-lg">Get in touch</a>
-                        </div>
-
-                        <div class="hero-socials">
-                            <a href="https://www.linkedin.com/in/samarth-mahendra-7aab5a114/" target="_blank"
-                                class="social-link" aria-label="LinkedIn profile"><i class="fab fa-linkedin-in"></i></a>
-                            <a href="https://github.com/SamarthMahendraneu" target="_blank" class="social-link"
-                                aria-label="GitHub profile"><i class="fab fa-github"></i></a>
-                            <a href="mailto:samarth.mahendragowda@gmail.com" class="social-link"
-                                aria-label="Send Email"><i class="fas fa-envelope"></i></a>
-                            <a href="resume_samarth.pdf" target="_blank" class="social-link" title="Resume"
-                                aria-label="Download Resume"><i class="fas fa-file-alt"></i></a>
-                        </div>
+                            <div class="hero-socials">
+                                <a href="https://www.linkedin.com/in/samarth-mahendra-7aab5a114/" target="_blank"
+                                    class="social-link" aria-label="LinkedIn profile"><i class="fab fa-linkedin-in"></i></a>
+                                <a href="https://github.com/SamarthMahendraneu" target="_blank" class="social-link"
+                                    aria-label="GitHub profile"><i class="fab fa-github"></i></a>
+                                <a href="mailto:samarth.mahendragowda@gmail.com" class="social-link"
+                                    aria-label="Send Email"><i class="fas fa-envelope"></i></a>
+                                <a href="resume_samarth.pdf" target="_blank" class="social-link" title="Resume"
+                                    aria-label="Download Resume"><i class="fas fa-file-alt"></i></a>
+                            </div>
+                        </article>
                     </div>
 
-                    <!-- Right: Portrait, floating, tilted -->
-                    <div class="hero-photo-zone">
-                        <img src="display_picturev1.png" alt="Samarth Mahendra" class="hero-portrait" width="400"
-                            fetchpriority="high">
-                        <div class="hero-status-chip">
-                            <span class="status-dot"></span> Open to work
+                    <aside class="hero-side-column">
+                        <div class="hero-profile-card" data-aos="fade-left">
+                            <div class="hero-profile-media">
+                                <img src="display_picturev1.png" alt="Samarth Mahendra" class="hero-portrait" width="400"
+                                    fetchpriority="high">
+                                <div class="hero-status-chip">
+                                    <span class="status-dot"></span> Open to work
+                                </div>
+                            </div>
                         </div>
-                        <!-- floating skill pill -->
-                        <div class="hero-float-pill pill-top">
-                            <i class="fas fa-code"></i> Backend, Full Stack &amp; Systems
-                        </div>
-                        <div class="hero-float-pill pill-bottom">
-                            <i class="fas fa-map-marker-alt"></i> Boston, MA
-                        </div>
-                    </div>
-
+                    </aside>
                 </div>
 
-                <div class="hero-bottom-ground">
-                    <!-- JOURNEY RIBBON: horizontal timeline, not cards -->
-                    <div class="hero-journey">
+                <section class="hero-journey-card" data-aos="fade-up">
+                    <span class="hero-panel-label">Journey</span>
+                    <div class="hero-journey-list">
                         <div class="journey-stop">
                             <span class="journey-year">2022</span>
-                            <span class="journey-event">Joined Draup. Shipped APIs used by Fortune 10 clients on a $20M
-                                ARR
-                                platform.</span>
+                            <span class="journey-event">Joined Draup and shipped backend systems used by Fortune 10 customers on a $20M ARR platform.</span>
                         </div>
-                        <span class="journey-arrow">&rarr;</span>
                         <div class="journey-stop">
                             <span class="journey-year">2023</span>
-                            <span class="journey-event">Led 100+ API development & migrations. PostgreSQL &rarr;
-                                Elasticsearch. 5&times;
-                                faster queries.</span>
+                            <span class="journey-event">Led 100+ API migrations and major query-path improvements, including PostgreSQL to Elasticsearch flows.</span>
                         </div>
-                        <span class="journey-arrow">&rarr;</span>
                         <div class="journey-stop">
                             <span class="journey-year">2024</span>
-                            <span class="journey-event">Moved to Boston. MS at Northeastern. Built a storage engine,
-                                distributed runtime &amp; lakehouse pruner from scratch.</span>
+                            <span class="journey-event">Moved to Boston for Northeastern and started building deeper systems projects from scratch.</span>
                         </div>
-                        <span class="journey-arrow">&rarr;</span>
-                        <div class="journey-stop">
-                            <span class="journey-year">2025</span>
-                            <span class="journey-event">Completed MS in Computer Science at Northeastern (Dec 2025).
-                                Ready
-                                to build.</span>
-                        </div>
-                        <span class="journey-arrow">&rarr;</span>
                         <div class="journey-stop">
                             <span class="journey-year">Now</span>
-                            <span class="journey-event">Volunteer research with Prof. Jenny Ren (Northeastern) on
-                                automated performance debugging. </span>
+                            <span class="journey-event">Working on performance debugging research while looking for strong engineering teams to build with next.</span>
                         </div>
                     </div>
-
-                    <!-- PROSE STATS: inline numbers, no card boxes -->
-                    <div class="hero-prose-stats">
-                        <a href="https://leetcode.com/u/samarthmahendra/" target="_blank" class="prose-stat">
-                            <span class="prose-stat-num" id="lc-total">&mdash;</span>
-                            <span class="prose-stat-desc">
-                                <span class="live-indicator"><span class="status-dot"
-                                        style="width: 6px; height: 6px; box-shadow: 0 0 5px #10B981;"></span>
-                                    Live</span>problems solved on LeetCode<br>
-                                <span class="prose-stat-sub">
-
-                                    <span class="lc-easy-inline" id="lc-easy">&mdash;</span> easy &middot;
-                                    <span class="lc-med-inline" id="lc-medium">&mdash;</span> medium &middot;
-                                    <span class="lc-hard-inline" id="lc-hard">&mdash;</span> hard
-                                </span>
-                            </span>
-                        </a>
-
-                        <div class="prose-stat-divider"></div>
-
-                        <div class="prose-stat">
-                            <span class="prose-stat-num" id="gh-total-contributions">&mdash;</span>
-                            <span class="prose-stat-desc">
-                                GitHub contributions
-                                <span class="prose-stat-accounts">
-                                    <a href="https://github.com/SamarthMahendraneu" target="_blank" rel="noopener"
-                                        class="prose-gh-link">SamarthMahendraneu</a>
-                                    <a href="https://github.com/SamarthMahendra-Draup?tab=overview&from=2023-12-01&to=2023-12-31"
-                                        target="_blank" rel="noopener" class="prose-gh-link">SamarthMahendra-Draup</a>
-                                    <a href="https://github.com/SamarthMahendra" target="_blank" rel="noopener"
-                                        class="prose-gh-link">SamarthMahendra</a>
-                                </span>
-                                <span class="prose-stat-sub">
-                                    <span id="gh-repos">&mdash;</span> repos &middot; top langs: <span id="id="
-                                        gh-lang-tags">loading&hellip;</span>
-                                </span>
-                            </span>
-                        </div>
-
-                        <div class="prose-stat-divider"></div>
-
-                        <div class="prose-stat">
-                            <span class="prose-stat-num"><span id="lc-streak">&mdash;</span><span
-                                    class="prose-stat-emoji">&nbsp;🔥</span></span>
-                            <span class="prose-stat-desc">
-                                max LeetCode streak<br>
-                                <span class="prose-stat-sub">
-                                    <span id="lc-active-days">&mdash;</span> active days in the past year
-                                </span>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
+                </section>
             </div>
         </section>
 
@@ -383,6 +325,67 @@
 
         </div>
 
+        <section class="section profile-signals-section">
+            <div class="container">
+                <div class="stacked-section-intro stacked-section-intro--compact" data-aos="fade-up">
+                    <span class="stacked-section-label">Signals</span>
+                    <p class="stacked-section-copy">A few live indicators of how I like to work: steady practice, consistent shipping, and deepening systems fluency over time.</p>
+                </div>
+
+                <div class="profile-signals-grid" data-aos="fade-up">
+                    <article class="profile-signal-card">
+                        <a href="https://leetcode.com/u/samarthmahendra/" target="_blank" class="prose-stat">
+                            <span class="prose-stat-num" id="lc-total">&mdash;</span>
+                            <span class="prose-stat-desc">
+                                <span class="live-indicator"><span class="status-dot"
+                                        style="width: 6px; height: 6px; box-shadow: 0 0 5px #10B981;"></span>
+                                    Live</span>LeetCode problems solved
+                                <span class="prose-stat-sub">
+                                    <span class="lc-easy-inline" id="lc-easy">&mdash;</span> easy &middot;
+                                    <span class="lc-med-inline" id="lc-medium">&mdash;</span> medium &middot;
+                                    <span class="lc-hard-inline" id="lc-hard">&mdash;</span> hard
+                                </span>
+                            </span>
+                        </a>
+                    </article>
+
+                    <article class="profile-signal-card">
+                        <div class="prose-stat">
+                            <span class="prose-stat-num" id="gh-total-contributions">&mdash;</span>
+                            <span class="prose-stat-desc">
+                                GitHub contributions
+                                <span class="prose-stat-accounts">
+                                    <a href="https://github.com/SamarthMahendraneu" target="_blank" rel="noopener"
+                                        class="prose-gh-link">SamarthMahendraneu</a>
+                                    <a href="https://github.com/SamarthMahendra-Draup?tab=overview&from=2023-12-01&to=2023-12-31"
+                                        target="_blank" rel="noopener" class="prose-gh-link">SamarthMahendra-Draup</a>
+                                    <a href="https://github.com/SamarthMahendra" target="_blank" rel="noopener"
+                                        class="prose-gh-link">SamarthMahendra</a>
+                                </span>
+                                <span class="prose-stat-sub">
+                                    <span id="gh-repos">&mdash;</span> repos &middot; top langs:
+                                    <span id="gh-lang-tags">loading&hellip;</span>
+                                </span>
+                            </span>
+                        </div>
+                    </article>
+
+                    <article class="profile-signal-card">
+                        <div class="prose-stat">
+                            <span class="prose-stat-num"><span id="lc-streak">&mdash;</span><span
+                                    class="prose-stat-emoji">&nbsp;🔥</span></span>
+                            <span class="prose-stat-desc">
+                                Max LeetCode streak
+                                <span class="prose-stat-sub">
+                                    <span id="lc-active-days">&mdash;</span> active days in the past year
+                                </span>
+                            </span>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
         <!-- About Section -->
 
         <section id="about" class="section">
@@ -466,166 +469,185 @@
         <!-- Skills Section -->
         <section id="skills" class="section">
             <div class="container">
-                <div class="skills-wrapper" data-aos="fade-up">
-                    <h3>Skills</h3>
+                <div class="stacked-section-intro" data-aos="fade-up">
+                    <span class="stacked-section-label">Capabilities</span>
+                    <h2 class="stacked-section-title">A systems-first engineering toolkit shaped by backend work, infrastructure thinking, and product delivery.</h2>
+                    <p class="stacked-section-copy">I care less about collecting tools and more about knowing where they matter: which abstractions hold up in production, which ones fall apart, and how to move comfortably from feature work into system behavior.</p>
+                </div>
 
-                    <div class="skill-category">
-                        <h4 class="skill-category-title">🟦 Backend Engineering</h4>
-                        <div class="skill-tags">
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/python" alt="Python"
-                                    class="skill-logo" width="20" height="20">
-                                Python</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/openjdk" alt="Java"
-                                    class="skill-logo" width="20" height="20">
-                                Java</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/cplusplus/00599C" alt="C++"
-                                    class="skill-logo" width="20" height="20">
-                                C/C++</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/rust" alt="Rust"
-                                    class="skill-logo" width="20" height="20">
-                                Rust</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/typescript" alt="TypeScript"
-                                    class="skill-logo" width="20" height="20">
-                                TypeScript</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/django" alt="Django"
-                                    class="skill-logo" width="20" height="20"> Django
-                                REST</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/nodedotjs" alt="Node.js"
-                                    class="skill-logo" width="20" height="20">
-                                Node.js</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/fastapi" alt="FastAPI"
-                                    class="skill-logo" width="20" height="20">
-                                FastAPI</span>
-                            <span><i class="fas fa-exchange-alt"></i> REST APIs</span>
-                            <span><i class="fas fa-plug"></i> WebSockets</span>
-                            <span><i class="fas fa-sync-alt"></i> Async I/O</span>
-                            <span><i class="fas fa-project-diagram"></i> Concurrency</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/redis" alt="Redis"
-                                    class="skill-logo" width="20" height="20"> Caching
-                                (Redis)</span>
-                            <span><i class="fas fa-tachometer-alt"></i> Rate Limiting</span>
-                            <span><i class="fas fa-rocket"></i> API Optimization</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/celery" alt="Celery"
-                                    class="skill-logo" width="20" height="20"> Message
-                                Queues</span>
-                            <span><i class="fas fa-network-wired"></i> gRPC & Protobuf</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/graphql" alt="GraphQL"
-                                    class="skill-logo" width="20" height="20">
-                                GraphQL</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/pytest" alt="PyTest"
-                                    class="skill-logo" width="20" height="20">
-                                PyTest</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/junit5" alt="JUnit"
-                                    class="skill-logo" width="20" height="20">
-                                JUnit</span>
-                            <span><i class="fas fa-vial"></i> TDD</span>
+                <div class="skills-editorial" data-aos="fade-up">
+                    <article class="skills-feature-card">
+                        <span class="showcase-kicker">How I usually work</span>
+                        <h3>I’m strongest when the work touches both product outcomes and the system decisions underneath.</h3>
+                        <p>I like the kinds of engineering problems where architecture, debugging, runtime behavior, and developer velocity all intersect. That usually means backend services, data-heavy systems, migrations, performance work, and the glue that keeps teams shipping.</p>
+                        <div class="skills-feature-points">
+                            <div>
+                                <span>01</span>
+                                <p>Translate product or systems ambiguity into something buildable.</p>
+                            </div>
+                            <div>
+                                <span>02</span>
+                                <p>Design APIs, pipelines, and storage paths that stay reliable under growth.</p>
+                            </div>
+                            <div>
+                                <span>03</span>
+                                <p>Profile, debug, and simplify systems when the real bottleneck appears.</p>
+                            </div>
                         </div>
-                    </div>
+                    </article>
 
-                    <div class="skill-category">
-                        <h4 class="skill-category-title">🟪 System Design & High-Performance</h4>
-                        <div class="skill-tags">
-                            <span><i class="fas fa-sitemap"></i> Metadata-driven Query Planning</span>
-                            <span><i class="fas fa-database"></i> Storage Engine Design</span>
-                            <span><i class="fas fa-random"></i> Task Scheduling & Runtimes</span>
-                            <span><i class="fas fa-shield-alt"></i> Fault Tolerance</span>
-                            <span><i class="fas fa-cubes"></i> Microservices</span>
-                            <span><i class="fas fa-bolt"></i> Event-Driven Arch</span>
-                            <span><i class="fas fa-server"></i> Distributed Systems</span>
-                            <span><i class="fas fa-layer-group"></i> Batching & Prefetching</span>
-                            <span><i class="fas fa-memory"></i> Cache-Aware Design</span>
-                            <span><i class="fas fa-chart-line"></i> Profiling</span>
-                            <span><i class="fas fa-unlock"></i> Lock-Free Concurrency</span>
-                            <span><i class="fas fa-microchip"></i> Memory Management</span>
-                            <span><i class="fas fa-microchip"></i> CPU Microarchitecture</span>
-                            <span><i class="fas fa-balance-scale"></i> Load Balancing</span>
-                            <span><i class="fas fa-handshake"></i> Consensus</span>
-                            <span><i class="fas fa-expand-arrows-alt"></i> Horizontal Scaling</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/apachekafka" alt="Kafka"
-                                    class="skill-logo" width="20" height="20">
-                                Apache Kafka</span>
+                    <div class="skills-wrapper">
+                        <div class="skill-category">
+                            <h4 class="skill-category-title">Backend Engineering</h4>
+                            <div class="skill-tags">
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/python" alt="Python"
+                                        class="skill-logo" width="20" height="20">
+                                    Python</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/openjdk" alt="Java"
+                                        class="skill-logo" width="20" height="20">
+                                    Java</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/typescript" alt="TypeScript"
+                                        class="skill-logo" width="20" height="20">
+                                    TypeScript</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/nodedotjs" alt="Node.js"
+                                        class="skill-logo" width="20" height="20">
+                                    Node.js</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/fastapi" alt="FastAPI"
+                                        class="skill-logo" width="20" height="20">
+                                    FastAPI</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/django" alt="Django"
+                                        class="skill-logo" width="20" height="20"> Django
+                                    REST</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/rust" alt="Rust"
+                                        class="skill-logo" width="20" height="20">
+                                    Rust</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/cplusplus/00599C" alt="C++"
+                                        class="skill-logo" width="20" height="20">
+                                    C/C++</span>
+                                <span><i class="fas fa-exchange-alt"></i> REST APIs</span>
+                                <span><i class="fas fa-sync-alt"></i> Async I/O</span>
+                                <span><i class="fas fa-project-diagram"></i> Concurrency</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/redis" alt="Redis"
+                                        class="skill-logo" width="20" height="20"> Caching
+                                    (Redis)</span>
+                                <span><i class="fas fa-rocket"></i> API Optimization</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/celery" alt="Celery"
+                                        class="skill-logo" width="20" height="20"> Message
+                                    Queues</span>
+                                <span><i class="fas fa-network-wired"></i> gRPC &amp; Protobuf</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/graphql" alt="GraphQL"
+                                        class="skill-logo" width="20" height="20">
+                                    GraphQL</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/pytest" alt="PyTest"
+                                        class="skill-logo" width="20" height="20">
+                                    PyTest</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/junit5" alt="JUnit"
+                                        class="skill-logo" width="20" height="20">
+                                    JUnit</span>
+                                <span><i class="fas fa-vial"></i> TDD</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="skill-category">
-                        <h4 class="skill-category-title">🟩 Databases & Infra</h4>
-                        <div class="skill-tags">
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/postgresql" alt="PostgreSQL"
-                                    class="skill-logo" width="20" height="20">
-                                PostgreSQL</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/mongodb" alt="MongoDB"
-                                    class="skill-logo" width="20" height="20">
-                                MongoDB</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/redis" alt="Redis"
-                                    class="skill-logo" width="20" height="20">
-                                Redis</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/elasticsearch"
-                                    alt="Elasticsearch" class="skill-logo" width="20" height="20"> Elasticsearch</span>
-                            <span><i class="fas fa-database"></i> DB Internals</span>
-                            <span><i class="fas fa-history"></i> MVCC</span>
-                            <span><i class="fas fa-search"></i> Query Planning</span>
-                            <span><i class="fas fa-columns"></i> Partitioning</span>
-                            <span><i class="fas fa-hdd"></i> Storage Engines</span>
-                            <span><i class="fas fa-stream"></i> Data Pipelines</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/prometheus" alt="Prometheus"
-                                    class="skill-logo" width="20" height="20">
-                                Observability</span>
+                        <div class="skill-category">
+                            <h4 class="skill-category-title">Systems &amp; Performance</h4>
+                            <div class="skill-tags">
+                                <span><i class="fas fa-server"></i> Distributed Systems</span>
+                                <span><i class="fas fa-database"></i> Storage Engine Design</span>
+                                <span><i class="fas fa-chart-line"></i> Profiling</span>
+                                <span><i class="fas fa-shield-alt"></i> Fault Tolerance</span>
+                                <span><i class="fas fa-cubes"></i> Microservices</span>
+                                <span><i class="fas fa-bolt"></i> Event-Driven Arch</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/apachekafka" alt="Kafka"
+                                        class="skill-logo" width="20" height="20">
+                                    Apache Kafka</span>
+                                <span><i class="fas fa-random"></i> Task Scheduling &amp; Runtimes</span>
+                                <span><i class="fas fa-layer-group"></i> Batching &amp; Prefetching</span>
+                                <span><i class="fas fa-memory"></i> Cache-Aware Design</span>
+                                <span><i class="fas fa-microchip"></i> Memory Management</span>
+                                <span><i class="fas fa-balance-scale"></i> Load Balancing</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="skill-category">
-                        <h4 class="skill-category-title">🟧 AI & Automation Systems</h4>
-                        <div class="skill-tags">
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/openai" alt="OpenAI"
-                                    class="skill-logo" width="20" height="20"> OpenAI
-                                GPT-4o</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/google" alt="Google"
-                                    class="skill-logo" width="20" height="20"> Google
-                                Gemini</span>
-                            <span><i class="fas fa-robot"></i> Function-Calling Agents</span>
-                            <span><i class="fas fa-brain"></i> LLM Orchestration</span>
-                            <span><i class="fas fa-search-plus"></i> RAG/Embeddings</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/puppeteer" alt="Puppeteer"
-                                    class="skill-logo" width="20" height="20">
-                                Automation</span>
-                            <span><i class="fas fa-sync"></i> Async Agents</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/twilio" alt="Twilio"
-                                    class="skill-logo" width="20" height="20"> Voice
-                                Systems</span>
+                        <div class="skill-category">
+                            <h4 class="skill-category-title">Databases &amp; Data Infra</h4>
+                            <div class="skill-tags">
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/postgresql" alt="PostgreSQL"
+                                        class="skill-logo" width="20" height="20">
+                                    PostgreSQL</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/redis" alt="Redis"
+                                        class="skill-logo" width="20" height="20">
+                                    Redis</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/mongodb" alt="MongoDB"
+                                        class="skill-logo" width="20" height="20">
+                                    MongoDB</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/elasticsearch"
+                                        alt="Elasticsearch" class="skill-logo" width="20" height="20"> Elasticsearch</span>
+                                <span><i class="fas fa-search"></i> Query Planning</span>
+                                <span><i class="fas fa-hdd"></i> Storage Engines</span>
+                                <span><i class="fas fa-stream"></i> Data Pipelines</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/prometheus" alt="Prometheus"
+                                        class="skill-logo" width="20" height="20">
+                                    Observability</span>
+                                <span><i class="fas fa-database"></i> DB Internals</span>
+                                <span><i class="fas fa-history"></i> MVCC</span>
+                                <span><i class="fas fa-columns"></i> Partitioning</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="skill-category">
-                        <h4 class="skill-category-title">🟨 Cloud & DevOps</h4>
-                        <div class="skill-tags">
-                            <span><img loading="lazy" src="assets/logos/amazon.png"
-                                    onerror="this.onerror=null; this.src='assets/logos/amazon.png';" alt="AWS Logo"
-                                    class="skill-logo" width="20" height="20"> AWS</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/terraform" alt="Terraform"
-                                    class="skill-logo" width="20" height="20">
-                                Terraform</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/docker" alt="Docker"
-                                    class="skill-logo" width="20" height="20">
-                                Docker</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/kubernetes" alt="Kubernetes"
-                                    class="skill-logo" width="20" height="20">
-                                Kubernetes</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/githubactions"
-                                    alt="GitHub Actions" class="skill-logo" width="20" height="20"> CI/CD</span>
-                            <span><i class="fas fa-code-branch"></i> IaC</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/opentelemetry"
-                                    alt="OpenTelemetry" class="skill-logo" width="20" height="20"> OpenTelemetry</span>
-                            <span><i class="fas fa-network-wired"></i> Distributed Tracing</span>
-                            <span><i class="fas fa-cloud-upload-alt"></i> Deployment</span>
-                            <span><i class="fas fa-expand"></i> Autoscaling</span>
-                            <span><img loading="lazy" src="https://cdn.simpleicons.org/istio" alt="Istio"
-                                    class="skill-logo" width="20" height="20"> Service
-                                Mesh</span>
+                        <div class="skill-category">
+                            <h4 class="skill-category-title">AI &amp; Automation</h4>
+                            <div class="skill-tags">
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/openai" alt="OpenAI"
+                                        class="skill-logo" width="20" height="20"> OpenAI
+                                    GPT-4o</span>
+                                <span><i class="fas fa-robot"></i> Function-Calling Agents</span>
+                                <span><i class="fas fa-brain"></i> LLM Orchestration</span>
+                                <span><i class="fas fa-search-plus"></i> RAG/Embeddings</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/google" alt="Google"
+                                        class="skill-logo" width="20" height="20"> Google
+                                    Gemini</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/puppeteer" alt="Puppeteer"
+                                        class="skill-logo" width="20" height="20">
+                                    Automation</span>
+                                <span><i class="fas fa-sync"></i> Async Agents</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/twilio" alt="Twilio"
+                                        class="skill-logo" width="20" height="20"> Voice
+                                    Systems</span>
+                            </div>
+                        </div>
+
+                        <div class="skill-category">
+                            <h4 class="skill-category-title">Cloud &amp; Delivery</h4>
+                            <div class="skill-tags">
+                                <span><img loading="lazy" src="assets/logos/amazon.png"
+                                        onerror="this.onerror=null; this.src='assets/logos/amazon.png';" alt="AWS Logo"
+                                        class="skill-logo" width="20" height="20"> AWS</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/docker" alt="Docker"
+                                        class="skill-logo" width="20" height="20">
+                                    Docker</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/kubernetes" alt="Kubernetes"
+                                        class="skill-logo" width="20" height="20">
+                                    Kubernetes</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/terraform" alt="Terraform"
+                                        class="skill-logo" width="20" height="20">
+                                    Terraform</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/githubactions"
+                                        alt="GitHub Actions" class="skill-logo" width="20" height="20"> CI/CD</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/opentelemetry"
+                                        alt="OpenTelemetry" class="skill-logo" width="20" height="20"> OpenTelemetry</span>
+                                <span><i class="fas fa-network-wired"></i> Distributed Tracing</span>
+                                <span><i class="fas fa-cloud-upload-alt"></i> Deployment</span>
+                                <span><i class="fas fa-expand"></i> Autoscaling</span>
+                                <span><i class="fas fa-code-branch"></i> IaC</span>
+                                <span><img loading="lazy" src="https://cdn.simpleicons.org/istio" alt="Istio"
+                                        class="skill-logo" width="20" height="20"> Service
+                                    Mesh</span>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
         </section>
-
         <!-- Experience Section -->
         <section id="experience" class="section alt-bg" style="background: #FFFFFF; position: relative; z-index: 2;">
             <div class="container">
@@ -1077,29 +1099,59 @@
 
         <section id="contact" class="section contact-section">
             <div class="container">
-                <div class="contact-box">
-                    <h2>Let's Work Together</h2>
-                    <p>I'm currently open to new opportunities. Whether you have a question or just want to say hi, I'll
-                        try my best to get back to you!</p>
-                    <div style="margin-bottom: 30px; color: var(--text-secondary);">
-                        <p><i class="fas fa-map-marker-alt"></i> Boston, MA, USA &nbsp;|&nbsp; <i
-                                class="fas fa-phone"></i> +1 (857) 707-1671</p>
-                    </div>
-                    <a href="mailto:samarth.mahendragowda@gmail.com" class="btn btn-primary btn-lg">Say Hello</a>
+                <div class="stacked-section-intro" data-aos="fade-up">
+                    <span class="stacked-section-label">Contact</span>
+                    <h2 class="stacked-section-title">If you’re building something ambitious, I’d love to hear about it.</h2>
+                    <p class="stacked-section-copy">I’m currently open to software engineering opportunities where I can contribute across backend architecture, systems thinking, and product-facing delivery.</p>
+                </div>
+
+                <div class="contact-editorial" data-aos="fade-up">
+                    <article class="contact-box">
+                        <span class="showcase-kicker">Reach out</span>
+                        <h3>Let’s talk about roles, projects, or interesting systems problems.</h3>
+                        <p>Whether it’s a backend role, a systems-heavy product team, or simply a conversation about engineering, I’m always happy to connect.</p>
+                        <div class="contact-actions">
+                            <a href="mailto:samarth.mahendragowda@gmail.com" class="btn btn-primary btn-lg">Email Samarth</a>
+                            <a href="resume_samarth.pdf" target="_blank" class="btn btn-outline btn-lg">View Resume</a>
+                        </div>
+                    </article>
+
+                    <aside class="contact-side-column">
+                        <div class="contact-detail-card">
+                            <span class="hero-panel-label">Based in</span>
+                            <strong>Boston, MA, USA</strong>
+                            <p>Open to full-time software engineering roles and technical conversations.</p>
+                        </div>
+                        <div class="contact-detail-card">
+                            <span class="hero-panel-label">Direct</span>
+                            <a href="mailto:samarth.mahendragowda@gmail.com">samarth.mahendragowda@gmail.com</a>
+                            <a href="tel:+18577071671">+1 (857) 707-1671</a>
+                        </div>
+                        <div class="contact-detail-card">
+                            <span class="hero-panel-label">Profiles</span>
+                            <div class="footer-socials">
+                                <a href="https://www.linkedin.com/in/samarth-mahendra-7aab5a114/" target="_blank">LinkedIn</a>
+                                <a href="https://github.com/SamarthMahendraneu" target="_blank">GitHub</a>
+                            </div>
+                        </div>
+                    </aside>
                 </div>
             </div>
         </section>
     </main>
 
     <!-- Footer -->
-    <footer>
+    <footer class="site-footer">
         <div class="container">
             <div class="footer-content">
-                <p>&copy; <span id="year"></span> Samarth Mahendra.</p>
+                <div class="footer-copy">
+                    <p>&copy; <span id="year"></span> Samarth Mahendra.</p>
+                    <span>Designed as an editorial portfolio around systems, product, and engineering craft.</span>
+                </div>
                 <div class="footer-socials">
-                    <a href="https://www.linkedin.com/in/samarth-mahendra-7aab5a114/" target="_blank"><i
-                            class="fab fa-linkedin-in"></i></a>
-                    <a href="https://github.com/SamarthMahendraneu" target="_blank"><i class="fab fa-github"></i></a>
+                    <a href="https://www.linkedin.com/in/samarth-mahendra-7aab5a114/" target="_blank">LinkedIn</a>
+                    <a href="https://github.com/SamarthMahendraneu" target="_blank">GitHub</a>
+                    <a href="mailto:samarth.mahendragowda@gmail.com">Email</a>
                 </div>
             </div>
         </div>

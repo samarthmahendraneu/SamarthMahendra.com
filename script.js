@@ -94,6 +94,12 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    const skillsCards = Array.from(document.querySelectorAll('.skills-wrapper .skill-category'));
+    skillsCards.forEach((card, index) => {
+        card.style.setProperty('--skill-stack-index', index);
+        card.style.setProperty('--skill-stack-total', skillsCards.length);
+    });
+
     // Initialize AOS Animation
     AOS.init({
         duration: 800,
@@ -116,11 +122,23 @@ document.addEventListener('DOMContentLoaded', function () {
         document.body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
     }
 
+    function closeMenu() {
+        if (!mobileMenu) return;
+        mobileMenu.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
     if (mobileToggle) mobileToggle.addEventListener('click', toggleMenu);
-    if (mobileClose) mobileClose.addEventListener('click', toggleMenu);
+    if (mobileClose) mobileClose.addEventListener('click', closeMenu);
 
     mobileLinks.forEach(link => {
-        link.addEventListener('click', toggleMenu);
+        link.addEventListener('click', closeMenu);
+    });
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 1100) {
+            closeMenu();
+        }
     });
 
     // Chatbot Logic
@@ -691,16 +709,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (progressBar) {
             progressBar.style.width = `${scrolled}%`;
         }
-
-        // Sticky Navbar Toggle
-        const navbar = document.querySelector('.navbar');
-        if (navbar) {
-            if (scrollTop > 50) {
-                navbar.classList.add('scrolled');
-            } else {
-                navbar.classList.remove('scrolled');
-            }
-        }
     });
 
     // Particles disabled for clean white theme
@@ -1181,20 +1189,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Premium Scroll Effects ---
 
-    // 1. Navbar Shrink on Scroll
+    // 1. Navbar stays visually consistent on scroll
     const navbar = document.querySelector('.navbar');
-    let lastScrollTop = 0;
 
     function updateNavbar() {
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
-        if (scrollTop > 100) {
-            navbar.classList.add('scrolled');
-        } else {
+        if (navbar) {
             navbar.classList.remove('scrolled');
         }
-
-        lastScrollTop = scrollTop;
     }
 
     // 2. Parallax Background Effect - DISABLED per user preference
