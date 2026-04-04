@@ -1042,70 +1042,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- GitHub Stats ---
     async function fetchGitHubStats() {
-        const usernames = ['SamarthMahendraneu', 'SamarthMahendra-Draup'];
-
         try {
-            let totalRepos = 0;
-            let totalContributionsAllTime = 0;
-            let lastYearContributions = 0;
-            let past5YearsContributions = 0;
-            const allLanguages = {};
-
-            const currentYear = new Date().getFullYear();
-            const lastYear = currentYear; // 2024
-            const past5YearsStart = currentYear - 5; // 2020
-
-            // Fetch data for both usernames
-            for (const username of usernames) {
-                try {
-                    // Fetch user data
-                    const userResponse = await fetch(`https://api.github.com/users/${username}`);
-                    const userData = await userResponse.json();
-
-                    // Add to total repos
-                    totalRepos += userData.public_repos || 0;
-
-                    // Fetch all repos to get languages
-                    const reposResponse = await fetch(`https://api.github.com/users/${username}/repos?per_page=100`);
-                    const repos = await reposResponse.json();
-
-                    // Aggregate languages
-                    repos.forEach(repo => {
-                        if (repo.language) {
-                            allLanguages[repo.language] = (allLanguages[repo.language] || 0) + 1;
-                        }
-                    });
-
-                    // Fetch contributions for all available years
-                    // We'll fetch from 2018 to current year to get all contributions
-                    for (let year = 2018; year <= currentYear; year++) {
-                        try {
-                            const contributionsResponse = await fetch(
-                                `https://github-contributions-api.jogruber.de/v4/${username}?y=${year}`
-                            );
-                            const contributionsData = await contributionsResponse.json();
-                            const yearContributions = contributionsData.total?.[year] || 0;
-
-                            // Add to total contributions
-                            totalContributionsAllTime += yearContributions;
-
-                            // Add to last year if it's 2024
-                            if (year === lastYear) {
-                                lastYearContributions += yearContributions;
-                            }
-
-                            // Add to past 5 years if within range (2020-2024)
-                            if (year >= past5YearsStart && year <= currentYear) {
-                                past5YearsContributions += yearContributions;
-                            }
-                        } catch (yearError) {
-                            console.warn(`Could not fetch contributions for ${username} in ${year}:`, yearError);
-                        }
-                    }
-                } catch (userError) {
-                    console.warn(`Could not fetch data for ${username}:`, userError);
-                }
+            const response = await fetch(`${SERVER_URL}/github/stats`);
+            if (!response.ok) {
+                throw new Error(`GitHub stats proxy failed with ${response.status}`);
             }
+            const githubStats = await response.json();
+
+            const totalRepos = githubStats.repos || 0;
+            const totalContributionsAllTime = githubStats.total_contributions || 0;
+            const lastYearContributions = githubStats.last_year_contributions || 0;
+            const past5YearsContributions = githubStats.past_5_years_contributions || 0;
 
             // Helper: format number as shorthand (2537 → "2.5k+")
             function formatShortK(n) {
@@ -1151,8 +1098,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // Show top 3 languages as clean text
-            const topLanguages = ['Python', 'Java', 'C++', 'JavaScript', 'TypeScript'];
-            const top3 = topLanguages.slice(0, 3);
+            const top3 = (githubStats.top_languages || ['Python', 'Java', 'C++']).slice(0, 3);
 
             // Display top languages as plain text (not pills) to avoid crowding
             const langTagsContainer = document.getElementById('gh-lang-tags');
@@ -1162,7 +1108,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 totalContributions: totalContributionsAllTime,
                 repos: totalRepos,
                 lastYear: lastYearContributions,
-                past5Years: past5YearsContributions
+                past5Years: past5YearsContributions,
+                cached: githubStats.cached
             });
 
         } catch (error) {

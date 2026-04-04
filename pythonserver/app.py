@@ -31,6 +31,7 @@ import asyncio
 import mongo_tool
 import json
 import uuid
+from threading import Lock
 from datetime import datetime, timedelta
 from fastapi import Body
 
@@ -792,6 +793,124 @@ import requests
 from fastapi import HTTPException
 
 LEETCODE_GRAPHQL_URL = "https://leetcode.com/graphql/"
+GITHUB_API_URL = "https://api.github.com"
+GITHUB_CONTRIBUTIONS_URL = "https://github-contributions-api.jogruber.de/v4"
+GITHUB_STATS_CACHE_TTL = timedelta(days=1)
+DEFAULT_GITHUB_USERNAMES = ["SamarthMahendraneu", "SamarthMahendra-Draup"]
+PREFERRED_GITHUB_LANGUAGES = ["Python", "Java", "C++", "JavaScript", "TypeScript"]
+_github_stats_cache = {}
+_github_stats_cache_lock = Lock()
+
+
+def _resolve_github_usernames(query_usernames=None):
+    if query_usernames:
+        usernames = [username.strip() for username in query_usernames.split(",") if username.strip()]
+        if usernames:
+            return usernames
+
+    env_usernames = os.getenv("GITHUB_STATS_USERNAMES", "")
+    if env_usernames:
+        usernames = [username.strip() for username in env_usernames.split(",") if username.strip()]
+        if usernames:
+            return usernames
+
+    return DEFAULT_GITHUB_USERNAMES
+
+
+def _github_headers():
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "samarthmahendra-portfolio",
+    }
+    github_token = os.getenv("GITHUB_TOKEN", "").strip()
+    if github_token:
+        headers["Authorization"] = f"Bearer {github_token}"
+    return headers
+
+
+def _build_github_stats(usernames):
+    session = requests.Session()
+    session.headers.update(_github_headers())
+
+    total_repos = 0
+    total_contributions_all_time = 0
+    last_year_contributions = 0
+    past_5_years_contributions = 0
+    all_languages = {}
+    warnings = []
+
+    current_year = datetime.utcnow().year
+    contribution_start_year = 2018
+    past_5_years_start = current_year - 5
+
+    for username in usernames:
+        try:
+            user_response = session.get(f"{GITHUB_API_URL}/users/{username}", timeout=15)
+            user_response.raise_for_status()
+            user_data = user_response.json()
+            total_repos += user_data.get("public_repos", 0) or 0
+        except Exception as exc:
+            warnings.append(f"Could not fetch user profile for {username}: {exc}")
+            continue
+
+        try:
+            repos_response = session.get(
+                f"{GITHUB_API_URL}/users/{username}/repos",
+                params={"per_page": 100, "sort": "updated"},
+                timeout=20
+            )
+            repos_response.raise_for_status()
+            repos = repos_response.json()
+
+            for repo in repos:
+                language = repo.get("language")
+                if language:
+                    all_languages[language] = all_languages.get(language, 0) + 1
+        except Exception as exc:
+            warnings.append(f"Could not fetch repositories for {username}: {exc}")
+
+        for year in range(contribution_start_year, current_year + 1):
+            try:
+                contributions_response = session.get(
+                    f"{GITHUB_CONTRIBUTIONS_URL}/{username}",
+                    params={"y": year},
+                    timeout=15
+                )
+                contributions_response.raise_for_status()
+                contributions_data = contributions_response.json()
+                year_contributions = contributions_data.get("total", {}).get(str(year), 0) or 0
+                total_contributions_all_time += year_contributions
+
+                if year == current_year:
+                    last_year_contributions += year_contributions
+
+                if year >= past_5_years_start:
+                    past_5_years_contributions += year_contributions
+            except Exception as exc:
+                warnings.append(f"Could not fetch contributions for {username} in {year}: {exc}")
+
+    ranked_languages = sorted(all_languages.items(), key=lambda item: (-item[1], item[0]))
+    top_languages = [language for language, _ in ranked_languages[:3]]
+
+    preferred_languages = [
+        language for language in PREFERRED_GITHUB_LANGUAGES if language in all_languages
+    ]
+    if preferred_languages:
+        top_languages = preferred_languages[:3]
+
+    generated_at = datetime.utcnow()
+    return {
+        "usernames": usernames,
+        "repos": total_repos,
+        "total_contributions": total_contributions_all_time,
+        "last_year_contributions": last_year_contributions,
+        "past_5_years_contributions": past_5_years_contributions,
+        "top_languages": top_languages,
+        "generated_at": generated_at.isoformat() + "Z",
+        "expires_at": (generated_at + GITHUB_STATS_CACHE_TTL).isoformat() + "Z",
+        "warnings": warnings[:10],
+    }
+
 
 @app.post("/leetcode/proxy")
 async def leetcode_proxy(request: Request):
@@ -816,3 +935,34 @@ async def leetcode_proxy(request: Request):
     except Exception as e:
         print("❌ LeetCode Proxy Error:", e)
         raise HTTPException(status_code=500, detail="Error contacting LeetCode API")
+
+
+@app.get("/github/stats")
+async def github_stats_proxy(usernames: str = None):
+    resolved_usernames = _resolve_github_usernames(usernames)
+    cache_key = ",".join(resolved_usernames)
+    now = datetime.utcnow()
+
+    with _github_stats_cache_lock:
+        cached_entry = _github_stats_cache.get(cache_key)
+        if cached_entry and cached_entry["expires_at"] > now:
+            payload = dict(cached_entry["payload"])
+            payload["cached"] = True
+            return JSONResponse(payload)
+
+    try:
+        payload = _build_github_stats(resolved_usernames)
+    except Exception as exc:
+        print("❌ GitHub Stats Proxy Error:", exc)
+        raise HTTPException(status_code=500, detail="Error contacting GitHub APIs")
+
+    expires_at = now + GITHUB_STATS_CACHE_TTL
+    with _github_stats_cache_lock:
+        _github_stats_cache[cache_key] = {
+            "payload": payload,
+            "expires_at": expires_at
+        }
+
+    response_payload = dict(payload)
+    response_payload["cached"] = False
+    return JSONResponse(response_payload)
