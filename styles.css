@@ -6071,6 +6071,12 @@ body[data-theme="dark"] #experience .stacked-section-label {
    MOBILE POLISH PASS
    ============================================================ */
 @media (max-width: 768px) {
+    .skills-feature-card,
+    .skill-category {
+        position: relative;
+        top: auto;
+    }
+
     .section {
         padding: 46px 0;
     }
