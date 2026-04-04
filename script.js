@@ -169,6 +169,94 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    const projectDemoVideos = Array.from(document.querySelectorAll('.project-demo-video'));
+
+    function markProjectVideoReady(video) {
+        const frame = video.closest('.project-media-frame');
+        if (!frame) return;
+        frame.classList.add('is-ready');
+        frame.classList.remove('has-fallback');
+    }
+
+    function markProjectVideoFallback(video) {
+        const frame = video.closest('.project-media-frame');
+        if (!frame) return;
+        frame.classList.add('has-fallback');
+        frame.classList.remove('is-ready');
+    }
+
+    function tryPlayProjectVideo(video) {
+        if (!video) return;
+
+        video.muted = true;
+        video.defaultMuted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.setAttribute('muted', '');
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+
+        const playAttempt = video.play();
+        if (playAttempt && typeof playAttempt.catch === 'function') {
+            playAttempt.catch(() => markProjectVideoFallback(video));
+        }
+    }
+
+    if ('IntersectionObserver' in window) {
+        const projectVideoObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    tryPlayProjectVideo(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.35
+        });
+
+        projectDemoVideos.forEach(video => {
+            markProjectVideoFallback(video);
+            ['loadedmetadata', 'loadeddata', 'canplay', 'playing', 'timeupdate'].forEach(eventName => {
+                video.addEventListener(eventName, () => markProjectVideoReady(video), { passive: true });
+            });
+            ['error', 'abort', 'stalled', 'suspend'].forEach(eventName => {
+                video.addEventListener(eventName, () => markProjectVideoFallback(video), { passive: true });
+            });
+            ['loadedmetadata', 'canplay', 'mouseenter', 'touchstart'].forEach(eventName => {
+                video.addEventListener(eventName, () => tryPlayProjectVideo(video), { passive: true });
+            });
+            projectVideoObserver.observe(video);
+            tryPlayProjectVideo(video);
+            window.setTimeout(() => {
+                if (video.readyState >= 2) {
+                    markProjectVideoReady(video);
+                } else if (video.paused || video.currentTime === 0) {
+                    markProjectVideoFallback(video);
+                }
+            }, 2200);
+        });
+    } else {
+        projectDemoVideos.forEach(video => {
+            markProjectVideoFallback(video);
+            ['loadedmetadata', 'loadeddata', 'canplay', 'playing', 'timeupdate'].forEach(eventName => {
+                video.addEventListener(eventName, () => markProjectVideoReady(video), { passive: true });
+            });
+            ['error', 'abort', 'stalled', 'suspend'].forEach(eventName => {
+                video.addEventListener(eventName, () => markProjectVideoFallback(video), { passive: true });
+            });
+            ['loadedmetadata', 'canplay', 'mouseenter', 'touchstart'].forEach(eventName => {
+                video.addEventListener(eventName, () => tryPlayProjectVideo(video), { passive: true });
+            });
+            tryPlayProjectVideo(video);
+            window.setTimeout(() => {
+                if (video.readyState >= 2) {
+                    markProjectVideoReady(video);
+                } else if (video.paused || video.currentTime === 0) {
+                    markProjectVideoFallback(video);
+                }
+            }, 2200);
+        });
+    }
+
     // Initialize AOS Animation
     AOS.init({
         duration: 800,
