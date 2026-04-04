@@ -1,6 +1,136 @@
 document.addEventListener('DOMContentLoaded', function () {
     // Clean white theme — no zoom applied
 
+    const marqueeTracks = document.querySelectorAll('.marquee-multi-track');
+
+    function updateMarqueeMetrics() {
+        marqueeTracks.forEach(track => {
+            const logos = Array.from(track.querySelectorAll('.mq-logo'));
+            const duplicateStartIndex = Math.floor(logos.length / 2);
+
+            if (duplicateStartIndex <= 0 || duplicateStartIndex >= logos.length) return;
+
+            const firstLogo = logos[0];
+            const duplicateStartLogo = logos[duplicateStartIndex];
+            const shift = duplicateStartLogo.offsetLeft - firstLogo.offsetLeft;
+
+            if (shift > 0) {
+                track.style.setProperty('--marquee-shift', `${shift}px`);
+            }
+        });
+    }
+
+    const marqueeLogos = document.querySelectorAll('.mq-logo');
+    const marqueeTooltip = document.createElement('div');
+    marqueeTooltip.className = 'marquee-tooltip';
+    document.body.appendChild(marqueeTooltip);
+
+    function positionMarqueeTooltip(event, logo) {
+        const tooltipOffset = 16;
+        const logoRect = logo.getBoundingClientRect();
+        const anchorX = event ? event.clientX : logoRect.left + (logoRect.width / 2);
+        const anchorY = event ? event.clientY : logoRect.top;
+
+        marqueeTooltip.style.left = `${anchorX}px`;
+        marqueeTooltip.style.top = `${anchorY - tooltipOffset}px`;
+
+        const tooltipRect = marqueeTooltip.getBoundingClientRect();
+        const minX = tooltipRect.width / 2 + 12;
+        const maxX = window.innerWidth - (tooltipRect.width / 2) - 12;
+        const clampedX = Math.min(Math.max(anchorX, minX), maxX);
+        const showBelow = (anchorY - tooltipRect.height - tooltipOffset) < 12;
+
+        marqueeTooltip.style.left = `${clampedX}px`;
+        marqueeTooltip.style.top = showBelow
+            ? `${logoRect.bottom + tooltipOffset}px`
+            : `${logoRect.top - tooltipOffset}px`;
+        marqueeTooltip.classList.toggle('below', showBelow);
+    }
+
+    marqueeLogos.forEach(logo => {
+        const label = logo.getAttribute('alt');
+        if (!label) return;
+
+        logo.setAttribute('aria-label', label);
+        logo.setAttribute('tabindex', '0');
+
+        const showTooltip = (event) => {
+            marqueeTooltip.textContent = label;
+            marqueeTooltip.classList.add('visible');
+            positionMarqueeTooltip(event, logo);
+        };
+
+        logo.addEventListener('mouseenter', showTooltip);
+        logo.addEventListener('mousemove', (event) => {
+            if (!marqueeTooltip.classList.contains('visible')) return;
+            positionMarqueeTooltip(event, logo);
+        });
+        logo.addEventListener('mouseleave', () => marqueeTooltip.classList.remove('visible', 'below'));
+        logo.addEventListener('focus', () => showTooltip());
+        logo.addEventListener('blur', () => marqueeTooltip.classList.remove('visible', 'below'));
+    });
+
+    updateMarqueeMetrics();
+    window.addEventListener('load', updateMarqueeMetrics);
+
+    let marqueeResizeFrame = null;
+    window.addEventListener('resize', () => {
+        if (marqueeResizeFrame) {
+            cancelAnimationFrame(marqueeResizeFrame);
+        }
+
+        marqueeResizeFrame = requestAnimationFrame(() => {
+            updateMarqueeMetrics();
+            marqueeResizeFrame = null;
+        });
+    });
+
+    const showcaseStacks = document.querySelectorAll('.showcase-stack');
+    showcaseStacks.forEach(stack => {
+        const cards = Array.from(stack.querySelectorAll('.showcase-card'));
+        cards.forEach((card, index) => {
+            card.style.setProperty('--stack-index', index);
+            card.style.setProperty('--stack-total', cards.length);
+        });
+    });
+
+    const skillsCards = Array.from(document.querySelectorAll('.skills-wrapper .skill-category'));
+    skillsCards.forEach((card, index) => {
+        card.style.setProperty('--skill-stack-index', index);
+        card.style.setProperty('--skill-stack-total', skillsCards.length);
+    });
+
+    const fontPresetButtons = Array.from(document.querySelectorAll('[data-font-choice]'));
+    const fontPresetLabel = document.getElementById('font-preset-label');
+    const fontPresetStorageKey = 'portfolio-font-preset';
+
+    function applyFontPreset(preset) {
+        const selectedPreset = preset || 'editorial';
+        document.body.dataset.fontPreset = selectedPreset;
+
+        fontPresetButtons.forEach(button => {
+            const isActive = button.dataset.fontChoice === selectedPreset;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        const activeButton = fontPresetButtons.find(button => button.dataset.fontChoice === selectedPreset);
+        if (fontPresetLabel && activeButton) {
+            fontPresetLabel.textContent = activeButton.dataset.fontLabel || selectedPreset;
+        }
+    }
+
+    const savedFontPreset = localStorage.getItem(fontPresetStorageKey);
+    applyFontPreset(savedFontPreset || 'editorial');
+
+    fontPresetButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const nextPreset = button.dataset.fontChoice;
+            applyFontPreset(nextPreset);
+            localStorage.setItem(fontPresetStorageKey, nextPreset);
+        });
+    });
+
     // Initialize AOS Animation
     AOS.init({
         duration: 800,
@@ -23,11 +153,23 @@ document.addEventListener('DOMContentLoaded', function () {
         document.body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
     }
 
+    function closeMenu() {
+        if (!mobileMenu) return;
+        mobileMenu.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
     if (mobileToggle) mobileToggle.addEventListener('click', toggleMenu);
-    if (mobileClose) mobileClose.addEventListener('click', toggleMenu);
+    if (mobileClose) mobileClose.addEventListener('click', closeMenu);
 
     mobileLinks.forEach(link => {
-        link.addEventListener('click', toggleMenu);
+        link.addEventListener('click', closeMenu);
+    });
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 1100) {
+            closeMenu();
+        }
     });
 
     // Chatbot Logic
@@ -564,7 +706,7 @@ document.addEventListener('DOMContentLoaded', function () {
         requestAnimationFrame(update);
     }
 
-    initFloatingLogos();
+    // initFloatingLogos(); // disabled — replaced with 3-row marquee
 
     // --- Magnetic Buttons - ENHANCED ---
     const magneticElements = document.querySelectorAll('.magnetic-btn, .magnetic-link, .btn');
@@ -597,16 +739,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const progressBar = document.getElementById('scroll-progress');
         if (progressBar) {
             progressBar.style.width = `${scrolled}%`;
-        }
-
-        // Sticky Navbar Toggle
-        const navbar = document.querySelector('.navbar');
-        if (navbar) {
-            if (scrollTop > 50) {
-                navbar.classList.add('scrolled');
-            } else {
-                navbar.classList.remove('scrolled');
-            }
         }
     });
 
@@ -1088,20 +1220,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Premium Scroll Effects ---
 
-    // 1. Navbar Shrink on Scroll
+    // 1. Navbar stays visually consistent on scroll
     const navbar = document.querySelector('.navbar');
-    let lastScrollTop = 0;
 
     function updateNavbar() {
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
-        if (scrollTop > 100) {
-            navbar.classList.add('scrolled');
-        } else {
+        if (navbar) {
             navbar.classList.remove('scrolled');
         }
-
-        lastScrollTop = scrollTop;
     }
 
     // 2. Parallax Background Effect - DISABLED per user preference
