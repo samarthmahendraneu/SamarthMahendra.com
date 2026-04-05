@@ -152,6 +152,8 @@
                                 <span class="hero-availability-note">Backend, full stack, systems</span>
                             </div>
 
+                            <p class="hero-intro-line">Hi, I'm</p>
+
                             <h1 class="hero-display-name">
                                 <span class="dn-line">Samarth</span>
                                 <span class="dn-line dn-indent">Mahendra</span>
@@ -196,8 +198,41 @@
                                 <div class="hero-floating-chip hero-floating-chip--top">
                                     <i class="fas fa-layer-group"></i> Full-Stack &amp; Backend
                                 </div>
-                                <img src="display_picturev1.png" alt="Samarth Mahendra" class="hero-portrait" width="400"
-                                    fetchpriority="high">
+                                <div class="hero-portrait-frame" aria-label="Portrait of Samarth Mahendra">
+                                    <svg class="hero-portrait-svg" viewBox="0 0 520 640" role="img"
+                                        aria-label="Samarth Mahendra portrait" preserveAspectRatio="xMidYMid slice">
+                                        <defs>
+                                            <filter id="heroBlobSoften" x="-8%" y="-8%" width="116%" height="116%">
+                                                <feGaussianBlur stdDeviation="4.5" />
+                                            </filter>
+                                            <filter id="heroBlobWash" x="-16%" y="-16%" width="132%" height="132%">
+                                                <feGaussianBlur stdDeviation="18" />
+                                            </filter>
+                                            <mask id="heroBlobMask" maskUnits="userSpaceOnUse">
+                                                <rect width="520" height="640" fill="black" />
+                                                <path filter="url(#heroBlobSoften)" fill="white"
+                                                    d="M89 74C123 35 187 24 258 20C337 16 417 28 459 74C500 120 491 191 493 268C495 352 514 458 470 522C427 585 327 606 246 607C166 608 94 587 58 530C20 470 18 388 21 309C24 221 31 137 89 74Z" />
+                                            </mask>
+                                            <linearGradient id="heroWashPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stop-color="#F6D792" stop-opacity="0.66" />
+                                                <stop offset="52%" stop-color="#EADAF6" stop-opacity="0.34" />
+                                                <stop offset="100%" stop-color="#C9D8FF" stop-opacity="0.28" />
+                                            </linearGradient>
+                                            <linearGradient id="heroWashSecondary" x1="12%" y1="8%" x2="86%" y2="92%">
+                                                <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.32" />
+                                                <stop offset="100%" stop-color="#E1CBFF" stop-opacity="0.2" />
+                                            </linearGradient>
+                                        </defs>
+                                        <g class="hero-portrait-wash" aria-hidden="true">
+                                            <path filter="url(#heroBlobWash)" fill="url(#heroWashPrimary)" opacity="0.82"
+                                                d="M74 66C112 23 188 11 266 12C355 13 431 30 473 80C514 129 509 201 508 283C507 371 521 467 471 535C421 601 325 622 241 619C156 616 83 589 46 528C9 467 10 373 15 287C20 198 29 109 74 66Z" />
+                                            <path filter="url(#heroBlobWash)" fill="url(#heroWashSecondary)" opacity="0.65"
+                                                d="M112 97C142 58 205 43 268 43C340 44 405 55 439 94C475 134 472 193 472 258C473 332 484 418 445 474C405 531 327 549 258 549C189 548 126 530 92 481C58 431 53 355 55 285C57 211 67 139 112 97Z" />
+                                        </g>
+                                        <image href="display_picturev2.png" width="520" height="640"
+                                            preserveAspectRatio="xMidYMid slice" mask="url(#heroBlobMask)" />
+                                    </svg>
+                                </div>
                                 <div class="hero-floating-chip hero-floating-chip--left">
                                     <i class="fas fa-location-dot"></i> Boston, MA
                                 </div>
