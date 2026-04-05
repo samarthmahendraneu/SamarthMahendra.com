@@ -701,8 +701,8 @@ img {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 5px;
-    margin: 5px 0 5px;
+    gap: 8px;
+    margin: 8px 0 8px;
     align-items: center;
 }
 
@@ -5231,7 +5231,7 @@ footer {
 
 .profile-signals-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0;
     border-top: 1px solid rgba(218, 221, 228, 0.86);
     border-bottom: 1px solid rgba(218, 221, 228, 0.86);
@@ -5248,8 +5248,8 @@ footer {
 
 .profile-signal-card .prose-stat {
     display: grid;
-    grid-template-columns: minmax(92px, auto) 1fr;
-    gap: 18px;
+    grid-template-columns: minmax(136px, auto) 1fr;
+    gap: 26px;
     align-items: start;
     padding: 0;
     margin-right: 0;
@@ -5257,13 +5257,13 @@ footer {
 }
 
 .profile-signal-card .prose-stat-num {
-    font-size: clamp(2rem, 3.5vw, 2.8rem);
-    font-weight: 650;
+    font-size: clamp(1.9rem, 3.1vw, 2.55rem);
+    font-weight: 640;
 }
 
 .profile-signal-card .prose-stat-desc {
-    font-size: 1rem;
-    line-height: 1.55;
+    font-size: 0.98rem;
+    line-height: 1.6;
 }
 
 .profile-signal-card .prose-stat-sub {
@@ -5271,7 +5271,8 @@ footer {
 }
 
 .profile-signal-card .prose-stat-accounts {
-    margin-top: 10px;
+    margin-top: 14px;
+    gap: 10px;
 }
 
 .profile-signal-card:last-child {
