@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashy | Open source agent workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <nav class="topbar">
+        <div class="brand">
+          <div class="brand-mark">O/</div>
+          <span>Dashy</span>
+        </div>
+        <div class="topbar-links">
+          <a href="#product">Product</a>
+          <a href="#features">Features</a>
+          <a href="#roadmap">Roadmap</a>
+          <a class="github-link" href="#oss">Open source</a>
+        </div>
+      </nav>
+
+      <div class="hero-stack" id="product">
+        <section class="hero-copy">
+          <p class="eyebrow">Open source agent workspace</p>
+          <h1>A workspace that thinks with you, not at you.</h1>
+          <p class="hero-text">
+            Dashy brings the calm, product-first feel of modern AI tools to email:
+            command-driven drafting, action-taking agents, calendar coordination, and a workspace that stays out of your way.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#demo">Open demo</a>
+            <a class="button button-secondary" href="#roadmap">See roadmap</a>
+          </div>
+          <p class="hero-caption">Keyboard-first. Agent-assisted. Self-hostable.</p>
+        </section>
+
+        <section class="hero-visual" id="demo">
+          <div class="sunburst"></div>
+          <div class="window mock-window">
+            <div class="window-bar">
+              <div class="window-dots">
+                <span class="dot dot-red"></span>
+                <span class="dot dot-yellow"></span>
+                <span class="dot dot-green"></span>
+              </div>
+              <div class="window-title">Dashy workspace</div>
+              <div class="window-status">AI mode</div>
+            </div>
+
+            <div class="product-grid">
+              <aside class="inbox-list">
+                <div class="list-header">
+                  <span>All Emails</span>
+                  <span class="muted">18 active</span>
+                </div>
+                <div class="message-list" id="message-list"></div>
+              </aside>
+
+              <main class="thread-panel">
+                <div class="thread-header">
+                  <div>
+                    <p class="muted mono">Selected thread</p>
+                    <h2 id="thread-subject">Investor intro follow-up</h2>
+                  </div>
+                  <div class="thread-actions">
+                    <button class="chip">Reply</button>
+                    <button class="chip">Forward</button>
+                    <button class="chip chip-accent">Run agent</button>
+                  </div>
+                </div>
+
+                <article class="thread-card">
+                  <div class="thread-meta">
+                    <div>
+                      <strong id="thread-sender">Maya Chen</strong>
+                      <p class="muted" id="thread-from">to me</p>
+                    </div>
+                    <p class="muted mono" id="thread-time">Thu, Apr 4, 2:18 PM</p>
+                  </div>
+                  <div class="thread-body" id="thread-body"></div>
+                </article>
+
+                <section class="composer">
+                  <div class="composer-top">
+                    <span class="muted mono">AI-generated reply</span>
+                    <span class="pill pill-blue">Ready to send</span>
+                  </div>
+                  <div class="composer-body" id="draft-body"></div>
+                  <div class="composer-actions">
+                    <button class="button button-primary">Send</button>
+                    <button class="button button-secondary">Send later</button>
+                    <button class="button button-secondary">Edit draft</button>
+                  </div>
+                </section>
+              </main>
+
+              <aside class="assistant-panel">
+                <div class="assistant-header">
+                  <div>
+                    <p class="muted mono">Command bar</p>
+                    <h3>Reply and schedule a call for next Tuesday afternoon</h3>
+                  </div>
+                  <span class="assistant-plus">+</span>
+                </div>
+
+                <div class="assistant-log">
+                  <div class="assistant-step">
+                    <span class="muted mono">Thinking</span>
+                    <p>I'll draft the reply, check your calendar, and prepare an invite with the proposed time.</p>
+                  </div>
+                  <div class="assistant-step">
+                    <span class="muted mono">Draft created</span>
+                    <p>Generated a concise response that confirms interest, keeps the tone warm, and references the proposed next step.</p>
+                  </div>
+                  <div class="assistant-step">
+                    <span class="muted mono">Calendar event created</span>
+                    <ul class="assistant-list">
+                      <li><strong>Title:</strong> Intro call with Maya Chen</li>
+                      <li><strong>When:</strong> Tuesday, 3:30-4:00 PM</li>
+                      <li><strong>Attendees:</strong> maya@example.com</li>
+                      <li><strong>Status:</strong> Invite attached to draft</li>
+                    </ul>
+                  </div>
+                  <div class="assistant-step">
+                    <span class="muted mono">Ready</span>
+                    <p>The email draft and calendar invite are prepared. Sending the reply will also send the invite.</p>
+                  </div>
+                </div>
+
+                <div class="assistant-dock">
+                  <div class="assistant-chips">
+                    <span class="dock-chip">@ Context</span>
+                    <span class="dock-chip">Attach</span>
+                    <span class="dock-chip">Investor intro thread</span>
+                  </div>
+                  <div class="assistant-prompt">Draft, search, @ for context</div>
+                  <div class="assistant-dock-footer">
+                    <div class="assistant-model">
+                      <span class="assistant-model-dot"></span>
+                      <span>Sonnet</span>
+                    </div>
+                    <button class="assistant-send" type="button" aria-label="Run command">↑</button>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </section>
+      </div>
+    </header>
+
+    <section class="sms-section">
+      <div class="sms-copy">
+        <p class="eyebrow">No heavy client required</p>
+          <h2>Handle your workflow from your keyboard, browser, or plain text prompts.</h2>
+          <p>
+            The assistant can summarize context, draft plans, trigger actions,
+            and surface the right information using lightweight commands. This demo keeps the
+            interaction in-product, but the architecture is ready for chat, voice, or mobile layers.
+          </p>
+      </div>
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <div class="bubble bubble-left">You still have three unresolved blockers in the launch checklist. Want me to group them by owner and urgency?</div>
+          <div class="bubble bubble-right">yes, do it</div>
+          <div class="bubble bubble-left">Done. I created a tight summary and drafted next actions for design, infra, and docs.</div>
+          <div class="bubble bubble-left">I also highlighted the one dependency that could delay the release if it slips past tomorrow.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-grid" id="features">
+      <article class="feature-card">
+        <div class="feature-visual reminder-visual">
+          <div class="mini-search">R</div>
+          <div class="reminder-row">
+            <span>Tomorrow at 9:00 AM</span>
+            <span class="muted">Jan 21</span>
+          </div>
+          <div class="reminder-row">
+            <span>In 2 days at 9:00 AM</span>
+            <span class="muted">Jan 22</span>
+          </div>
+          <div class="reminder-row">
+            <span>Next Monday at 9:00 AM</span>
+            <span class="muted">Jan 27</span>
+          </div>
+        </div>
+        <h3>Never lose momentum</h3>
+        <p>Pin reminders to active work so the assistant can bring the right item back exactly when it matters.</p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-visual calendar-visual">
+          <div class="calendar-top">
+            <span class="muted mono">PST</span>
+            <strong>Apr 5</strong>
+          </div>
+          <div class="calendar-event blue">9 AM - Team Standup</div>
+          <div class="calendar-event green">10 AM - Design Review</div>
+          <div class="calendar-event peach">12 PM - Lunch with Sarah</div>
+          <div class="calendar-event lilac">3 PM - Sprint Planning</div>
+        </div>
+        <h3>Live context sidebar</h3>
+        <p>Relevant timeline and schedule context appears next to your active workspace so decisions happen without tab hopping.</p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-visual shortcut-visual">
+          <div class="keycap">G</div>
+          <div class="shortcut-plus">+</div>
+          <div class="keycap">I</div>
+        </div>
+        <h3>Built for power users</h3>
+        <p>Everything is keyboard-first, with command search, focused navigation, and quick action shortcuts.</p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-visual labels-visual" id="label-preview"></div>
+        <h3>Auto-labeling and prioritization</h3>
+        <p>Rules and AI tags help pull critical work to the top while low-signal items quietly get out of the way.</p>
+      </article>
+    </section>
+
+    <section class="roadmap" id="roadmap">
+      <div class="roadmap-copy">
+        <p class="eyebrow">Open-source build plan</p>
+        <h2>What this repo can become</h2>
+        <p>
+          This first pass is a product shell. The next layers are straightforward:
+          auth, workspace sync, action execution, LLM orchestration, and a durable command log.
+        </p>
+      </div>
+      <div class="roadmap-columns">
+        <div class="roadmap-card">
+          <h3>Phase 1</h3>
+          <ul>
+            <li>OAuth and workspace sync</li>
+            <li>Item view, labels, and reminders</li>
+            <li>Command palette and keyboard navigation</li>
+          </ul>
+        </div>
+        <div class="roadmap-card">
+          <h3>Phase 2</h3>
+          <ul>
+            <li>AI planning, summarization, and search</li>
+            <li>Context integrations and action execution</li>
+            <li>Audit trail for assistant actions</li>
+          </ul>
+        </div>
+        <div class="roadmap-card" id="oss">
+          <h3>Phase 3</h3>
+          <ul>
+            <li>Multi-channel assistant interface</li>
+            <li>User-defined automations and agent recipes</li>
+            <li>Self-hosted deployment templates</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
