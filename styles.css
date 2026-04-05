@@ -4960,7 +4960,8 @@ footer {
 }
 
 .hero-editorial {
-    gap: 34px;
+    grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.9fr);
+    gap: 52px;
     align-items: start;
 }
 
@@ -4969,6 +4970,15 @@ footer {
     display: grid;
     gap: 34px;
     align-content: start;
+}
+
+.hero-main-column {
+    min-width: 0;
+    max-width: 780px;
+}
+
+.hero-side-column {
+    padding-top: 18px;
 }
 
 .hero-main-card,
@@ -4986,33 +4996,42 @@ footer {
 
 .hero-main-top {
     justify-content: flex-start;
-    align-items: center;
+    align-items: flex-start;
     gap: 14px;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
 }
 
 .hero-location-tag {
-    background: rgba(255, 255, 255, 0.72);
+    background: transparent;
+    border: none;
+    padding: 0;
+    border-radius: 0;
+    color: var(--text-secondary);
+    font-weight: 600;
+    box-shadow: none;
 }
 
 .hero-availability-note {
-    color: var(--text-secondary);
-    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    letter-spacing: 0.1em;
 }
 
 .hero-display-name {
-    margin-bottom: 28px;
+    margin-bottom: 24px;
+    font-size: clamp(3rem, 5.55vw, 4.72rem);
+    line-height: 0.97;
+    letter-spacing: -0.04em;
 }
 
 .hero-intro-line {
     display: inline-flex;
     align-items: center;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     color: var(--text-secondary);
     font-family: var(--font-heading);
-    font-size: clamp(0.96rem, 1.04vw, 1.05rem);
-    font-weight: 540;
-    letter-spacing: 0.02em;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
     text-transform: uppercase;
 }
 
@@ -5021,19 +5040,23 @@ footer {
 }
 
 .hero-lead {
-    max-width: 680px;
+    max-width: 630px;
     margin-bottom: 20px;
     font-size: clamp(0.98rem, 1.32vw, 1.28rem);
     line-height: 1.34;
 }
 
 .hero-bio {
-    max-width: 660px;
-    margin-bottom: 28px;
+    max-width: 610px;
+    margin-bottom: 24px;
+    color: var(--text-secondary);
 }
 
 .hero-focus-pills span {
-    background: rgba(250, 247, 240, 0.86);
+    background: rgba(250, 247, 240, 0.72);
+    border-color: rgba(223, 226, 233, 0.74);
+    color: var(--text-tertiary);
+    font-size: 0.82rem;
 }
 
 .hero-profile-card {
@@ -5041,7 +5064,7 @@ footer {
 }
 
 .hero-profile-media {
-    padding: 12px 18px 24px 0;
+    padding: 8px 12px 18px 0;
     background: transparent;
     border: none;
     box-shadow: none;
@@ -5075,7 +5098,7 @@ footer {
     font-size: 0.8rem;
     font-weight: 700;
     line-height: 1;
-    box-shadow: 0 10px 24px rgba(17, 24, 39, 0.12);
+    box-shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
 }
@@ -5108,7 +5131,7 @@ footer {
 
 .hero-journey-card .hero-panel-label,
 .hero-stats-card .hero-panel-label {
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 }
 
 .hero-journey-list {
@@ -5116,15 +5139,26 @@ footer {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 28px;
-    border-top: 1px solid rgba(218, 221, 228, 0.86);
-    padding-top: 18px;
+    border-top: 1px solid rgba(218, 221, 228, 0.82);
+    padding-top: 16px;
 }
 
 .journey-stop {
     background: transparent;
     border: none;
     border-radius: 0;
-    padding: 0 6px 0 0;
+    padding: 0 10px 0 0;
+    position: relative;
+}
+
+.journey-stop:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    right: -14px;
+    bottom: 4px;
+    width: 1px;
+    background: linear-gradient(180deg, rgba(218, 221, 228, 0.74), rgba(218, 221, 228, 0.08));
 }
 
 .journey-year {
