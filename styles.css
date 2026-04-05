@@ -4386,11 +4386,11 @@ footer {
 }
 
 .hero-display-name {
-    margin-bottom: 24px;
-    font-size: clamp(3.5rem, 7.2vw, 6.1rem);
+    margin-bottom: 28px;
+    font-size: clamp(3.15rem, 6.15vw, 5.1rem);
     font-weight: 680;
-    line-height: 0.98;
-    letter-spacing: -0.045em;
+    line-height: 0.96;
+    letter-spacing: -0.042em;
 }
 
 .dn-indent {
@@ -4398,13 +4398,13 @@ footer {
 }
 
 .hero-lead {
-    max-width: 720px;
-    font-size: clamp(1.35rem, 2.2vw, 2rem);
-    line-height: 1.28;
-    letter-spacing: -0.03em;
+    max-width: 680px;
+    font-size: clamp(0.98rem, 1.32vw, 1.28rem);
+    line-height: 1.34;
+    letter-spacing: -0.01em;
     color: var(--text-primary);
-    margin-bottom: 18px;
-    font-weight: 600;
+    margin-bottom: 20px;
+    font-weight: 510;
 }
 
 .hero-bio {
@@ -4464,22 +4464,54 @@ footer {
 
 .hero-profile-media {
     position: relative;
-    border-radius: 28px;
-    overflow: hidden;
+    overflow: visible;
     background:
         radial-gradient(circle at top left, rgba(255, 221, 153, 0.42), transparent 45%),
         linear-gradient(145deg, #f3ede3 0%, #ebe3f7 100%);
-    padding: 16px;
+    padding: 18px 18px 24px;
+    border-radius: 36px;
+    box-shadow:
+        0 26px 54px rgba(17, 24, 39, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.44);
 }
 
-.hero-portrait {
-    border-radius: 24px;
-    transform: none;
-    box-shadow: 0 18px 42px rgba(17, 24, 39, 0.12);
+.hero-portrait-frame {
+    position: relative;
+    width: 100%;
+    filter: drop-shadow(0 22px 48px rgba(17, 24, 39, 0.16));
+    transition: transform 320ms ease, filter 320ms ease;
 }
 
-.hero-portrait:hover {
-    transform: scale(1.015);
+.hero-portrait-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.hero-portrait-wash {
+    mix-blend-mode: multiply;
+    transform: translate(2px, 6px) scale(1.015);
+    transform-origin: center;
+    pointer-events: none;
+}
+
+.hero-portrait-frame image {
+    transform-origin: center;
+    transition: transform 320ms ease, box-shadow 320ms ease, filter 320ms ease;
+}
+
+.hero-portrait-frame:hover {
+    transform: rotate(1.1deg);
+    filter: drop-shadow(0 28px 58px rgba(17, 24, 39, 0.2));
+}
+
+.hero-portrait-frame:hover image {
+    transform: scale(1.03);
+    filter: saturate(1.02);
+}
+
+.hero-portrait-frame:hover .hero-portrait-wash {
+    transform: translate(4px, 8px) scale(1.03);
 }
 
 .hero-status-chip {
@@ -4972,10 +5004,27 @@ footer {
     margin-bottom: 28px;
 }
 
+.hero-intro-line {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 14px;
+    color: var(--text-secondary);
+    font-family: var(--font-heading);
+    font-size: clamp(0.96rem, 1.04vw, 1.05rem);
+    font-weight: 540;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.dn-line {
+    display: block;
+}
+
 .hero-lead {
-    max-width: 760px;
+    max-width: 680px;
     margin-bottom: 20px;
-    font-size: clamp(1.45rem, 2.35vw, 2.15rem);
+    font-size: clamp(0.98rem, 1.32vw, 1.28rem);
+    line-height: 1.34;
 }
 
 .hero-bio {
@@ -6051,6 +6100,14 @@ body[data-theme="dark"] .hero-profile-media {
     background:
         radial-gradient(circle at top left, rgba(128, 112, 255, 0.28), transparent 46%),
         linear-gradient(145deg, #161f31 0%, #1c1631 100%);
+    box-shadow:
+        0 26px 54px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+body[data-theme="dark"] .hero-portrait-wash {
+    opacity: 0.74;
+    mix-blend-mode: screen;
 }
 
 body[data-theme="dark"] .btn-outline,
@@ -6289,13 +6346,14 @@ body[data-theme="dark"] #experience .stacked-section-label {
 
     .hero-profile-media {
         padding: 0 0 18px;
+        box-shadow: none;
+        border-radius: 28px;
     }
 
-    .hero-portrait {
-        border-radius: 24px;
-        box-shadow:
-            0 18px 44px rgba(17, 24, 39, 0.16),
-            10px 8px 0 rgba(235, 227, 247, 0.78);
+    .hero-portrait-frame {
+        filter:
+            drop-shadow(0 18px 44px rgba(17, 24, 39, 0.16))
+            drop-shadow(10px 8px 0 rgba(235, 227, 247, 0.78));
     }
 
     .hero-status-chip {
