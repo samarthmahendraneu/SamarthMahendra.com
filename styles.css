@@ -6282,6 +6282,11 @@ body[data-theme="dark"] #experience .stacked-section-label {
    MOBILE POLISH PASS
    ============================================================ */
 @media (max-width: 768px) {
+    .hero-editorial {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 24px;
+    }
+
     .skills-feature-card,
     .skill-category {
         position: relative;
@@ -6300,6 +6305,11 @@ body[data-theme="dark"] #experience .stacked-section-label {
 
     .hero-section {
         padding: 94px 0 10px;
+    }
+
+    .hero-side-column {
+        width: 100%;
+        padding-top: 0;
     }
 
     .hero-main-top {
@@ -6380,9 +6390,10 @@ body[data-theme="dark"] #experience .stacked-section-label {
     }
 
     .hero-profile-media {
-        padding: 0 0 18px;
+        padding: 14px 14px 18px;
         box-shadow: none;
         border-radius: 28px;
+        overflow: hidden;
     }
 
     .hero-portrait-frame {
@@ -6403,12 +6414,12 @@ body[data-theme="dark"] #experience .stacked-section-label {
     }
 
     .hero-floating-chip--top {
-        top: -6px;
-        right: 6px;
+        top: 12px;
+        right: 12px;
     }
 
     .hero-floating-chip--left {
-        left: 10px;
+        left: 12px;
         bottom: 14px;
     }
 
