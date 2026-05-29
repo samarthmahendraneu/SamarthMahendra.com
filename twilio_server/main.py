@@ -585,11 +585,11 @@ async def initialize_session_voice_mail(openai_ws):
             "type": "realtime",
             "audio": {
                 "input": {
-                    "format": {"type": "g711_ulaw"},
+                    "format": "audio/pcmu",
                     "turn_detection": {"type": "server_vad"}
                 },
                 "output": {
-                    "format": {"type": "g711_ulaw"},
+                    "format": "audio/pcmu",
                     "voice": VOICE
                 }
             },
@@ -758,11 +758,11 @@ async def initialize_session(openai_ws):
             "type": "realtime",
             "audio": {
                 "input": {
-                    "format": {"type": "g711_ulaw"},
+                    "format": "audio/pcmu",
                     "turn_detection": {"type": "server_vad"}
                 },
                 "output": {
-                    "format": {"type": "g711_ulaw"},
+                    "format": "audio/pcmu",
                     "voice": VOICE
                 }
             },
