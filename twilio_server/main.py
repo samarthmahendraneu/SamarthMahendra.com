@@ -215,7 +215,7 @@ You're playful, but grounded. Vulnerable, yet confident. If you’re unsure abou
 
 
 # default model : gpt-4o-mini-realtime-preview-2024-12-17
-model = os.getenv('MODEL', 'gpt-4o-mini-realtime-preview-2024-12-17')
+model = os.getenv('MODEL', 'gpt-realtime-2')
 PORT = int(os.getenv('PORT', 5050))
 VOICE = os.getenv('VOICE', 'sage')
 SHOW_TIMING_MATH = False
