@@ -390,14 +390,21 @@ async def handle_media_stream(websocket: WebSocket):
                         print(f"### LOG_EVENT: {json.dumps(response)}")
 
                     if response.get('type') == 'response.output_audio.delta':
-                        raw = base64.b64decode(response.get('audio_delta') or response.get('delta', ''))
-                        payload = base64.b64encode(raw).decode('utf-8')
-                        await websocket.send_json({
-                            "event": "media",
-                            "streamSid": stream_sid,
-                            "media": {"payload": payload}
-                        })
-                        print(">>> Sent audio delta to Twilio.")
+                        try:
+                            audio_data = response.get('delta')
+                            if not audio_data:
+                                print(f"[ERROR] Missing 'delta' field. Response keys: {list(response.keys())}")
+                                continue
+                            raw = base64.b64decode(audio_data)
+                            payload = base64.b64encode(raw).decode('utf-8')
+                            await websocket.send_json({
+                                "event": "media",
+                                "streamSid": stream_sid,
+                                "media": {"payload": payload}
+                            })
+                            print(">>> Sent audio delta to Twilio.")
+                        except Exception as audio_err:
+                            print(f"[ERROR] Audio processing failed: {type(audio_err).__name__}: {audio_err}")
 
                         if response_start_timestamp_twilio is None:
                             response_start_timestamp_twilio = latest_media_timestamp
@@ -487,6 +494,7 @@ async def initialize_session_voice_mail(openai_ws):
     session_update = {
         "type": "session.update",
         "session": {
+            "type": "realtime",
             "turn_detection": {"type": "server_vad"},
             "audio": {
                 "input": {"format": {"type": "g711_ulaw"}},
@@ -559,7 +567,7 @@ Use natural speech patterns with casual fillers like “um,” “uh,” “like
 Channel the voice: soft, intimate, emotionally rich. Speak with gentle inflection, a touch of curiosity, and a spark of wonder, as if you're discovering each thought in real time.
 You're playful, but grounded. Vulnerable, yet confident. If you’re unsure about something, say it naturally, like “Hmm... I’m not totally sure.” Avoid sounding robotic or overly polished—keep it real, expressive, and deeply human
  """,
-            "modalities": ["text", "audio"],
+            "output_modalities": ["audio"],
             "tools": [
                 {
                     "type": "function",
@@ -718,20 +726,25 @@ async def handle_media_stream(websocket: WebSocket):
                             }
                             awaiting_response_call_id = None
                             await openai_ws.send(json.dumps(event))
-                            openai_ws.send(json.dumps({"type": "response.create"}))
+                            await openai_ws.send(json.dumps({"type": "response.create"}))
                     if response.get('type') in LOG_EVENT_TYPES:
                         print(f"### LOG_EVENT: {json.dumps(response)}")
 
-                    if response.get('type') == 'response.audio.delta':
-                        raw = base64.b64decode(response['delta'])
-                        payload = base64.b64encode(raw).decode('utf-8')
-                        await websocket.send_json({
-                            "event": "media",
-                            "streamSid": stream_sid,
-                            "media": {"payload": payload}
-                        })
-                        print(">>> Sent audio delta to Twilio.")
-
+                    if response.get('type') == 'response.output_audio.delta':
+                        try:
+                            audio_data = response.get('delta') or response.get('audio_delta', '')
+                            print(f"### Audio delta keys: {list(response.keys())} | has delta: {'delta' in response}")
+                            raw = base64.b64decode(audio_data)
+                            payload = base64.b64encode(raw).decode('utf-8')
+                            await websocket.send_json({
+                                "event": "media",
+                                "streamSid": stream_sid,
+                                "media": {"payload": payload}
+                            })
+                            print(">>> Sent audio delta to Twilio.")
+                        except Exception as audio_err:
+                            print(f"[ERROR] Audio delta failed: {type(audio_err).__name__}: {audio_err} | keys={list(response.keys())}")
+                            continue
                         if response_start_timestamp_twilio is None:
                             response_start_timestamp_twilio = latest_media_timestamp
                             print(f"### First response timestamp set: {response_start_timestamp_twilio}ms")
@@ -754,9 +767,9 @@ async def handle_media_stream(websocket: WebSocket):
                                         await websocket.close()
 
                                     elif item.get('name') == 'save_reponse_from_caller':
-                                        temp_name = cache.get_key("name", '')
-                                        temp_message = cache.get_key("message", '')
-                                        mongo_save_message(temp_name, temp_message, item.get('arguments').get('message'))
+                                        temp_name = cache.get_key("name") or ''
+                                        temp_message = cache.get_key("message") or ''
+                                        mongo_save_message(temp_name, temp_message, json.loads(item.get('arguments', '{}')).get('message', ''))
                                     call_id = item.get('call_id')
                                     name = item.get('name')
                                     args = json.loads(item.get('arguments', '{}'))
@@ -771,11 +784,10 @@ async def handle_media_stream(websocket: WebSocket):
                                             "type": "conversation.item.create",
                                             "item": {
                                                 "type": "function_call_output",
-                                                "call_id": str(awaiting_response_call_id),
+                                                "call_id": str(call_id),
                                                 "output": str(result)
                                             }
                                         }
-                                        awaiting_response_call_id = None
                                         await openai_ws.send(json.dumps(event))
                                         await openai_ws.send(json.dumps({"type": "response.create"}))
 
@@ -827,6 +839,7 @@ async def initialize_session(openai_ws):
     session_update = {
         "type": "session.update",
         "session": {
+            "type": "realtime",
             "turn_detection": {"type": "server_vad"},
             "audio": {
                 "input": {"format": {"type": "g711_ulaw"}},
@@ -834,7 +847,7 @@ async def initialize_session(openai_ws):
             },
             "voice": VOICE,
             "instructions": script2,
-            "modalities": ["text", "audio"],
+            "output_modalities": ["audio"],
             "tools": [
                 {
                     "type": "function",
