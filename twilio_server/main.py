@@ -336,8 +336,7 @@ async def handle_media_stream(websocket: WebSocket):
     async with websockets.connect(
         web_socket_url,
         extra_headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "OpenAI-Beta": "realtime=v1"
+            "Authorization": f"Bearer {OPENAI_API_KEY}"
         }
     ) as openai_ws:
         print("### Connected to OpenAI Realtime API WebSocket.")
@@ -652,8 +651,7 @@ async def handle_media_stream(websocket: WebSocket):
     async with websockets.connect(
         web_socket_url,
         extra_headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "OpenAI-Beta": "realtime=v1"
+            "Authorization": f"Bearer {OPENAI_API_KEY}"
         }
     ) as openai_ws:
         print("### Connected to OpenAI Realtime API WebSocket.")
