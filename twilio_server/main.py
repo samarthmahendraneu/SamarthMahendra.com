@@ -489,8 +489,14 @@ async def initialize_session_voice_mail(openai_ws):
         "session": {
             "type": "realtime",
             "turn_detection": {"type": "server_vad"},
-            "input_audio_format": "g711_ulaw",
-            "output_audio_format": "g711_ulaw",
+            "audio": {
+                "input": {
+                    "format": "g711_ulaw"
+                },
+                "output": {
+                    "format": "g711_ulaw"
+                }
+            },
             "voice": VOICE,
             "instructions": """ You are samarth's personal assistant
              Samarth's info:         
@@ -829,8 +835,14 @@ async def initialize_session(openai_ws):
         "session": {
             "type": "realtime",
            # "turn_detection": {"type": "server_vad"},
-            "input_audio_format": "g711_ulaw",
-            "output_audio_format": "g711_ulaw",
+            "audio": {
+                "input": {
+                    "format": "g711_ulaw"
+                },
+                "output": {
+                    "format": "g711_ulaw"
+                }
+            },
             "voice": VOICE,
             "instructions": script2,
             "modalities": ["text", "audio"],
