@@ -389,8 +389,8 @@ async def handle_media_stream(websocket: WebSocket):
                     if response.get('type') in LOG_EVENT_TYPES:
                         print(f"### LOG_EVENT: {json.dumps(response)}")
 
-                    if response.get('type') == 'response.audio.delta':
-                        raw = base64.b64decode(response['delta'])
+                    if response.get('type') == 'response.output_audio.delta':
+                        raw = base64.b64decode(response.get('audio_delta') or response.get('delta', ''))
                         payload = base64.b64encode(raw).decode('utf-8')
                         await websocket.send_json({
                             "event": "media",
@@ -487,17 +487,12 @@ async def initialize_session_voice_mail(openai_ws):
     session_update = {
         "type": "session.update",
         "session": {
-            "type": "realtime",
             "turn_detection": {"type": "server_vad"},
             "audio": {
-                "input": {
-                    "format": "g711_ulaw"
-                },
-                "output": {
-                    "format": "g711_ulaw",
-                    "voice": VOICE
-                }
+                "input": {"format": {"type": "g711_ulaw"}},
+                "output": {"format": {"type": "g711_ulaw"}}
             },
+            "voice": VOICE,
             "instructions": """ You are samarth's personal assistant
              Samarth's info:         
             MARASANIGE SAMARTH MAHENDRA | Phone: +1 (857) 707-1671 | Email: samarth.mahendragowda@gmail.com | Location: Boston, MA, USA | LinkedIn | GitHub
@@ -583,8 +578,7 @@ You're playful, but grounded. Vulnerable, yet confident. If you’re unsure abou
                 ,
 
             ],
-            "tool_choice": "auto",
-            "temperature": 0.85,
+            "tool_choice": "auto"
         }
     }
     await openai_ws.send(json.dumps(session_update))
@@ -833,17 +827,12 @@ async def initialize_session(openai_ws):
     session_update = {
         "type": "session.update",
         "session": {
-            "type": "realtime",
-           # "turn_detection": {"type": "server_vad"},
+            "turn_detection": {"type": "server_vad"},
             "audio": {
-                "input": {
-                    "format": "g711_ulaw"
-                },
-                "output": {
-                    "format": "g711_ulaw",
-                    "voice": VOICE
-                }
+                "input": {"format": {"type": "g711_ulaw"}},
+                "output": {"format": {"type": "g711_ulaw"}}
             },
+            "voice": VOICE,
             "instructions": script2,
             "modalities": ["text", "audio"],
             "tools": [
@@ -860,10 +849,9 @@ async def initialize_session(openai_ws):
                             "user_email": {"type": "string",
                                            "description": "Email of the user scheduling the meeting (for invite)"}
                         },
-                        "required": ["members", "agenda", "timing", "user_email"]
+                        "required": ["name", "agenda", "timing", "user_email"]
                     }
                 },
-
                 {
                     "type": "function",
                     "name": "save_reponse_from_caller",
@@ -880,50 +868,17 @@ async def initialize_session(openai_ws):
                 {
                     "type": "function",
                     "name": "end_call",
-                    "description": "Function to end the call after the conversation is done. example when it reaches voice mail end call after you say take care, Bye",
+                    "description": "Function to end the call after the conversation is done. Call this when saying goodbye.",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "end_call": {"type": "string", "description": "True or False, to end call after talking"},
+                            "end_call": {"type": "string", "description": "Set to 'true' to end the call"}
                         },
-                        "required": ["members", "agenda", "timing", "user_email"]
+                        "required": ["end_call"]
                     }
                 }
-                ,
-                # {
-                #     "type": "function",
-                #     "name": "query_profile_info",
-                #     "description": "Function to query profile information, requiring no input parameters for Job fit or any resume information.",
-                #     "parameters": {
-                #         "type": "object",
-                #         "properties": {},
-                #         "additionalProperties": False
-                #     }
-                # },
-                # {
-                #     "type": "function",
-                #     "name": "schedule_meeting_on_jitsi",
-                #     "description": "Function to Schedule a meeting with Samarth and others on Jitsi, store meeting in MongoDB, and send an email invite with the Jitsi link. dont ask too much just schedule the meeting",
-                #     "parameters": {
-                #         "type": "object",
-                #         "properties": {
-                #             "members": {
-                #                 "type": "array",
-                #                 "items": {"type": "string"},
-                #                 "description": "List of member emails (apart from Samarth)"
-                #             },
-                #             "agenda": {"type": "string", "description": "Agenda for the meeting"},
-                #             "timing": {"type": "string",
-                #                        "description": "Timing for the meeting (ISO format or natural language)"},
-                #             "user_email": {"type": "string",
-                #                            "description": "Email of the user scheduling the meeting (for invite)"}
-                #         },
-                #         "required": ["members", "agenda", "timing", "user_email"]
-                #     }
-                # }
             ],
-            "tool_choice": "auto",
-            "temperature": 0.85,
+            "tool_choice": "auto"
         }
     }
     await openai_ws.send(json.dumps(session_update))
