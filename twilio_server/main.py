@@ -494,10 +494,10 @@ async def initialize_session_voice_mail(openai_ws):
                     "format": "g711_ulaw"
                 },
                 "output": {
-                    "format": "g711_ulaw"
+                    "format": "g711_ulaw",
+                    "voice": VOICE
                 }
             },
-            "voice": VOICE,
             "instructions": """ You are samarth's personal assistant
              Samarth's info:         
             MARASANIGE SAMARTH MAHENDRA | Phone: +1 (857) 707-1671 | Email: samarth.mahendragowda@gmail.com | Location: Boston, MA, USA | LinkedIn | GitHub
@@ -840,10 +840,10 @@ async def initialize_session(openai_ws):
                     "format": "g711_ulaw"
                 },
                 "output": {
-                    "format": "g711_ulaw"
+                    "format": "g711_ulaw",
+                    "voice": VOICE
                 }
             },
-            "voice": VOICE,
             "instructions": script2,
             "modalities": ["text", "audio"],
             "tools": [
