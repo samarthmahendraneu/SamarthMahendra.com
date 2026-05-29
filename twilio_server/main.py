@@ -487,6 +487,7 @@ async def initialize_session_voice_mail(openai_ws):
     session_update = {
         "type": "session.update",
         "session": {
+            "type": "realtime",
             "turn_detection": {"type": "server_vad"},
             "input_audio_format": "g711_ulaw",
             "output_audio_format": "g711_ulaw",
@@ -826,6 +827,7 @@ async def initialize_session(openai_ws):
     session_update = {
         "type": "session.update",
         "session": {
+            "type": "realtime",
            # "turn_detection": {"type": "server_vad"},
             "input_audio_format": "g711_ulaw",
             "output_audio_format": "g711_ulaw",
