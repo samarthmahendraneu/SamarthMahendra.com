@@ -919,7 +919,6 @@
 #     print(f">>> Starting server on port {PORT}")
 #     uvicorn.run(app, host="0.0.0.0", port=PORT)
 
-
 import os
 import json
 import base64
@@ -1503,15 +1502,13 @@ async def initialize_session_voice_mail(openai_ws):
             "audio": {
                 "input": {
                     "format": {
-                        "type": "audio/pcmu",
-                        "rate": 8000
+                        "type": "audio/pcmu"
                     },
                     "turn_detection": {"type": "server_vad"}
                 },
                 "output": {
                     "format": {
-                        "type": "audio/pcmu",
-                        "rate": 8000
+                        "type": "audio/pcmu"
                     },
                     "voice": VOICE
                 }
@@ -1562,15 +1559,13 @@ async def initialize_session(openai_ws):
             "audio": {
                 "input": {
                     "format": {
-                        "type": "audio/pcmu",
-                        "rate": 8000
+                        "type": "audio/pcmu"
                     },
                     "turn_detection": {"type": "server_vad"}
                 },
                 "output": {
                     "format": {
-                        "type": "audio/pcmu",
-                        "rate": 8000
+                        "type": "audio/pcmu"
                     },
                     "voice": VOICE
                 }
