@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="AI Copilot for Ableton Live — an open-source Ableton Live 12 extension that brings GPT-powered MIDI generation, editing, and arrangement into the right-click menu. Session-aware drums, basslines, and melodies. By Samarth Mahendra.">
+    <meta name="keywords"
+        content="Ableton Live extension, AI MIDI generation, Ableton Extensions SDK, GPT music production, LLM DAW, AI drum patterns, Samarth Mahendra">
+    <meta name="author" content="Samarth Mahendra">
+    <title>AI Copilot for Ableton Live — Samarth Mahendra</title>
+
+    <link rel="canonical" href="https://samarthmahendra.com/ableton-ai-extention.html">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://samarthmahendra.com/ableton-ai-extention.html">
+    <meta property="og:title" content="AI Copilot for Ableton Live — GPT-powered MIDI generation">
+    <meta property="og:description"
+        content="An open-source Ableton Live 12 extension that reads your whole session and writes musically-aware drums, bass, and melodies right from the right-click menu.">
+    <meta property="og:site_name" content="Samarth Mahendra">
+
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        /* ── Ableton-inspired dark theme ─────────────────────────────── */
+        :root {
+            --bg: hsl(0, 0%, 11%);
+            --bg-2: hsl(0, 0%, 14%);
+            --bg-3: hsl(0, 0%, 17%);
+            --line: hsl(0, 0%, 24%);
+            --text: hsl(0, 0%, 88%);
+            --text-dim: hsl(0, 0%, 58%);
+            --text-faint: hsl(0, 0%, 42%);
+            --accent: hsl(31, 100%, 60%);
+            --accent-soft: hsla(31, 100%, 60%, 0.14);
+            --blue: hsl(212, 100%, 53%);
+            --green: hsl(152, 100%, 38%);
+            --purple: hsl(270, 90%, 65%);
+            --radius: 16px;
+            --maxw: 1080px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        a { color: inherit; text-decoration: none; }
+
+        .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+        h1, h2, h3 { font-family: "Space Grotesk", "Inter", sans-serif; line-height: 1.15; letter-spacing: -0.02em; }
+
+        /* ── Top nav ──────────────────────────────────────────────────── */
+        .topbar {
+            position: sticky; top: 0; z-index: 50;
+            backdrop-filter: blur(12px);
+            background: hsla(0, 0%, 11%, 0.82);
+            border-bottom: 1px solid var(--line);
+        }
+        .topbar-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+        .back-link { display: inline-flex; align-items: center; gap: 9px; color: var(--text-dim); font-size: 0.9rem; font-weight: 500; transition: color .15s; }
+        .back-link:hover { color: var(--text); }
+        .back-link .mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: #1a1205; display: grid; place-items: center; font-weight: 700; font-size: 0.72rem; font-family: "Space Grotesk"; }
+        .topbar .gh-btn { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; padding: 8px 15px; border: 1px solid var(--line); border-radius: 999px; transition: border-color .15s, background .15s; }
+        .topbar .gh-btn:hover { border-color: var(--text-dim); background: var(--bg-2); }
+
+        /* ── Hero ─────────────────────────────────────────────────────── */
+        .hero { padding: 76px 0 60px; position: relative; }
+        .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; }
+        .badge { display: inline-flex; align-items: center; gap: 8px; font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); background: var(--accent-soft); border: 1px solid hsla(31,100%,60%,0.3); padding: 6px 13px; border-radius: 999px; }
+        .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        .hero h1 { font-size: clamp(2.3rem, 5vw, 3.4rem); font-weight: 700; margin: 22px 0 18px; }
+        .hero h1 .grad { background: linear-gradient(100deg, var(--accent), #ffd9a0); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .hero-lead { font-size: 1.12rem; color: var(--text-dim); max-width: 33ch; }
+        .hero-by { margin-top: 18px; font-size: 0.9rem; color: var(--text-faint); }
+        .hero-by b { color: var(--accent); font-weight: 600; }
+        .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+        .btn { display: inline-flex; align-items: center; gap: 9px; font-size: 0.92rem; font-weight: 600; padding: 12px 22px; border-radius: 999px; border: 1px solid transparent; transition: transform .12s, background .15s, border-color .15s; }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background: var(--accent); color: #1a1205; }
+        .btn-primary:hover { background: hsl(31, 100%, 66%); }
+        .btn-ghost { border-color: var(--line); color: var(--text); }
+        .btn-ghost:hover { border-color: var(--text-dim); background: var(--bg-2); }
+
+        /* ── Piano-roll visual ────────────────────────────────────────── */
+        .daw {
+            background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius);
+            overflow: hidden; box-shadow: 0 30px 80px -40px rgba(0,0,0,0.8);
+        }
+        .daw-bar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; background: var(--bg-3); border-bottom: 1px solid var(--line); }
+        .daw-bar .tl { width: 11px; height: 11px; border-radius: 50%; }
+        .daw-bar .tl:nth-child(1) { background: #ff5f57; }
+        .daw-bar .tl:nth-child(2) { background: #febc2e; }
+        .daw-bar .tl:nth-child(3) { background: #28c840; }
+        .daw-bar .title { margin-left: 8px; font-size: 0.78rem; color: var(--text-faint); font-family: "Space Grotesk"; }
+        .roll { display: grid; grid-template-columns: repeat(16, 1fr); grid-auto-rows: 20px; gap: 3px; padding: 16px; background:
+            repeating-linear-gradient(90deg, transparent, transparent calc(25% - 1px), hsla(0,0%,100%,0.05) 25%); }
+        .note { border-radius: 4px; grid-row: span 1; opacity: 0; transform: translateY(4px); animation: pop .5s ease forwards; }
+        .note.k { background: var(--accent); box-shadow: 0 0 12px hsla(31,100%,60%,0.5); }
+        .note.b { background: var(--blue); }
+        .note.m { background: var(--green); }
+        .note.p { background: var(--purple); }
+        @keyframes pop { to { opacity: 1; transform: translateY(0); } }
+        .daw-foot { display: flex; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--line); font-size: 0.72rem; color: var(--text-faint); font-family: "Space Grotesk"; }
+        .daw-foot .live { color: var(--green); }
+
+        /* ── Section scaffolding ─────────────────────────────────────── */
+        section { padding: 56px 0; }
+        .sec-label { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); }
+        .sec-title { font-size: clamp(1.6rem, 3.4vw, 2.2rem); font-weight: 700; margin: 12px 0 14px; max-width: 22ch; }
+        .sec-sub { color: var(--text-dim); max-width: 60ch; }
+
+        /* actions */
+        .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 38px; }
+        .action { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; transition: transform .15s, border-color .15s; }
+        .action:hover { transform: translateY(-3px); border-color: hsla(31,100%,60%,0.4); }
+        .action .ico { width: 42px; height: 42px; border-radius: 11px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-size: 1.1rem; margin-bottom: 15px; }
+        .action h3 { font-size: 1.05rem; margin-bottom: 7px; }
+        .action p { font-size: 0.9rem; color: var(--text-dim); }
+        .action .menu { margin-top: 13px; font-size: 0.78rem; color: var(--text-faint); font-family: "Space Grotesk"; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+
+        /* features */
+        .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 38px; }
+        .feat { display: flex; gap: 15px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+        .feat .ico { flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 1rem; }
+        .feat h3 { font-size: 1rem; margin-bottom: 5px; }
+        .feat p { font-size: 0.88rem; color: var(--text-dim); }
+
+        /* pipeline */
+        .pipeline { margin-top: 38px; display: grid; gap: 2px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+        .step { display: grid; grid-template-columns: 54px 1fr; gap: 18px; align-items: center; padding: 20px 22px; background: var(--bg-2); }
+        .step .n { width: 38px; height: 38px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-family: "Space Grotesk"; }
+        .step h3 { font-size: 0.98rem; margin-bottom: 3px; }
+        .step p { font-size: 0.87rem; color: var(--text-dim); }
+
+        /* tech */
+        .tech { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+        .chip { font-size: 0.85rem; font-weight: 500; color: var(--text); background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; }
+        .chip i { color: var(--accent); margin-right: 7px; }
+
+        /* CTA band */
+        .cta { text-align: center; background: linear-gradient(160deg, var(--bg-2), var(--bg)); border: 1px solid var(--line); border-radius: 22px; padding: 52px 28px; margin: 18px 0 0; }
+        .cta h2 { font-size: clamp(1.6rem, 3.4vw, 2.1rem); margin-bottom: 14px; }
+        .cta p { color: var(--text-dim); max-width: 48ch; margin: 0 auto 26px; }
+        .cta .hero-cta { justify-content: center; }
+
+        footer { border-top: 1px solid var(--line); padding: 34px 0; margin-top: 56px; }
+        .foot-inner { display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: center; color: var(--text-faint); font-size: 0.85rem; }
+        .foot-inner a { color: var(--text-dim); }
+        .foot-inner a:hover { color: var(--accent); }
+
+        @media (max-width: 860px) {
+            .hero-grid { grid-template-columns: 1fr; gap: 36px; }
+            .actions { grid-template-columns: 1fr; }
+            .features { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Top bar -->
+    <div class="topbar">
+        <div class="wrap topbar-inner">
+            <a href="index.html#projects" class="back-link">
+                <span class="mark">SM</span>
+                <span><i class="fas fa-arrow-left"></i>&nbsp; Back to portfolio</span>
+            </a>
+            <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank"
+                rel="noopener noreferrer" class="gh-btn"><i class="fab fa-github"></i> Star on GitHub</a>
+        </div>
+    </div>
+
+    <!-- Hero -->
+    <header class="hero">
+        <div class="wrap hero-grid">
+            <div>
+                <span class="badge"><span class="dot"></span> Open source · Ableton Live 12</span>
+                <h1>AI Copilot for <span class="grad">Ableton Live</span></h1>
+                <p class="hero-lead">GPT-powered MIDI generation, editing, and arrangement — right inside Live's
+                    right-click menu.</p>
+                <p class="hero-by">A developer tool by <b>Samarth Mahendra</b></p>
+                <div class="hero-cta">
+                    <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank"
+                        rel="noopener noreferrer" class="btn btn-primary"><i class="fab fa-github"></i> View Source</a>
+                    <a href="#how" class="btn btn-ghost"><i class="fas fa-wand-magic-sparkles"></i> How it works</a>
+                </div>
+            </div>
+
+            <!-- DAW / piano-roll mockup -->
+            <div class="daw" aria-hidden="true">
+                <div class="daw-bar">
+                    <span class="tl"></span><span class="tl"></span><span class="tl"></span>
+                    <span class="title">AI Copilot — piano roll</span>
+                </div>
+                <div class="roll">
+                    <!-- row 1: kick (orange) -->
+                    <div class="note k" style="grid-column: 1 / span 1; animation-delay:.05s"></div>
+                    <div class="note k" style="grid-column: 5 / span 1; animation-delay:.1s"></div>
+                    <div class="note k" style="grid-column: 9 / span 1; animation-delay:.15s"></div>
+                    <div class="note k" style="grid-column: 13 / span 1; animation-delay:.2s"></div>
+                    <!-- row 2: snare gap -->
+                    <div class="note p" style="grid-column: 5 / span 2; animation-delay:.28s"></div>
+                    <div class="note p" style="grid-column: 13 / span 2; animation-delay:.34s"></div>
+                    <!-- row 3: bass (blue) -->
+                    <div class="note b" style="grid-column: 1 / span 3; animation-delay:.42s"></div>
+                    <div class="note b" style="grid-column: 7 / span 2; animation-delay:.48s"></div>
+                    <div class="note b" style="grid-column: 11 / span 4; animation-delay:.54s"></div>
+                    <!-- row 4: melody (green) -->
+                    <div class="note m" style="grid-column: 2 / span 2; animation-delay:.62s"></div>
+                    <div class="note m" style="grid-column: 6 / span 1; animation-delay:.68s"></div>
+                    <div class="note m" style="grid-column: 9 / span 3; animation-delay:.74s"></div>
+                    <div class="note m" style="grid-column: 14 / span 2; animation-delay:.8s"></div>
+                </div>
+                <div class="daw-foot">
+                    <span>124 BPM · F# minor · 4 / 4</span>
+                    <span class="live">● generating</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- What it does -->
+    <section>
+        <div class="wrap">
+            <span class="sec-label">What it does</span>
+            <h2 class="sec-title">Three AI actions, one right-click away.</h2>
+            <p class="sec-sub">Install the extension, right-click any MIDI clip, track, or scene in Live, and describe
+                what you want in plain English.</p>
+
+            <div class="actions">
+                <div class="action">
+                    <div class="ico"><i class="fas fa-pen-to-square"></i></div>
+                    <h3>Edit a clip</h3>
+                    <p>Reshape an existing clip — "make it more syncopated", "add 7ths", "humanize the velocities."</p>
+                    <div class="menu">🤖 AI: Edit this clip</div>
+                </div>
+                <div class="action">
+                    <div class="ico"><i class="fas fa-wand-magic-sparkles"></i></div>
+                    <h3>Generate a clip</h3>
+                    <p>Create drums, bass, or melodies from scratch on any track, matched to your session's key and groove.</p>
+                    <div class="menu">🤖 AI: Generate clip</div>
+                </div>
+                <div class="action">
+                    <div class="ico"><i class="fas fa-layer-group"></i></div>
+                    <h3>Arrange &amp; analyze</h3>
+                    <p>Build a full arrangement, rearrange clips into sections, or get a producer's critique of the session.</p>
+                    <div class="menu">🤖 AI: Build arrangement</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why it's reliable -->
+    <section>
+        <div class="wrap">
+            <span class="sec-label">Why it sounds right</span>
+            <h2 class="sec-title">Most AI music tools generate noise. This one listens first.</h2>
+            <p class="sec-sub">The hard part isn't calling an LLM — it's making the output musically coherent every
+                time. A layered reliability system handles that.</p>
+
+            <div class="features">
+                <div class="feat">
+                    <div class="ico" style="background:var(--accent-soft);color:var(--accent)"><i class="fas fa-ear-listen"></i></div>
+                    <div>
+                        <h3>Session-aware context</h3>
+                        <p>Reads tempo, key, every track, and the live drum-rack pad map — plus the exact note positions
+                            of other clips (arrangement <em>and</em> session view) so new parts lock to what's playing.</p>
+                    </div>
+                </div>
+                <div class="feat">
+                    <div class="ico" style="background:hsla(212,100%,53%,0.15);color:var(--blue)"><i class="fas fa-book"></i></div>
+                    <div>
+                        <h3>Genre skill packs</h3>
+                        <p>Editable markdown knowledge (hip-hop, house, drums, bass, melody) is auto-loaded by track role
+                            and prompt, so the model reasons like a producer in that style.</p>
+                    </div>
+                </div>
+                <div class="feat">
+                    <div class="ico" style="background:hsla(152,100%,38%,0.15);color:var(--green)"><i class="fas fa-shield-halved"></i></div>
+                    <div>
+                        <h3>Deterministic validators</h3>
+                        <p>Code — not prompts — guarantees the output: out-of-key notes snap to scale, flat velocities get
+                            humanized, note walls get thinned. Reliability that doesn't depend on the model behaving.</p>
+                    </div>
+                </div>
+                <div class="feat">
+                    <div class="ico" style="background:hsla(270,90%,65%,0.15);color:var(--purple)"><i class="fas fa-drum"></i></div>
+                    <div>
+                        <h3>Drift-proof drums</h3>
+                        <p>A bar-repeating architecture defines one bar that the engine clones; fills are additive, so the
+                            kick and snare backbone can never wander across bars.</p>
+                    </div>
+                </div>
+                <div class="feat">
+                    <div class="ico" style="background:var(--accent-soft);color:var(--accent)"><i class="fas fa-globe"></i></div>
+                    <div>
+                        <h3>Web access</h3>
+                        <p>Paste a URL and the AI fetches the page mid-generation — pattern libraries, chord charts,
+                            genre references — then applies what it read.</p>
+                    </div>
+                </div>
+                <div class="feat">
+                    <div class="ico" style="background:hsla(212,100%,53%,0.15);color:var(--blue)"><i class="fas fa-key"></i></div>
+                    <div>
+                        <h3>Stays in key</h3>
+                        <p>Reads Live's Scale Mode and constrains every generated note to the active scale — no more
+                            out-of-key melodies dropped into your track.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how">
+        <div class="wrap">
+            <span class="sec-label">Under the hood</span>
+            <h2 class="sec-title">From right-click to written MIDI.</h2>
+            <p class="sec-sub">The extension runs as a sandboxed Node.js process inside Ableton's Extension Host.</p>
+
+            <div class="pipeline">
+                <div class="step">
+                    <div class="n">1</div>
+                    <div>
+                        <h3>Read the session</h3>
+                        <p>Tempo, key/scale, every track, mixer state, devices, drum-rack pad pitches, and the notes
+                            playing in the same region on other tracks.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="n">2</div>
+                    <div>
+                        <h3>Load skills + prompt the model</h3>
+                        <p>Relevant genre skill packs are injected, then GPT is called via raw <code>node:https</code>
+                            (the sandbox has no <code>fetch</code>) with function-calling tools.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="n">3</div>
+                    <div>
+                        <h3>Browse if needed</h3>
+                        <p>An agentic loop resolves any <code>fetch_url</code> calls locally and feeds page content back
+                            until the model emits a final generation tool call.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="n">4</div>
+                    <div>
+                        <h3>Validate &amp; write</h3>
+                        <p>Notes pass through deterministic validators, then are written back into Live in a single
+                            transaction — color-coded by role.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech -->
+    <section>
+        <div class="wrap">
+            <span class="sec-label">Built with</span>
+            <h2 class="sec-title">A lean, dependency-light stack.</h2>
+            <div class="tech">
+                <span class="chip"><i class="fab fa-js"></i>TypeScript</span>
+                <span class="chip"><i class="fab fa-node-js"></i>Node.js</span>
+                <span class="chip"><i class="fas fa-sliders"></i>Ableton Extensions SDK</span>
+                <span class="chip"><i class="fas fa-robot"></i>OpenAI GPT</span>
+                <span class="chip"><i class="fas fa-bolt"></i>esbuild</span>
+                <span class="chip"><i class="fas fa-music"></i>MIDI / DrumRack API</span>
+                <span class="chip"><i class="fas fa-cube"></i>Function calling</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section>
+        <div class="wrap">
+            <div class="cta">
+                <h2>Open source &amp; ready to run.</h2>
+                <p>Clone it, drop in your OpenAI key, point it at Ableton Live 12 Suite, and run <code>npm start</code>.
+                    The SDK ships bundled — setup is four steps.</p>
+                <div class="hero-cta">
+                    <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank"
+                        rel="noopener noreferrer" class="btn btn-primary"><i class="fab fa-github"></i> Get it on GitHub</a>
+                    <a href="index.html#projects" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> More projects</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="wrap foot-inner">
+            <span>© <span id="yr"></span> Samarth Mahendra · AI Copilot for Ableton Live</span>
+            <span>
+                <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank" rel="noopener noreferrer">GitHub</a>
+                &nbsp;·&nbsp;
+                <a href="index.html">Portfolio</a>
+                &nbsp;·&nbsp;
+                <a href="mailto:samarth.mahendragowda@gmail.com">Email</a>
+            </span>
+        </div>
+    </footer>
+
+    <script>document.getElementById("yr").textContent = new Date().getFullYear();</script>
+</body>
+
+</html>
