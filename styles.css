@@ -4965,6 +4965,66 @@ footer {
     align-items: start;
 }
 
+.home-announcement-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    width: min(100%, 780px);
+    margin: 0 0 32px;
+    padding: 14px 16px;
+    border: 1px solid rgba(217, 220, 228, 0.92);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.76);
+    color: var(--text-primary);
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.06);
+}
+
+.home-announcement-banner:hover {
+    border-color: rgba(79, 70, 229, 0.32);
+    background: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 18px 48px rgba(79, 70, 229, 0.1);
+}
+
+.announcement-kicker,
+.announcement-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    font-family: var(--font-heading);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.announcement-kicker {
+    color: var(--accent-orange);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.announcement-copy {
+    min-width: 0;
+    flex: 1;
+    font-size: 0.98rem;
+    font-weight: 650;
+    color: var(--text-primary);
+}
+
+.announcement-action {
+    color: var(--accent-primary);
+}
+
+.announcement-action i {
+    font-size: 0.74rem;
+    transition: transform 0.2s ease;
+}
+
+.home-announcement-banner:hover .announcement-action i {
+    transform: translateX(3px);
+}
+
 .hero-main-column,
 .hero-side-column {
     display: grid;
@@ -6305,6 +6365,23 @@ body[data-theme="dark"] #experience .stacked-section-label {
 
     .hero-section {
         padding: 94px 0 10px;
+    }
+
+    .home-announcement-banner {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 24px;
+        padding: 13px 14px;
+    }
+
+    .announcement-copy {
+        font-size: 0.95rem;
+        line-height: 1.35;
+    }
+
+    .announcement-action {
+        font-size: 0.8rem;
     }
 
     .hero-side-column {
