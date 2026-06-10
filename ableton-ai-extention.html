@@ -238,6 +238,12 @@
         /* ════════════════════════════════════════════════
            STATEMENT
            ════════════════════════════════════════════════ */
+        .video-wrap {
+            position:relative; max-width:880px; margin:0 auto;
+            aspect-ratio:16/9; border:1px solid var(--line-2); border-radius:var(--r);
+            overflow:hidden; background:#000;
+        }
+        .video-wrap iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
         .statement { padding:130px 28px; background:#121212; border-top:1px solid var(--line); border-bottom:1px solid var(--line); text-align:center; }
         .statement-text {
             font-family:var(--display);
@@ -561,7 +567,7 @@
                     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
                     View on GitHub
                 </a>
-                <a href="#how" class="btn btn-ghost">How it works</a>
+                <a href="#watch" class="btn btn-ghost">▶ Watch demo</a>
             </div>
         </div>
 
@@ -627,6 +633,25 @@
     <p class="statement-sub reveal reveal-1">
         Not a generator — a collaborator. Every note it writes lands in your session as editable MIDI: a starting point you shape, not a finished product you accept.
     </p>
+</section>
+
+<!-- ── Demo video -->
+<section class="section" id="watch">
+    <div class="wrap">
+        <div class="sec-head">
+            <span class="tag reveal">Watch</span>
+            <h2 class="sec-h2 reveal reveal-1">From empty track to mixed beat. One prompt.</h2>
+            <p class="sec-p reveal reveal-2">The AI picks a drum kit, loads the samples, writes the pattern, and dials in the FX chain — live, inside Ableton.</p>
+        </div>
+        <div class="video-wrap reveal reveal-1">
+            <iframe
+                src="https://www.youtube-nocookie.com/embed/tgDges8k62g"
+                title="AI Copilot for Ableton Live — demo"
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen></iframe>
+        </div>
+    </div>
 </section>
 
 <!-- ── Try it — real outputs, replayed -->
