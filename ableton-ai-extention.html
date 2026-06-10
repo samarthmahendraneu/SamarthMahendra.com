@@ -256,6 +256,102 @@
         }
 
         /* ════════════════════════════════════════════════
+           DEMO — preset prompts, replayed real output
+           ════════════════════════════════════════════════ */
+        .demo-tabs { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+        .demo-tab {
+            display:inline-flex; align-items:center; gap:8px;
+            font-family:var(--mono); font-size:.68rem; font-weight:600; letter-spacing:.08em;
+            text-transform:uppercase; color:var(--muted);
+            background:var(--panel); border:1px solid var(--line-2); border-radius:var(--r);
+            padding:9px 14px; cursor:pointer;
+            transition:border-color .2s, color .2s, background .2s;
+        }
+        .demo-tab::before {
+            content:''; width:8px; height:8px; border-radius:2px; background:var(--c);
+            opacity:.55; transition:opacity .2s;
+        }
+        .demo-tab:hover { color:var(--text); border-color:var(--muted); }
+        .demo-tab[aria-pressed="true"] {
+            color:#141414; background:var(--c); border-color:var(--c);
+        }
+        .demo-tab[aria-pressed="true"]::before { background:#141414; opacity:1; }
+
+        .demo-panel {
+            background:var(--panel); border:1px solid var(--line); border-radius:6px;
+            overflow:hidden;
+        }
+        .promptbar {
+            display:flex; align-items:center; gap:12px;
+            padding:13px 16px; border-bottom:1px solid var(--line);
+            font-family:var(--mono); font-size:.78rem;
+        }
+        .promptbar-label {
+            font-size:.6rem; font-weight:600; letter-spacing:.12em;
+            color:#141414; background:var(--orange);
+            padding:3px 7px; border-radius:2px; flex-shrink:0;
+        }
+        .ptext { color:var(--text); min-height:1.2em; }
+        .caret {
+            width:7px; height:14px; background:var(--orange); flex-shrink:0;
+            animation:blink 1s steps(1) infinite;
+        }
+
+        .demo-body { display:grid; grid-template-columns:1.6fr 1fr; }
+        .dgrid-wrap { padding:22px 20px 18px; border-right:1px solid var(--line); display:flex; flex-direction:column; justify-content:center; }
+        .dgrid {
+            display:grid; grid-template-columns:64px repeat(16, 1fr);
+            gap:4px; align-items:stretch;
+        }
+        .drow-label {
+            font-family:var(--mono); font-size:.56rem; font-weight:600;
+            letter-spacing:.1em; color:var(--faint);
+            display:flex; align-items:center;
+        }
+        .dcell {
+            height:26px; border-radius:2px;
+            background:var(--panel-2); border:1px solid #282828;
+            position:relative; transition:background .12s, border-color .12s, box-shadow .12s;
+        }
+        .dcell.beat { border-color:#313131; }       /* downbeat guides */
+        .dcell.on {
+            background:var(--c); border-color:var(--c);
+            opacity:var(--v, 1);
+        }
+        .dcell.sweep { box-shadow:inset 0 0 0 1px var(--text); }
+        .dgrid-foot {
+            display:flex; justify-content:space-between; margin-top:12px;
+            font-family:var(--mono); font-size:.6rem; letter-spacing:.06em; color:var(--faint);
+        }
+
+        .demo-side { padding:22px 20px; display:flex; flex-direction:column; gap:16px; }
+        .demo-side .console { margin-top:0; }
+        .demo-side .console-body p { opacity:0; transform:translateY(4px); transition:opacity .3s, transform .3s; }
+        .demo-side .console-body p.show { opacity:1; transform:none; }
+
+        .play-row { display:flex; align-items:center; gap:12px; margin-top:auto; }
+        .btn-play {
+            display:inline-flex; align-items:center; gap:9px;
+            font-family:var(--mono); font-size:.72rem; font-weight:600; letter-spacing:.08em;
+            color:#141414; background:var(--lime);
+            border:none; border-radius:var(--r); padding:11px 18px; cursor:pointer;
+            white-space:nowrap; flex-shrink:0;
+            transition:filter .2s, opacity .2s;
+        }
+        .btn-play:hover { filter:brightness(1.1); }
+        .btn-play:disabled { opacity:.35; cursor:default; }
+        .btn-play .pf {
+            width:0; height:0;
+            border-left:9px solid #141414;
+            border-top:6px solid transparent; border-bottom:6px solid transparent;
+        }
+        .btn-play.playing .pf {
+            border:none; width:8px; height:11px;
+            border-left:3px solid #141414; border-right:3px solid #141414;
+        }
+        .play-hint { font-family:var(--mono); font-size:.62rem; color:var(--faint); letter-spacing:.04em; }
+
+        /* ════════════════════════════════════════════════
            SECTION SCAFFOLD
            ════════════════════════════════════════════════ */
         .section { padding:110px 0; }
@@ -398,6 +494,8 @@
 
         /* ── Responsive */
         @media (max-width: 920px) {
+            .demo-body { grid-template-columns:1fr; }
+            .dgrid-wrap { border-right:none; border-bottom:1px solid var(--line); }
             .hero { padding:130px 0 80px; }
             .hero-grid { grid-template-columns:1fr; }
             .session { max-width:560px; }
@@ -409,6 +507,10 @@
             .transport { display:none; }
         }
         @media (max-width: 560px) {
+            .dgrid { grid-template-columns:44px repeat(16, 1fr); gap:2px; }
+            .dcell { height:18px; }
+            .drow-label { font-size:.48rem; }
+            .promptbar { font-size:.68rem; }
             .feat-grid { grid-template-columns:1fr; }
             .section { padding:84px 0; }
             .statement { padding:96px 24px; }
@@ -524,6 +626,70 @@
     <p class="statement-sub reveal reveal-1">
         Not a generator — a collaborator. Every note it writes lands in your session as editable MIDI: a starting point you shape, not a finished product you accept.
     </p>
+</section>
+
+<!-- ── Try it — real outputs, replayed -->
+<section class="section" id="demo">
+    <div class="wrap">
+        <div class="sec-head">
+            <span class="tag reveal">Try it</span>
+            <h2 class="sec-h2 reveal reveal-1">Three prompts. Real output, replayed.</h2>
+            <p class="sec-p reveal reveal-2">Each pattern below was generated by the extension once, then baked into this page note-for-note. Pick a prompt to replay the run.</p>
+        </div>
+
+        <div class="demo-tabs reveal" role="group" aria-label="Demo prompts">
+            <button class="demo-tab" data-demo="hiphop" style="--c:var(--orange)" aria-pressed="true">Hip hop</button>
+            <button class="demo-tab" data-demo="dembow" style="--c:var(--pink)" aria-pressed="false">Bad Bunny dembow</button>
+            <button class="demo-tab" data-demo="lofi" style="--c:var(--cyan)" aria-pressed="false">Lofi</button>
+        </div>
+
+        <div class="demo-panel reveal reveal-1">
+            <div class="promptbar">
+                <span class="promptbar-label">PROMPT</span>
+                <span class="ptext" id="ptext"></span>
+                <span class="caret" aria-hidden="true"></span>
+            </div>
+            <div class="demo-body">
+                <div class="dgrid-wrap">
+                    <div class="dgrid" id="dgrid" aria-hidden="true"></div>
+                    <div class="dgrid-foot">
+                        <span id="dmeta">1 BAR · 16 STEPS</span>
+                        <span>VELOCITY = OPACITY</span>
+                    </div>
+                </div>
+                <div class="demo-side">
+                    <div class="console">
+                        <div class="console-bar">AI Copilot — status</div>
+                        <div class="console-body" id="dconsole">
+                            <p><span class="k">[copilot]</span> <span class="dim">prompt received</span></p>
+                            <p><span class="ok">read</span> → <span id="dread">124 BPM · 6 tracks · drum rack</span></p>
+                            <p><span class="fn">generate</span> → <span id="dgen">drum pattern</span></p>
+                            <p><span class="ok">validate</span> → <span id="dval">humanize velocity</span></p>
+                            <p><span class="ok">write</span> <span class="dim">→ done in 1 transaction</span></p>
+                        </div>
+                    </div>
+                    <div class="play-row">
+                        <button class="btn-play" id="dplay" disabled>
+                            <span class="pf"></span><span class="pt">PLAY CLIP</span>
+                        </button>
+                        <span class="play-hint">Audio rendered from the generated MIDI</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════
+         REPLACE THESE AUDIO FILES:
+         Export each saved clip from Live as a .wav and drop the
+         files at these paths (or edit the src attributes below).
+           audio/ai-drums-hiphop.wav   ← your hip hop clip
+           audio/ai-drums-dembow.wav   ← your Bad Bunny demo clip
+           audio/ai-drums-lofi.wav     ← your lofi clip
+         ════════════════════════════════════════════════════════ -->
+    <audio id="au-hiphop" src="audio/hiphop.wav" preload="none"></audio>
+    <audio id="au-dembow" src="audio/Bad_Bunny_Dembow.wav" preload="none"></audio>
+    <audio id="au-lofi"   src="audio/lofi_hiphop.wav"   preload="none"></audio>
 </section>
 
 <!-- ── Three actions -->
@@ -688,6 +854,175 @@
     }, { threshold: 0.12 });
 
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    /* ════════════════════════════════════════════════
+       TRY-IT DEMO
+       The three patterns below are placeholders shaped
+       like each style. To replay your exact saved clips,
+       edit the step/velocity arrays (s: 0–15, v: 0–1).
+       ════════════════════════════════════════════════ */
+    const DEMOS = {
+        hiphop: {
+            prompt: '8 bars of boom bap drums, swung hats, lazy snare',
+            color: 'var(--orange)',
+            read: '90 BPM · 6 tracks · drum rack',
+            gen:  '28 notes · 1 bar defined, 7 cloned',
+            val:  'swing 56% · humanize velocity',
+            audio: 'au-hiphop',
+            rows: {
+                oh: [{s:15,v:.55}],
+                hh: [{s:0,v:.8},{s:2,v:.5},{s:4,v:.75},{s:6,v:.45},{s:8,v:.8},{s:10,v:.5},{s:12,v:.75},{s:14,v:.45}],
+                sn: [{s:4,v:1},{s:7,v:.3},{s:12,v:.95},{s:14,v:.35}],
+                kk: [{s:0,v:1},{s:6,v:.85},{s:10,v:.95}]
+            }
+        },
+        dembow: {
+            prompt: 'Bad Bunny style dembow — four on the floor, classic dembow snare',
+            color: 'var(--pink)',
+            read: '96 BPM · 6 tracks · drum rack',
+            gen:  '26 notes · 1 bar defined, 7 cloned',
+            val:  'lock kick grid · humanize velocity',
+            audio: 'au-dembow',
+            rows: {
+                oh: [{s:7,v:.55},{s:15,v:.55}],
+                hh: [{s:0,v:.6},{s:2,v:.55},{s:4,v:.6},{s:6,v:.55},{s:8,v:.6},{s:10,v:.55},{s:12,v:.6},{s:14,v:.55}],
+                sn: [{s:3,v:1},{s:6,v:.85},{s:11,v:1},{s:14,v:.85}],
+                kk: [{s:0,v:1},{s:4,v:.95},{s:8,v:1},{s:12,v:.95}]
+            }
+        },
+        lofi: {
+            prompt: 'lofi hip hop drums, dusty and laid back, humanize everything',
+            color: 'var(--cyan)',
+            read: '78 BPM · 6 tracks · drum rack',
+            gen:  '19 notes · 1 bar defined, 7 cloned',
+            val:  'swing 61% · humanize velocity · thin hats',
+            audio: 'au-lofi',
+            rows: {
+                oh: [{s:11,v:.4}],
+                hh: [{s:0,v:.5},{s:2,v:.3},{s:4,v:.5},{s:8,v:.45},{s:10,v:.3},{s:12,v:.5},{s:14,v:.25}],
+                sn: [{s:4,v:.8},{s:12,v:.7}],
+                kk: [{s:0,v:.9},{s:7,v:.55},{s:10,v:.75}]
+            }
+        }
+    };
+    const ROWS = [['OPEN HAT','oh'],['HAT','hh'],['SNARE','sn'],['KICK','kk']];
+    const grid = document.getElementById('dgrid');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let timers = [], currentAudio = null;
+
+    // build the 4×16 grid once
+    ROWS.forEach(([label, key]) => {
+        const lab = document.createElement('div');
+        lab.className = 'drow-label'; lab.textContent = label;
+        grid.appendChild(lab);
+        for (let s = 0; s < 16; s++) {
+            const c = document.createElement('div');
+            c.className = 'dcell' + (s % 4 === 0 ? ' beat' : '');
+            c.dataset.row = key; c.dataset.step = s;
+            grid.appendChild(c);
+        }
+    });
+    const cells = (row, step) => grid.querySelector(`.dcell[data-row="${row}"][data-step="${step}"]`);
+
+    function wait(fn, ms) { timers.push(setTimeout(fn, ms)); }
+    function resetDemo() {
+        timers.forEach(clearTimeout); timers = [];
+        grid.querySelectorAll('.dcell').forEach(c => { c.classList.remove('on','sweep'); c.style.removeProperty('--v'); });
+        document.querySelectorAll('#dconsole p').forEach(p => p.classList.remove('show'));
+        document.getElementById('ptext').textContent = '';
+        const play = document.getElementById('dplay');
+        play.disabled = true; play.classList.remove('playing');
+        play.querySelector('.pt').textContent = 'PLAY CLIP';
+        if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+    }
+
+    function runDemo(key) {
+        resetDemo();
+        const d = DEMOS[key];
+        grid.style.setProperty('--c', d.color);
+        document.querySelectorAll('.demo-tab').forEach(t =>
+            t.setAttribute('aria-pressed', String(t.dataset.demo === key)));
+        document.getElementById('dread').textContent = d.read;
+        document.getElementById('dgen').textContent  = d.gen;
+        document.getElementById('dval').textContent  = d.val;
+        currentAudio = document.getElementById(d.audio);
+
+        const lines = document.querySelectorAll('#dconsole p');
+        const placeAll = () => Object.entries(d.rows).forEach(([row, notes]) =>
+            notes.forEach(n => { const c = cells(row, n.s); c.style.setProperty('--v', n.v); c.classList.add('on'); }));
+
+        if (reduceMotion) {
+            document.getElementById('ptext').textContent = d.prompt;
+            lines.forEach(l => l.classList.add('show'));
+            placeAll();
+            document.getElementById('dplay').disabled = false;
+            return;
+        }
+
+        // 1 — type the prompt
+        let i = 0;
+        const typeStep = () => {
+            document.getElementById('ptext').textContent = d.prompt.slice(0, ++i);
+            if (i < d.prompt.length) wait(typeStep, 16);
+            else wait(consoleStep, 300);
+        };
+        // 2 — console lines, then 3 — playhead sweep placing notes
+        const consoleStep = () => {
+            lines[0].classList.add('show');
+            wait(() => lines[1].classList.add('show'), 200);
+            wait(() => { lines[2].classList.add('show'); sweep(0); }, 420);
+        };
+        const sweep = (s) => {
+            ROWS.forEach(([,row]) => {
+                const c = cells(row, s);
+                c.classList.add('sweep');
+                const note = DEMOS[key].rows[row].find(n => n.s === s);
+                if (note) { c.style.setProperty('--v', note.v); c.classList.add('on'); }
+            });
+            wait(() => ROWS.forEach(([,row]) => cells(row, s).classList.remove('sweep')), 90);
+            if (s < 15) wait(() => sweep(s + 1), 70);
+            else {
+                wait(() => lines[3].classList.add('show'), 200);
+                wait(() => { lines[4].classList.add('show'); document.getElementById('dplay').disabled = false; }, 420);
+            }
+        };
+        typeStep();
+    }
+
+    document.querySelectorAll('.demo-tab').forEach(t =>
+        t.addEventListener('click', () => runDemo(t.dataset.demo)));
+
+    // play / pause — flags the missing file until you drop the .wav in
+    const playBtn = document.getElementById('dplay');
+    playBtn.addEventListener('click', () => {
+        if (!currentAudio) return;
+        if (playBtn.classList.contains('playing')) {
+            currentAudio.pause(); currentAudio.currentTime = 0;
+            playBtn.classList.remove('playing');
+            playBtn.querySelector('.pt').textContent = 'PLAY CLIP';
+            return;
+        }
+        currentAudio.play().then(() => {
+            playBtn.classList.add('playing');
+            playBtn.querySelector('.pt').textContent = 'STOP';
+        }).catch(() => {
+            playBtn.querySelector('.pt').textContent = 'ADD .WAV FILE';
+        });
+        currentAudio.onended = () => {
+            playBtn.classList.remove('playing');
+            playBtn.querySelector('.pt').textContent = 'PLAY CLIP';
+        };
+    });
+
+    // auto-run the first demo once, when the section scrolls into view
+    let demoStarted = false;
+    new IntersectionObserver((entries, obs) => {
+        if (entries[0].isIntersecting && !demoStarted) {
+            demoStarted = true;
+            runDemo('hiphop');
+            obs.disconnect();
+        }
+    }, { threshold: 0.35 }).observe(document.getElementById('demo'));
 </script>
 </body>
 </html>
