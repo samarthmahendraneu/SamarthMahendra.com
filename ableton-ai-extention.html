@@ -367,7 +367,7 @@
         /* ════════════════════════════════════════════════
            THREE ACTIONS — styled as Live menu commands
            ════════════════════════════════════════════════ */
-        .ac-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; }
+        .ac-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; }
         .ac {
             background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
             padding:28px 26px 30px;
@@ -609,6 +609,7 @@
                 <div class="ctx-div"></div>
                 <div class="ctx-item ai hot"><span>Generate Midi with AI</span><span class="spark">✦</span></div>
                 <div class="ctx-item ai"><span>Edit Clip with AI</span><span class="spark">✦</span></div>
+                <div class="ctx-item ai"><span>Design Sound with AI</span><span class="spark">✦</span></div>
                 <div class="ctx-item ai"><span>Arrange with AI</span><span class="spark">✦</span></div>
                 <div class="ctx-div"></div>
                 <div class="ctx-item">Quantize Settings…</div>
@@ -697,7 +698,7 @@
     <div class="wrap">
         <div class="sec-head">
             <span class="tag reveal">What it does</span>
-            <h2 class="sec-h2 reveal reveal-1">Three commands. One right-click.</h2>
+            <h2 class="sec-h2 reveal reveal-1">Four commands. One right-click.</h2>
         </div>
         <div class="ac-grid">
             <article class="ac reveal" style="--c:var(--orange)">
@@ -715,6 +716,11 @@
                 <h3>Shape the whole track</h3>
                 <p>Build a full arrangement, restructure sections, or ask for a producer's honest critique of what's there.</p>
             </article>
+            <article class="ac reveal reveal-2" style="--c:var(--pink)">
+                <span class="ac-chip">DESIGN SOUND</span>
+                <h3>Turn the knobs with words</h3>
+                <p><span class="q">"Warmer and dustier." "Add a low cut, boost the bass."</span> The AI reads every device parameter — and inserts the EQ, compressor, or reverb it needs, then dials it in.</p>
+            </article>
         </div>
     </div>
 </section>
@@ -731,7 +737,7 @@
             <div class="feat reveal" style="--c:var(--orange)">
                 <span class="feat-ico">◉</span>
                 <h3>Session context</h3>
-                <p>Reads your tempo, key, every track, and the drum-rack pad map before writing a single note.</p>
+                <p>Reads your tempo, key, every track, and the drum-rack pad map — down to the loaded sample names, even in nested racks.</p>
             </div>
             <div class="feat reveal reveal-1" style="--c:var(--lime)">
                 <span class="feat-ico">▦</span>
@@ -746,7 +752,7 @@
             <div class="feat reveal" style="--c:var(--pink)">
                 <span class="feat-ico">❖</span>
                 <h3>Genre skill packs</h3>
-                <p>Editable markdown knowledge auto-loaded by track role — hip-hop, house, drums, bass, melody.</p>
+                <p>Editable markdown knowledge auto-loaded by track role — hip-hop, house, reggaeton, drums, bass, melody, sound design.</p>
             </div>
             <div class="feat reveal reveal-1" style="--c:var(--orange)">
                 <span class="feat-ico">⌖</span>
@@ -756,7 +762,7 @@
             <div class="feat reveal reveal-2" style="--c:var(--lime)">
                 <span class="feat-ico">♯</span>
                 <h3>Scale lock</h3>
-                <p>Reads Live's Scale Mode and constrains every output note. No out-of-key melodies, ever.</p>
+                <p>Reads Live's Scale Mode and constrains every melodic note — while drums stay exempt, because pads aren't pitches.</p>
             </div>
         </div>
     </div>
