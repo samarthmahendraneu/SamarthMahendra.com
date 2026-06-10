@@ -1,426 +1,693 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description"
-        content="AI Copilot for Ableton Live — an open-source Ableton Live 12 extension that brings GPT-powered MIDI generation, editing, and arrangement into the right-click menu. Session-aware drums, basslines, and melodies. By Samarth Mahendra.">
-    <meta name="keywords"
-        content="Ableton Live extension, AI MIDI generation, Ableton Extensions SDK, GPT music production, LLM DAW, AI drum patterns, Samarth Mahendra">
+    <meta name="description" content="AI Copilot for Ableton Live — GPT-powered MIDI generation inside Ableton's right-click menu. By Samarth Mahendra.">
     <meta name="author" content="Samarth Mahendra">
     <title>AI Copilot for Ableton Live — Samarth Mahendra</title>
-
     <link rel="canonical" href="https://samarthmahendra.com/ableton-ai-extention.html">
-
-    <!-- Open Graph -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://samarthmahendra.com/ableton-ai-extention.html">
-    <meta property="og:title" content="AI Copilot for Ableton Live — GPT-powered MIDI generation">
-    <meta property="og:description"
-        content="An open-source Ableton Live 12 extension that reads your whole session and writes musically-aware drums, bass, and melodies right from the right-click menu.">
+    <meta property="og:title" content="AI Copilot for Ableton Live">
     <meta property="og:site_name" content="Samarth Mahendra">
-
     <link rel="icon" type="image/png" href="/favicon.png">
-
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
     <style>
-        /* ── Ableton-inspired dark theme ─────────────────────────────── */
+        /* ───────────────────────────────────────────────
+           Visual language borrowed from Live itself:
+           flat charcoal panels, clip-slot colors, square
+           corners, mono data labels, one orange accent.
+           ─────────────────────────────────────────────── */
         :root {
-            --bg: hsl(0, 0%, 11%);
-            --bg-2: hsl(0, 0%, 14%);
-            --bg-3: hsl(0, 0%, 17%);
-            --line: hsl(0, 0%, 24%);
-            --text: hsl(0, 0%, 88%);
-            --text-dim: hsl(0, 0%, 58%);
-            --text-faint: hsl(0, 0%, 42%);
-            --accent: hsl(31, 100%, 60%);
-            --accent-soft: hsla(31, 100%, 60%, 0.14);
-            --blue: hsl(212, 100%, 53%);
-            --green: hsl(152, 100%, 38%);
-            --purple: hsl(270, 90%, 65%);
-            --radius: 16px;
-            --maxw: 1080px;
+            --bg:      #161616;   /* Live dark-theme canvas   */
+            --panel:   #1d1d1d;   /* raised panel             */
+            --panel-2: #232323;   /* hover / inset            */
+            --line:    #2d2d2d;   /* hairline borders         */
+            --line-2:  #3a3a3a;
+            --text:    #ededed;
+            --muted:   #969696;
+            --faint:   #5f5f5f;
+
+            /* clip palette */
+            --orange:  #FF8A2A;   /* primary accent — drums   */
+            --lime:    #B7D14A;   /* bass                     */
+            --cyan:    #45C5CD;   /* keys                     */
+            --pink:    #E069AC;   /* lead                     */
+
+            --r: 3px;             /* Live-style tight radius  */
+
+            --display: "Jost", "Futura", sans-serif;
+            --body:    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --mono:    "JetBrains Mono", ui-monospace, "SF Mono", monospace;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        html { scroll-behavior: smooth; }
-
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior:smooth; }
         body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-            line-height: 1.6;
-            -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
+            font-family:var(--body); font-size:16px; line-height:1.65;
+            background:var(--bg); color:var(--text);
+            -webkit-font-smoothing:antialiased; overflow-x:hidden;
+        }
+        a { color:inherit; text-decoration:none; }
+        ::selection { background:var(--orange); color:#161616; }
+
+        :focus-visible {
+            outline:2px solid var(--orange);
+            outline-offset:2px;
+            border-radius:var(--r);
         }
 
-        a { color: inherit; text-decoration: none; }
+        .wrap      { max-width:1120px; margin:0 auto; padding:0 28px; }
 
-        .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
-
-        h1, h2, h3 { font-family: "Space Grotesk", "Inter", sans-serif; line-height: 1.15; letter-spacing: -0.02em; }
-
-        /* ── Top nav ──────────────────────────────────────────────────── */
-        .topbar {
-            position: sticky; top: 0; z-index: 50;
-            backdrop-filter: blur(12px);
-            background: hsla(0, 0%, 11%, 0.82);
-            border-bottom: 1px solid var(--line);
+        /* ── mono utility label */
+        .tag {
+            font-family:var(--mono); font-size:.68rem; font-weight:500;
+            letter-spacing:.14em; text-transform:uppercase; color:var(--orange);
         }
-        .topbar-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
-        .back-link { display: inline-flex; align-items: center; gap: 9px; color: var(--text-dim); font-size: 0.9rem; font-weight: 500; transition: color .15s; }
-        .back-link:hover { color: var(--text); }
-        .back-link .mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: #1a1205; display: grid; place-items: center; font-weight: 700; font-size: 0.72rem; font-family: "Space Grotesk"; }
-        .topbar .gh-btn { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; padding: 8px 15px; border: 1px solid var(--line); border-radius: 999px; transition: border-color .15s, background .15s; }
-        .topbar .gh-btn:hover { border-color: var(--text-dim); background: var(--bg-2); }
 
-        /* ── Hero ─────────────────────────────────────────────────────── */
-        .hero { padding: 76px 0 60px; position: relative; }
-        .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; }
-        .badge { display: inline-flex; align-items: center; gap: 8px; font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); background: var(--accent-soft); border: 1px solid hsla(31,100%,60%,0.3); padding: 6px 13px; border-radius: 999px; }
-        .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-        .hero h1 { font-size: clamp(2.3rem, 5vw, 3.4rem); font-weight: 700; margin: 22px 0 18px; }
-        .hero h1 .grad { background: linear-gradient(100deg, var(--accent), #ffd9a0); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .hero-lead { font-size: 1.12rem; color: var(--text-dim); max-width: 33ch; }
-        .hero-by { margin-top: 18px; font-size: 0.9rem; color: var(--text-faint); }
-        .hero-by b { color: var(--accent); font-weight: 600; }
-        .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-        .btn { display: inline-flex; align-items: center; gap: 9px; font-size: 0.92rem; font-weight: 600; padding: 12px 22px; border-radius: 999px; border: 1px solid transparent; transition: transform .12s, background .15s, border-color .15s; }
-        .btn:active { transform: translateY(1px); }
-        .btn-primary { background: var(--accent); color: #1a1205; }
-        .btn-primary:hover { background: hsl(31, 100%, 66%); }
-        .btn-ghost { border-color: var(--line); color: var(--text); }
-        .btn-ghost:hover { border-color: var(--text-dim); background: var(--bg-2); }
-
-        /* ── Piano-roll visual ────────────────────────────────────────── */
-        .daw {
-            background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius);
-            overflow: hidden; box-shadow: 0 30px 80px -40px rgba(0,0,0,0.8);
+        /* ════════════════════════════════════════════════
+           NAV — styled as Live's transport bar
+           ════════════════════════════════════════════════ */
+        nav {
+            position:fixed; top:0; width:100%; z-index:1000;
+            background:rgba(20,20,20,.92); backdrop-filter:blur(14px);
+            border-bottom:1px solid var(--line);
         }
-        .daw-bar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; background: var(--bg-3); border-bottom: 1px solid var(--line); }
-        .daw-bar .tl { width: 11px; height: 11px; border-radius: 50%; }
-        .daw-bar .tl:nth-child(1) { background: #ff5f57; }
-        .daw-bar .tl:nth-child(2) { background: #febc2e; }
-        .daw-bar .tl:nth-child(3) { background: #28c840; }
-        .daw-bar .title { margin-left: 8px; font-size: 0.78rem; color: var(--text-faint); font-family: "Space Grotesk"; }
-        .roll { display: grid; grid-template-columns: repeat(16, 1fr); grid-auto-rows: 20px; gap: 3px; padding: 16px; background:
-            repeating-linear-gradient(90deg, transparent, transparent calc(25% - 1px), hsla(0,0%,100%,0.05) 25%); }
-        .note { border-radius: 4px; grid-row: span 1; opacity: 0; transform: translateY(4px); animation: pop .5s ease forwards; }
-        .note.k { background: var(--accent); box-shadow: 0 0 12px hsla(31,100%,60%,0.5); }
-        .note.b { background: var(--blue); }
-        .note.m { background: var(--green); }
-        .note.p { background: var(--purple); }
-        @keyframes pop { to { opacity: 1; transform: translateY(0); } }
-        .daw-foot { display: flex; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--line); font-size: 0.72rem; color: var(--text-faint); font-family: "Space Grotesk"; }
-        .daw-foot .live { color: var(--green); }
+        .nav-inner {
+            max-width:1120px; margin:0 auto; padding:0 28px;
+            height:52px; display:flex; align-items:center; justify-content:space-between; gap:16px;
+        }
+        .brand { display:flex; align-items:center; gap:10px; font-size:.85rem; font-weight:600; transition:color .2s; }
+        .brand:hover { color:#fff; }
+        .brand-mark {
+            width:26px; height:26px; border-radius:var(--r);
+            background:var(--orange); color:#161616;
+            display:grid; place-items:center;
+            font-family:var(--display); font-weight:700; font-size:.7rem;
+        }
+        .transport {
+            display:flex; align-items:center; gap:14px;
+            font-family:var(--mono); font-size:.72rem; color:var(--muted);
+        }
+        .transport .t-icons { display:flex; align-items:center; gap:10px; }
+        .t-play {
+            width:0; height:0;
+            border-left:9px solid var(--orange);
+            border-top:6px solid transparent; border-bottom:6px solid transparent;
+        }
+        .t-stop { width:10px; height:10px; background:var(--faint); }
+        .t-rec  { width:10px; height:10px; border-radius:50%; background:#d94c4c; }
+        .t-bpm  { color:var(--text); font-weight:600; }
+        .t-div  { width:1px; height:16px; background:var(--line-2); }
+        .gh-link {
+            display:inline-flex; align-items:center; gap:8px;
+            font-size:.8rem; font-weight:600;
+            padding:7px 14px; border:1px solid var(--line-2); border-radius:var(--r);
+            transition:border-color .2s, background .2s;
+        }
+        .gh-link:hover { border-color:var(--orange); background:var(--panel-2); }
+        .gh-link svg { width:15px; height:15px; fill:currentColor; }
 
-        /* ── Section scaffolding ─────────────────────────────────────── */
-        section { padding: 56px 0; }
-        .sec-label { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); }
-        .sec-title { font-size: clamp(1.6rem, 3.4vw, 2.2rem); font-weight: 700; margin: 12px 0 14px; max-width: 22ch; }
-        .sec-sub { color: var(--text-dim); max-width: 60ch; }
+        /* ════════════════════════════════════════════════
+           HERO — headline + Session View mock w/ context menu
+           ════════════════════════════════════════════════ */
+        .hero { padding:148px 0 110px; position:relative; }
+        .hero-grid {
+            display:grid; grid-template-columns:1fr 1fr;
+            gap:clamp(40px, 5vw, 72px); align-items:center;
+        }
+        .hero-eyebrow { display:block; margin-bottom:22px; opacity:0; animation:rise .6s .1s ease forwards; }
+        .hero h1 {
+            font-family:var(--display);
+            font-size:clamp(2.9rem, 5.4vw, 4.6rem);
+            font-weight:700; line-height:1.02; letter-spacing:-.015em;
+            margin-bottom:24px;
+            opacity:0; animation:rise .6s .22s ease forwards;
+        }
+        .hero h1 .dim { color:var(--faint); }
+        .hero-sub {
+            font-size:1.07rem; color:var(--muted); max-width:42ch; line-height:1.7;
+            margin-bottom:34px;
+            opacity:0; animation:rise .6s .34s ease forwards;
+        }
+        .hero-cta { display:flex; gap:12px; flex-wrap:wrap; opacity:0; animation:rise .6s .46s ease forwards; }
 
-        /* actions */
-        .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 38px; }
-        .action { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; transition: transform .15s, border-color .15s; }
-        .action:hover { transform: translateY(-3px); border-color: hsla(31,100%,60%,0.4); }
-        .action .ico { width: 42px; height: 42px; border-radius: 11px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-size: 1.1rem; margin-bottom: 15px; }
-        .action h3 { font-size: 1.05rem; margin-bottom: 7px; }
-        .action p { font-size: 0.9rem; color: var(--text-dim); }
-        .action .menu { margin-top: 13px; font-size: 0.78rem; color: var(--text-faint); font-family: "Space Grotesk"; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+        .btn {
+            display:inline-flex; align-items:center; gap:9px;
+            font-size:.9rem; font-weight:600; font-family:var(--body);
+            padding:12px 22px; border-radius:var(--r);
+            border:1px solid transparent; cursor:pointer;
+            transition:transform .15s, background .2s, border-color .2s;
+        }
+        .btn:active { transform:translateY(1px); }
+        .btn-solid { background:var(--orange); color:#161616; }
+        .btn-solid:hover { background:#ffa050; }
+        .btn-ghost { background:transparent; color:var(--text); border-color:var(--line-2); }
+        .btn-ghost:hover { border-color:var(--muted); background:var(--panel); }
+        .btn svg { width:16px; height:16px; fill:currentColor; }
 
-        /* features */
-        .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 38px; }
-        .feat { display: flex; gap: 15px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
-        .feat .ico { flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 1rem; }
-        .feat h3 { font-size: 1rem; margin-bottom: 5px; }
-        .feat p { font-size: 0.88rem; color: var(--text-dim); }
+        @keyframes rise {
+            from { opacity:0; transform:translateY(18px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
 
-        /* pipeline */
-        .pipeline { margin-top: 38px; display: grid; gap: 2px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-        .step { display: grid; grid-template-columns: 54px 1fr; gap: 18px; align-items: center; padding: 20px 22px; background: var(--bg-2); }
-        .step .n { width: 38px; height: 38px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-family: "Space Grotesk"; }
-        .step h3 { font-size: 0.98rem; margin-bottom: 3px; }
-        .step p { font-size: 0.87rem; color: var(--text-dim); }
+        /* ── Session View mock ── */
+        .session {
+            position:relative;
+            background:var(--panel); border:1px solid var(--line); border-radius:6px;
+            box-shadow:0 30px 70px rgba(0,0,0,.5);
+            opacity:0; animation:rise .7s .5s ease forwards;
+        }
+        .session-bar {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:9px 14px; border-bottom:1px solid var(--line);
+            font-family:var(--mono); font-size:.66rem; color:var(--faint); letter-spacing:.04em;
+        }
+        .session-bar .live-dot { color:var(--orange); }
+        .session-grid {
+            display:grid; grid-template-columns:repeat(4, 1fr);
+            gap:5px; padding:14px;
+        }
+        .track-head {
+            font-family:var(--mono); font-size:.6rem; font-weight:600;
+            letter-spacing:.12em; color:var(--muted); text-align:center;
+            padding-bottom:7px; border-bottom:2px solid var(--c, var(--line-2));
+            margin-bottom:2px;
+        }
+        .slot {
+            height:36px; border-radius:2px;
+            background:var(--panel-2); border:1px solid var(--line);
+            position:relative;
+        }
+        .slot::before {            /* tiny stop square, like an empty Live slot */
+            content:''; position:absolute; left:8px; top:50%;
+            width:6px; height:6px; transform:translateY(-50%);
+            background:var(--line-2);
+        }
+        .clip {
+            height:36px; border-radius:2px;
+            background:var(--c); color:#141414;
+            display:flex; align-items:center; gap:7px; padding:0 9px;
+            font-family:var(--mono); font-size:.6rem; font-weight:600; letter-spacing:.02em;
+            white-space:nowrap; overflow:hidden;
+            opacity:0; transform:scaleX(.6); transform-origin:left;
+            animation:clipIn .4s ease forwards;
+        }
+        .clip::before {
+            content:''; width:0; height:0; flex-shrink:0;
+            border-left:7px solid #141414;
+            border-top:4.5px solid transparent; border-bottom:4.5px solid transparent;
+        }
+        @keyframes clipIn { to { opacity:1; transform:scaleX(1); } }
 
-        /* tech */
-        .tech { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
-        .chip { font-size: 0.85rem; font-weight: 500; color: var(--text); background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; }
-        .chip i { color: var(--accent); margin-right: 7px; }
+        .session-foot {
+            display:flex; justify-content:space-between; align-items:center;
+            padding:9px 14px; border-top:1px solid var(--line);
+            font-family:var(--mono); font-size:.64rem; color:var(--faint); letter-spacing:.03em;
+        }
+        .session-foot .gen { color:var(--lime); }
+        .session-foot .gen::before {
+            content:''; display:inline-block; width:6px; height:6px; border-radius:50%;
+            background:var(--lime); margin-right:6px;
+            animation:blink 1.1s ease-in-out infinite;
+        }
+        @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.25; } }
 
-        /* CTA band */
-        .cta { text-align: center; background: linear-gradient(160deg, var(--bg-2), var(--bg)); border: 1px solid var(--line); border-radius: 22px; padding: 52px 28px; margin: 18px 0 0; }
-        .cta h2 { font-size: clamp(1.6rem, 3.4vw, 2.1rem); margin-bottom: 14px; }
-        .cta p { color: var(--text-dim); max-width: 48ch; margin: 0 auto 26px; }
-        .cta .hero-cta { justify-content: center; }
+        /* ── floating context menu — the product, literally ── */
+        .ctx {
+            position:absolute; right:-22px; bottom:-30px; width:224px;
+            background:#262626; border:1px solid var(--line-2); border-radius:5px;
+            box-shadow:0 18px 50px rgba(0,0,0,.6);
+            padding:5px; z-index:5;
+            font-size:.76rem;
+            opacity:0; transform:translateY(10px) scale(.97);
+            animation:ctxIn .45s 2.1s ease forwards;
+        }
+        @keyframes ctxIn { to { opacity:1; transform:translateY(0) scale(1); } }
+        .ctx-item {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:7px 10px; border-radius:3px; color:var(--muted);
+        }
+        .ctx-item.ai { color:var(--text); font-weight:500; }
+        .ctx-item.hot { background:var(--orange); color:#161616; font-weight:600; }
+        .ctx-item .spark { font-size:.7rem; }
+        .ctx-div { height:1px; background:var(--line-2); margin:5px 4px; }
 
-        footer { border-top: 1px solid var(--line); padding: 34px 0; margin-top: 56px; }
-        .foot-inner { display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: center; color: var(--text-faint); font-size: 0.85rem; }
-        .foot-inner a { color: var(--text-dim); }
-        .foot-inner a:hover { color: var(--accent); }
+        /* ════════════════════════════════════════════════
+           STATEMENT
+           ════════════════════════════════════════════════ */
+        .statement { padding:130px 28px; background:#121212; border-top:1px solid var(--line); border-bottom:1px solid var(--line); text-align:center; }
+        .statement-text {
+            font-family:var(--display);
+            font-size:clamp(1.9rem, 4.4vw, 3.4rem); font-weight:600;
+            line-height:1.18; letter-spacing:-.01em;
+            max-width:22ch; margin:0 auto 26px;
+        }
+        .statement-text mark {
+            background:var(--orange); color:#161616;
+            padding:.04em .18em; border-radius:2px;
+            -webkit-box-decoration-break:clone; box-decoration-break:clone;
+        }
+        .statement-sub {
+            font-size:1.02rem; color:var(--muted); max-width:48ch;
+            margin:0 auto; line-height:1.75;
+        }
 
-        @media (max-width: 860px) {
-            .hero-grid { grid-template-columns: 1fr; gap: 36px; }
-            .actions { grid-template-columns: 1fr; }
-            .features { grid-template-columns: 1fr; }
+        /* ════════════════════════════════════════════════
+           SECTION SCAFFOLD
+           ════════════════════════════════════════════════ */
+        .section { padding:110px 0; }
+        .sec-head { margin-bottom:54px; }
+        .sec-head .tag { display:block; margin-bottom:14px; }
+        .sec-h2 {
+            font-family:var(--display);
+            font-size:clamp(1.8rem, 3.2vw, 2.6rem); font-weight:600;
+            letter-spacing:-.01em; line-height:1.1; margin-bottom:12px;
+        }
+        .sec-p { font-size:.98rem; color:var(--muted); max-width:52ch; line-height:1.75; }
+
+        /* ════════════════════════════════════════════════
+           THREE ACTIONS — styled as Live menu commands
+           ════════════════════════════════════════════════ */
+        .ac-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; }
+        .ac {
+            background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+            padding:28px 26px 30px;
+            transition:border-color .2s, transform .2s;
+        }
+        .ac:hover { border-color:var(--c); transform:translateY(-3px); }
+        .ac-chip {
+            display:inline-flex; align-items:center; gap:8px;
+            font-family:var(--mono); font-size:.64rem; font-weight:600; letter-spacing:.1em;
+            color:#141414; background:var(--c);
+            padding:4px 9px; border-radius:2px; margin-bottom:20px;
+        }
+        .ac-chip::before {
+            content:''; width:0; height:0;
+            border-left:6px solid #141414;
+            border-top:4px solid transparent; border-bottom:4px solid transparent;
+        }
+        .ac h3 { font-family:var(--display); font-size:1.2rem; font-weight:600; margin-bottom:9px; }
+        .ac p  { font-size:.89rem; color:var(--muted); line-height:1.72; }
+        .ac p .q { color:var(--text); }
+
+        /* ════════════════════════════════════════════════
+           FEATURES
+           ════════════════════════════════════════════════ */
+        .features { background:#121212; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+        .feat-grid {
+            display:grid; grid-template-columns:repeat(3, 1fr);
+            gap:1px; background:var(--line);
+            border:1px solid var(--line); border-radius:5px; overflow:hidden;
+        }
+        .feat { padding:32px 28px; background:#181818; transition:background .2s; }
+        .feat:hover { background:#1d1d1d; }
+        .feat-ico {
+            width:30px; height:30px; border-radius:var(--r);
+            display:grid; place-items:center; margin-bottom:16px;
+            background:var(--c); color:#141414; font-size:.78rem;
+        }
+        .feat h3 { font-size:.97rem; font-weight:600; margin-bottom:7px; }
+        .feat p  { font-size:.86rem; color:var(--muted); line-height:1.7; }
+
+        /* ════════════════════════════════════════════════
+           HOW IT WORKS — a real sequence, so numbered
+           ════════════════════════════════════════════════ */
+        .how-grid { display:grid; grid-template-columns:1fr 1fr; gap:clamp(44px, 6vw, 96px); align-items:start; }
+        .how-left { position:sticky; top:88px; }
+        .how-sub { font-size:.96rem; color:var(--muted); line-height:1.75; max-width:36ch; }
+
+        .steps { display:flex; flex-direction:column; }
+        .step {
+            display:grid; grid-template-columns:44px 1fr; gap:16px;
+            padding:26px 0; border-bottom:1px solid var(--line);
+        }
+        .step:last-child { border-bottom:none; }
+        .step-n {
+            font-family:var(--mono); font-size:.72rem; font-weight:600;
+            color:var(--orange); padding-top:4px;
+        }
+        .step h3 { font-family:var(--display); font-size:1.05rem; font-weight:600; margin-bottom:5px; }
+        .step p  { font-size:.88rem; color:var(--muted); line-height:1.7; }
+        code {
+            font-family:var(--mono); font-size:.8em;
+            background:var(--panel-2); border:1px solid var(--line-2);
+            border-radius:3px; padding:1px 6px; color:var(--text);
+        }
+
+        /* status log panel */
+        .console {
+            margin-top:34px; background:#101010;
+            border:1px solid var(--line); border-radius:5px; overflow:hidden;
+        }
+        .console-bar {
+            padding:8px 14px; border-bottom:1px solid var(--line);
+            font-family:var(--mono); font-size:.62rem; letter-spacing:.1em;
+            text-transform:uppercase; color:var(--faint);
+        }
+        .console-body { padding:16px 18px; display:flex; flex-direction:column; gap:7px; }
+        .console-body p { font-family:var(--mono); font-size:.74rem; line-height:1.5; color:var(--muted); }
+        .console-body .k { color:var(--orange); font-weight:600; }
+        .console-body .ok { color:var(--lime); }
+        .console-body .fn { color:var(--cyan); }
+        .console-body .dim { color:var(--faint); }
+
+        /* ════════════════════════════════════════════════
+           CTA — full-bleed clip-orange block
+           ════════════════════════════════════════════════ */
+        .cta { background:var(--orange); color:#161616; padding:120px 28px; text-align:center; }
+        .cta h2 {
+            font-family:var(--display);
+            font-size:clamp(2.4rem, 5vw, 4.2rem); font-weight:700;
+            line-height:1.02; letter-spacing:-.015em; margin-bottom:20px;
+        }
+        .cta p { font-size:1.05rem; color:rgba(22,22,22,.75); max-width:44ch; margin:0 auto 38px; line-height:1.7; font-weight:500; }
+        .cta-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+        .btn-dark { background:#161616; color:#fff; }
+        .btn-dark:hover { background:#2c2c2c; }
+        .btn-outline { background:transparent; color:#161616; border-color:rgba(22,22,22,.4); }
+        .btn-outline:hover { border-color:#161616; background:rgba(22,22,22,.06); }
+        .cta :focus-visible { outline-color:#161616; }
+
+        /* ════════════════════════════════════════════════
+           FOOTER
+           ════════════════════════════════════════════════ */
+        footer { padding:30px 0; border-top:1px solid var(--line); }
+        .foot {
+            display:flex; flex-wrap:wrap; gap:14px;
+            justify-content:space-between; align-items:center;
+            font-family:var(--mono); font-size:.72rem; color:var(--faint);
+        }
+        .foot a { color:var(--muted); transition:color .2s; }
+        .foot a:hover { color:var(--text); }
+
+        /* ── Scroll reveal */
+        .reveal { opacity:0; transform:translateY(26px); transition:opacity .65s ease, transform .65s ease; }
+        .reveal.visible { opacity:1; transform:translateY(0); }
+        .reveal-1 { transition-delay:.08s; }
+        .reveal-2 { transition-delay:.16s; }
+
+        /* ── Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior:auto; }
+            *, *::before, *::after { animation-duration:.001s !important; animation-delay:0s !important; transition-duration:.001s !important; }
+            .reveal { opacity:1; transform:none; }
+        }
+
+        /* ── Responsive */
+        @media (max-width: 920px) {
+            .hero { padding:130px 0 80px; }
+            .hero-grid { grid-template-columns:1fr; }
+            .session { max-width:560px; }
+            .ctx { right:0; bottom:-26px; }
+            .ac-grid { grid-template-columns:1fr; }
+            .feat-grid { grid-template-columns:1fr 1fr; }
+            .how-grid { grid-template-columns:1fr; }
+            .how-left { position:static; }
+            .transport { display:none; }
+        }
+        @media (max-width: 560px) {
+            .feat-grid { grid-template-columns:1fr; }
+            .section { padding:84px 0; }
+            .statement { padding:96px 24px; }
+            .ctx { width:176px; bottom:-22px; font-size:.7rem; }
+            .ctx-item { padding:6px 9px; }
         }
     </style>
 </head>
-
 <body>
-    <!-- Top bar -->
-    <div class="topbar">
-        <div class="wrap topbar-inner">
-            <a href="index.html#projects" class="back-link">
-                <span class="mark">SM</span>
-                <span><i class="fas fa-arrow-left"></i>&nbsp; Back to portfolio</span>
-            </a>
-            <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank"
-                rel="noopener noreferrer" class="gh-btn"><i class="fab fa-github"></i> Star on GitHub</a>
+
+<!-- ── Nav / transport bar -->
+<nav aria-label="Main">
+    <div class="nav-inner">
+        <a href="index.html" class="brand">
+            <span class="brand-mark">SM</span>
+            Samarth Mahendra
+        </a>
+        <div class="transport" aria-hidden="true">
+            <div class="t-icons">
+                <span class="t-play"></span>
+                <span class="t-stop"></span>
+                <span class="t-rec"></span>
+            </div>
+            <span class="t-div"></span>
+            <span class="t-bpm">124.00</span>
+            <span>4 / 4</span>
+            <span class="t-div"></span>
+            <span>F♯ MIN</span>
+        </div>
+        <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank" rel="noopener" class="gh-link">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+            GitHub
+        </a>
+    </div>
+</nav>
+
+<!-- ── Hero -->
+<header class="hero">
+    <div class="wrap hero-grid">
+        <div>
+            <span class="tag hero-eyebrow">Ableton Live 12 · Open source</span>
+            <h1>Right-click.<br>Write music.<br><span class="dim">Stay in flow.</span></h1>
+            <p class="hero-sub">
+                A GPT-powered copilot that generates, edits, and arranges MIDI from Live's context menu — every note lands in your session, fully editable.
+            </p>
+            <div class="hero-cta">
+                <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank" rel="noopener" class="btn btn-solid">
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+                    View on GitHub
+                </a>
+                <a href="#how" class="btn btn-ghost">How it works</a>
+            </div>
+        </div>
+
+        <!-- Session View mock -->
+        <div class="session" aria-hidden="true">
+            <div class="session-bar">
+                <span><span class="live-dot">●</span> LIVE 12 — UNTITLED SET</span>
+                <span>SESSION</span>
+            </div>
+            <div class="session-grid">
+                <div class="track-head" style="--c:var(--orange)">DRUMS</div>
+                <div class="track-head" style="--c:var(--lime)">BASS</div>
+                <div class="track-head" style="--c:var(--cyan)">KEYS</div>
+                <div class="track-head" style="--c:var(--pink)">LEAD</div>
+
+                <div class="clip" style="--c:var(--orange);animation-delay:.8s">Groove A</div>
+                <div class="clip" style="--c:var(--lime);animation-delay:.95s">Sub Line</div>
+                <div class="slot"></div>
+                <div class="slot"></div>
+
+                <div class="clip" style="--c:var(--orange);animation-delay:1.1s">Groove B</div>
+                <div class="slot"></div>
+                <div class="clip" style="--c:var(--cyan);animation-delay:1.25s">7th Stabs</div>
+                <div class="slot"></div>
+
+                <div class="slot"></div>
+                <div class="clip" style="--c:var(--lime);animation-delay:1.4s">Walkdown</div>
+                <div class="clip" style="--c:var(--cyan);animation-delay:1.55s">Pad Swell</div>
+                <div class="clip" style="--c:var(--pink);animation-delay:1.7s">Hook v2</div>
+
+                <div class="slot"></div>
+                <div class="slot"></div>
+                <div class="slot"></div>
+                <div class="slot"></div>
+            </div>
+            <div class="session-foot">
+                <span>124 BPM · F♯ MINOR · 4/4</span>
+                <span class="gen">GENERATING</span>
+            </div>
+
+            <!-- the actual product: Live's right-click menu -->
+            <div class="ctx">
+                <div class="ctx-item">Cut</div>
+                <div class="ctx-item">Copy</div>
+                <div class="ctx-div"></div>
+                <div class="ctx-item ai hot"><span>Generate Midi with AI</span><span class="spark">✦</span></div>
+                <div class="ctx-item ai"><span>Edit Clip with AI</span><span class="spark">✦</span></div>
+                <div class="ctx-item ai"><span>Arrange with AI</span><span class="spark">✦</span></div>
+                <div class="ctx-div"></div>
+                <div class="ctx-item">Quantize Settings…</div>
+            </div>
         </div>
     </div>
+</header>
 
-    <!-- Hero -->
-    <header class="hero">
-        <div class="wrap hero-grid">
-            <div>
-                <span class="badge"><span class="dot"></span> Open source · Ableton Live 12</span>
-                <h1>AI Copilot for <span class="grad">Ableton Live</span></h1>
-                <p class="hero-lead">GPT-powered MIDI generation, editing, and arrangement — right inside Live's
-                    right-click menu.</p>
-                <p class="hero-by">A developer tool by <b>Samarth Mahendra</b></p>
-                <div class="hero-cta">
-                    <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank"
-                        rel="noopener noreferrer" class="btn btn-primary"><i class="fab fa-github"></i> View Source</a>
-                    <a href="#how" class="btn btn-ghost"><i class="fas fa-wand-magic-sparkles"></i> How it works</a>
-                </div>
+<!-- ── Statement -->
+<section class="statement">
+    <p class="statement-text reveal">
+        Suno finishes the song.<br>
+        This helps you <mark>write yours.</mark>
+    </p>
+    <p class="statement-sub reveal reveal-1">
+        Not a generator — a collaborator. Every note it writes lands in your session as editable MIDI: a starting point you shape, not a finished product you accept.
+    </p>
+</section>
+
+<!-- ── Three actions -->
+<section class="section">
+    <div class="wrap">
+        <div class="sec-head">
+            <span class="tag reveal">What it does</span>
+            <h2 class="sec-h2 reveal reveal-1">Three commands. One right-click.</h2>
+        </div>
+        <div class="ac-grid">
+            <article class="ac reveal" style="--c:var(--orange)">
+                <span class="ac-chip">EDIT CLIP</span>
+                <h3>Describe the change</h3>
+                <p><span class="q">"Make it more syncopated." "Add 7ths." "Humanize the velocities."</span> Say it in plain words — the clip updates in place.</p>
+            </article>
+            <article class="ac reveal reveal-1" style="--c:var(--lime)">
+                <span class="ac-chip">GENERATE CLIP</span>
+                <h3>Start from nothing</h3>
+                <p>Drums, bass, or melody from scratch — matched to your session's key, tempo, and feel, written straight into the slot.</p>
+            </article>
+            <article class="ac reveal reveal-2" style="--c:var(--cyan)">
+                <span class="ac-chip">ARRANGE</span>
+                <h3>Shape the whole track</h3>
+                <p>Build a full arrangement, restructure sections, or ask for a producer's honest critique of what's there.</p>
+            </article>
+        </div>
+    </div>
+</section>
+
+<!-- ── Features -->
+<section class="features section">
+    <div class="wrap">
+        <div class="sec-head">
+            <span class="tag reveal">Why it sounds right</span>
+            <h2 class="sec-h2 reveal reveal-1">The AI listens before it writes.</h2>
+            <p class="sec-p reveal reveal-2">Six layers keep every output in key, in time, and in style.</p>
+        </div>
+        <div class="feat-grid">
+            <div class="feat reveal" style="--c:var(--orange)">
+                <span class="feat-ico">◉</span>
+                <h3>Session context</h3>
+                <p>Reads your tempo, key, every track, and the drum-rack pad map before writing a single note.</p>
             </div>
-
-            <!-- DAW / piano-roll mockup -->
-            <div class="daw" aria-hidden="true">
-                <div class="daw-bar">
-                    <span class="tl"></span><span class="tl"></span><span class="tl"></span>
-                    <span class="title">AI Copilot — piano roll</span>
-                </div>
-                <div class="roll">
-                    <!-- row 1: kick (orange) -->
-                    <div class="note k" style="grid-column: 1 / span 1; animation-delay:.05s"></div>
-                    <div class="note k" style="grid-column: 5 / span 1; animation-delay:.1s"></div>
-                    <div class="note k" style="grid-column: 9 / span 1; animation-delay:.15s"></div>
-                    <div class="note k" style="grid-column: 13 / span 1; animation-delay:.2s"></div>
-                    <!-- row 2: snare gap -->
-                    <div class="note p" style="grid-column: 5 / span 2; animation-delay:.28s"></div>
-                    <div class="note p" style="grid-column: 13 / span 2; animation-delay:.34s"></div>
-                    <!-- row 3: bass (blue) -->
-                    <div class="note b" style="grid-column: 1 / span 3; animation-delay:.42s"></div>
-                    <div class="note b" style="grid-column: 7 / span 2; animation-delay:.48s"></div>
-                    <div class="note b" style="grid-column: 11 / span 4; animation-delay:.54s"></div>
-                    <!-- row 4: melody (green) -->
-                    <div class="note m" style="grid-column: 2 / span 2; animation-delay:.62s"></div>
-                    <div class="note m" style="grid-column: 6 / span 1; animation-delay:.68s"></div>
-                    <div class="note m" style="grid-column: 9 / span 3; animation-delay:.74s"></div>
-                    <div class="note m" style="grid-column: 14 / span 2; animation-delay:.8s"></div>
-                </div>
-                <div class="daw-foot">
-                    <span>124 BPM · F# minor · 4 / 4</span>
-                    <span class="live">● generating</span>
-                </div>
+            <div class="feat reveal reveal-1" style="--c:var(--lime)">
+                <span class="feat-ico">▦</span>
+                <h3>Deterministic validators</h3>
+                <p>Code — not prompts — snaps out-of-key notes to scale, humanizes flat velocities, thins note walls.</p>
+            </div>
+            <div class="feat reveal reveal-2" style="--c:var(--cyan)">
+                <span class="feat-ico">≡</span>
+                <h3>Drift-proof drums</h3>
+                <p>One bar is defined, the rest are cloned. The kick-and-snare backbone never wanders across bars.</p>
+            </div>
+            <div class="feat reveal" style="--c:var(--pink)">
+                <span class="feat-ico">❖</span>
+                <h3>Genre skill packs</h3>
+                <p>Editable markdown knowledge auto-loaded by track role — hip-hop, house, drums, bass, melody.</p>
+            </div>
+            <div class="feat reveal reveal-1" style="--c:var(--orange)">
+                <span class="feat-ico">⌖</span>
+                <h3>Web access</h3>
+                <p>Paste a URL mid-prompt. The AI fetches the page and applies what it reads to the generation.</p>
+            </div>
+            <div class="feat reveal reveal-2" style="--c:var(--lime)">
+                <span class="feat-ico">♯</span>
+                <h3>Scale lock</h3>
+                <p>Reads Live's Scale Mode and constrains every output note. No out-of-key melodies, ever.</p>
             </div>
         </div>
-    </header>
+    </div>
+</section>
 
-    <!-- What it does -->
-    <section>
-        <div class="wrap">
-            <span class="sec-label">What it does</span>
-            <h2 class="sec-title">Three AI actions, one right-click away.</h2>
-            <p class="sec-sub">Install the extension, right-click any MIDI clip, track, or scene in Live, and describe
-                what you want in plain English.</p>
-
-            <div class="actions">
-                <div class="action">
-                    <div class="ico"><i class="fas fa-pen-to-square"></i></div>
-                    <h3>Edit a clip</h3>
-                    <p>Reshape an existing clip — "make it more syncopated", "add 7ths", "humanize the velocities."</p>
-                    <div class="menu">🤖 AI: Edit this clip</div>
-                </div>
-                <div class="action">
-                    <div class="ico"><i class="fas fa-wand-magic-sparkles"></i></div>
-                    <h3>Generate a clip</h3>
-                    <p>Create drums, bass, or melodies from scratch on any track, matched to your session's key and groove.</p>
-                    <div class="menu">🤖 AI: Generate clip</div>
-                </div>
-                <div class="action">
-                    <div class="ico"><i class="fas fa-layer-group"></i></div>
-                    <h3>Arrange &amp; analyze</h3>
-                    <p>Build a full arrangement, rearrange clips into sections, or get a producer's critique of the session.</p>
-                    <div class="menu">🤖 AI: Build arrangement</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Why it's reliable -->
-    <section>
-        <div class="wrap">
-            <span class="sec-label">Why it sounds right</span>
-            <h2 class="sec-title">Most AI music tools generate noise. This one listens first.</h2>
-            <p class="sec-sub">The hard part isn't calling an LLM — it's making the output musically coherent every
-                time. A layered reliability system handles that.</p>
-
-            <div class="features">
-                <div class="feat">
-                    <div class="ico" style="background:var(--accent-soft);color:var(--accent)"><i class="fas fa-ear-listen"></i></div>
-                    <div>
-                        <h3>Session-aware context</h3>
-                        <p>Reads tempo, key, every track, and the live drum-rack pad map — plus the exact note positions
-                            of other clips (arrangement <em>and</em> session view) so new parts lock to what's playing.</p>
-                    </div>
-                </div>
-                <div class="feat">
-                    <div class="ico" style="background:hsla(212,100%,53%,0.15);color:var(--blue)"><i class="fas fa-book"></i></div>
-                    <div>
-                        <h3>Genre skill packs</h3>
-                        <p>Editable markdown knowledge (hip-hop, house, drums, bass, melody) is auto-loaded by track role
-                            and prompt, so the model reasons like a producer in that style.</p>
-                    </div>
-                </div>
-                <div class="feat">
-                    <div class="ico" style="background:hsla(152,100%,38%,0.15);color:var(--green)"><i class="fas fa-shield-halved"></i></div>
-                    <div>
-                        <h3>Deterministic validators</h3>
-                        <p>Code — not prompts — guarantees the output: out-of-key notes snap to scale, flat velocities get
-                            humanized, note walls get thinned. Reliability that doesn't depend on the model behaving.</p>
-                    </div>
-                </div>
-                <div class="feat">
-                    <div class="ico" style="background:hsla(270,90%,65%,0.15);color:var(--purple)"><i class="fas fa-drum"></i></div>
-                    <div>
-                        <h3>Drift-proof drums</h3>
-                        <p>A bar-repeating architecture defines one bar that the engine clones; fills are additive, so the
-                            kick and snare backbone can never wander across bars.</p>
-                    </div>
-                </div>
-                <div class="feat">
-                    <div class="ico" style="background:var(--accent-soft);color:var(--accent)"><i class="fas fa-globe"></i></div>
-                    <div>
-                        <h3>Web access</h3>
-                        <p>Paste a URL and the AI fetches the page mid-generation — pattern libraries, chord charts,
-                            genre references — then applies what it read.</p>
-                    </div>
-                </div>
-                <div class="feat">
-                    <div class="ico" style="background:hsla(212,100%,53%,0.15);color:var(--blue)"><i class="fas fa-key"></i></div>
-                    <div>
-                        <h3>Stays in key</h3>
-                        <p>Reads Live's Scale Mode and constrains every generated note to the active scale — no more
-                            out-of-key melodies dropped into your track.</p>
-                    </div>
+<!-- ── How it works -->
+<section class="section" id="how">
+    <div class="wrap how-grid">
+        <div class="how-left reveal">
+            <span class="tag" style="display:block;margin-bottom:14px">Under the hood</span>
+            <h2 class="sec-h2">Right-click to written MIDI.</h2>
+            <p class="how-sub">A sandboxed Node.js process inside Ableton's Extension Host. Four steps, one atomic write.</p>
+            <div class="console" aria-hidden="true">
+                <div class="console-bar">AI Copilot — status</div>
+                <div class="console-body">
+                    <p><span class="k">[copilot]</span> <span class="dim">extension loaded</span></p>
+                    <p><span class="ok">read</span>  → 124 BPM · F♯ minor · 6 tracks</p>
+                    <p><span class="fn">generate</span> → 64 notes across 8 bars</p>
+                    <p><span class="ok">validate</span> → scale-snap ×2 · humanize velocity</p>
+                    <p><span class="ok">write</span> <span class="dim">→ done in 1 transaction</span></p>
                 </div>
             </div>
         </div>
-    </section>
-
-    <!-- How it works -->
-    <section id="how">
-        <div class="wrap">
-            <span class="sec-label">Under the hood</span>
-            <h2 class="sec-title">From right-click to written MIDI.</h2>
-            <p class="sec-sub">The extension runs as a sandboxed Node.js process inside Ableton's Extension Host.</p>
-
-            <div class="pipeline">
-                <div class="step">
-                    <div class="n">1</div>
-                    <div>
-                        <h3>Read the session</h3>
-                        <p>Tempo, key/scale, every track, mixer state, devices, drum-rack pad pitches, and the notes
-                            playing in the same region on other tracks.</p>
-                    </div>
+        <div class="steps reveal reveal-1">
+            <div class="step">
+                <span class="step-n">01</span>
+                <div>
+                    <h3>Read the session</h3>
+                    <p>Tempo, key, every track, drum-rack pad pitches, and the notes already playing in the same region.</p>
                 </div>
-                <div class="step">
-                    <div class="n">2</div>
-                    <div>
-                        <h3>Load skills + prompt the model</h3>
-                        <p>Relevant genre skill packs are injected, then GPT is called via raw <code>node:https</code>
-                            (the sandbox has no <code>fetch</code>) with function-calling tools.</p>
-                    </div>
+            </div>
+            <div class="step">
+                <span class="step-n">02</span>
+                <div>
+                    <h3>Load skills, prompt the model</h3>
+                    <p>Genre skill packs are injected, then GPT is called via raw <code>node:https</code> with function-calling tools.</p>
                 </div>
-                <div class="step">
-                    <div class="n">3</div>
-                    <div>
-                        <h3>Browse if needed</h3>
-                        <p>An agentic loop resolves any <code>fetch_url</code> calls locally and feeds page content back
-                            until the model emits a final generation tool call.</p>
-                    </div>
+            </div>
+            <div class="step">
+                <span class="step-n">03</span>
+                <div>
+                    <h3>Browse if needed</h3>
+                    <p>An agentic loop resolves <code>fetch_url</code> calls and feeds page content back until the model emits a final tool call.</p>
                 </div>
-                <div class="step">
-                    <div class="n">4</div>
-                    <div>
-                        <h3>Validate &amp; write</h3>
-                        <p>Notes pass through deterministic validators, then are written back into Live in a single
-                            transaction — color-coded by role.</p>
-                    </div>
+            </div>
+            <div class="step">
+                <span class="step-n">04</span>
+                <div>
+                    <h3>Validate and write</h3>
+                    <p>Notes pass through deterministic validators, then land in Live in a single transaction — color-coded by role.</p>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- Tech -->
-    <section>
-        <div class="wrap">
-            <span class="sec-label">Built with</span>
-            <h2 class="sec-title">A lean, dependency-light stack.</h2>
-            <div class="tech">
-                <span class="chip"><i class="fab fa-js"></i>TypeScript</span>
-                <span class="chip"><i class="fab fa-node-js"></i>Node.js</span>
-                <span class="chip"><i class="fas fa-sliders"></i>Ableton Extensions SDK</span>
-                <span class="chip"><i class="fas fa-robot"></i>OpenAI GPT</span>
-                <span class="chip"><i class="fas fa-bolt"></i>esbuild</span>
-                <span class="chip"><i class="fas fa-music"></i>MIDI / DrumRack API</span>
-                <span class="chip"><i class="fas fa-cube"></i>Function calling</span>
-            </div>
+<!-- ── CTA -->
+<section class="cta">
+    <div class="reveal">
+        <h2>Open source.<br>Ready to run.</h2>
+        <p>Clone it, add your OpenAI key, point it at Live 12 Suite. You're writing in four steps.</p>
+        <div class="cta-btns">
+            <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank" rel="noopener" class="btn btn-dark">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+                Get it on GitHub
+            </a>
+            <a href="index.html#projects" class="btn btn-outline">← More projects</a>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- CTA -->
-    <section>
-        <div class="wrap">
-            <div class="cta">
-                <h2>Open source &amp; ready to run.</h2>
-                <p>Clone it, drop in your OpenAI key, point it at Ableton Live 12 Suite, and run <code>npm start</code>.
-                    The SDK ships bundled — setup is four steps.</p>
-                <div class="hero-cta">
-                    <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank"
-                        rel="noopener noreferrer" class="btn btn-primary"><i class="fab fa-github"></i> Get it on GitHub</a>
-                    <a href="index.html#projects" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> More projects</a>
-                </div>
-            </div>
-        </div>
-    </section>
+<footer>
+    <div class="wrap foot">
+        <span>© <span id="yr"></span> SAMARTH MAHENDRA</span>
+        <span>
+            <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank" rel="noopener">GITHUB</a>
+            &nbsp;·&nbsp;
+            <a href="index.html">PORTFOLIO</a>
+            &nbsp;·&nbsp;
+            <a href="mailto:samarth.mahendragowda@gmail.com">EMAIL</a>
+        </span>
+    </div>
+</footer>
 
-    <footer>
-        <div class="wrap foot-inner">
-            <span>© <span id="yr"></span> Samarth Mahendra · AI Copilot for Ableton Live</span>
-            <span>
-                <a href="https://github.com/samarthmahendraneu/AI-Copilot-Extension-Ableton" target="_blank" rel="noopener noreferrer">GitHub</a>
-                &nbsp;·&nbsp;
-                <a href="index.html">Portfolio</a>
-                &nbsp;·&nbsp;
-                <a href="mailto:samarth.mahendragowda@gmail.com">Email</a>
-            </span>
-        </div>
-    </footer>
+<script>
+    document.getElementById("yr").textContent = new Date().getFullYear();
 
-    <script>document.getElementById("yr").textContent = new Date().getFullYear();</script>
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+            if (e.isIntersecting) {
+                e.target.classList.add('visible');
+                observer.unobserve(e.target);
+            }
+        });
+    }, { threshold: 0.12 });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
 </body>
-
 </html>
