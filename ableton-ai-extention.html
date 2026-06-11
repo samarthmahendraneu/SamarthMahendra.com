@@ -653,20 +653,6 @@
                 allowfullscreen></iframe>
         </div>
     </div>
-    <script>
-        // Start the demo video 10s after page load — muted, because browsers
-        // block unmuted autoplay without a user gesture.
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                const v = document.getElementById('demo-video');
-                if (!v || !v.contentWindow) return;
-                const send = (func) => v.contentWindow.postMessage(
-                    JSON.stringify({ event: 'command', func, args: '' }), '*');
-                send('mute');
-                send('playVideo');
-            }, 10000);
-        });
-    </script>
 </section>
 
 <!-- ── Try it — real outputs, replayed -->
