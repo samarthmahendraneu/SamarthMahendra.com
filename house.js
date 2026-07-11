@@ -91,10 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
             description: 'Begin with the existing coffee estate, its access, tree cover, long views, and monsoon drainage.'
         },
         {
-            title: 'Establish the axis',
-            description: 'Set an arrival sequence that reveals the house gradually, with the estate always present beyond it.'
-        },
-        {
             title: 'Place the house',
             description: 'A non-rectangular footprint settles into the long plot, keeping living spaces close to garden edges.'
         },
