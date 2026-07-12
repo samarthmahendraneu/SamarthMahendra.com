@@ -494,19 +494,20 @@ figcaption {
 
 .plot-frame {
     object-fit: cover;
+    object-position: 65% center;
     opacity: 0;
-    transform: scale(1.018);
+    transform: scale(1.368);
     transition: opacity .55s ease, transform 1s ease;
 }
 
 .plot-frame.is-active {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1.35);
 }
 
 .evolution-vignette {
-    background: linear-gradient(90deg, rgba(8, 10, 8, .82) 0%, rgba(8, 10, 8, .28) 48%, rgba(8, 10, 8, .45) 100%),
-        linear-gradient(0deg, rgba(8, 10, 8, .72) 0%, transparent 48%, rgba(8, 10, 8, .26) 100%);
+    background: linear-gradient(90deg, rgba(8, 10, 8, .58) 0%, rgba(8, 10, 8, .14) 48%, rgba(8, 10, 8, .26) 100%),
+        linear-gradient(0deg, rgba(8, 10, 8, .46) 0%, transparent 48%, rgba(8, 10, 8, .14) 100%);
 }
 
 .evolution-overlay {
@@ -1716,7 +1717,7 @@ body.gallery-open {
     .stage-copy { max-width: 330px; padding: 17px 0; }
     .stage-count { margin-bottom: 16px; }
     .stage-rail { right: 10px; }
-    .plot-frame { object-position: 63% center; }
+    .plot-frame { object-position: 65% center; }
 
     .model-heading,
     .moments-header { gap: 30px; padding: 55px 0 40px; }
