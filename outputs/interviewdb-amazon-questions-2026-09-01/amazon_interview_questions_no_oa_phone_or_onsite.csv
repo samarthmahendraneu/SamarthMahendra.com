@@ -1,0 +1,466 @@
+global_rank,page,rank_on_page,title,tags,last_reported,frequency_percent,completed,question_url,source_list_url,question_description
+1,1,1,Destination Cache,Coding | Onsite,4 months ago,100,true,https://www.interviewdb.io/question/amazon/destination-cache,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"Amazon’s fulfillment centers process millions of package routing requests daily. To optimize the sorting system, the most frequently accessed package destinations are temporarily stored in memory. However, server memory is limited. Design and implement a data structure for a Least Recently Used (LRU) Cache to manage these package routes. It should support the following operations in O(1) average time complexity:
+- get(key): Retrieve the value of the key if it exists in the cache.
+- put(key, value): Insert or update the value of the key. If the cache reaches its capacity, it should invalidate the least recently used item."
+2,1,2,Gold Thief,Coding | Phone | Onsite,2 weeks ago,100,true,https://www.interviewdb.io/question/amazon/gold-thief,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"There are n houses built in a street, each of which contains some gold bars in it: gold[i]. A thief is going to steal the maximal bars for houses, but he can’t steal in two adjacent houses because if he does it will make create suspicion and he will be caught.
+How many gold bars can you steal at most?
+Follow-up:
+- what if we must skip 2 houses?
+- what if it's circular such that first and last house are considered to be adjacent?"
+4,1,4,Block Words,Coding | Phone | Onsite,3 months ago,75,true,https://www.interviewdb.io/question/amazon/block-words,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"You have a collection of baby blocks (cubes with single upper-case letters of the alphabet on each side).
+Each block could have up to six different letters on it (or even more if we're in a universe with more than 3 dimensions), but for the sake of simplicity, we'll assume for now that each block only has two distinct letters.
+The problem is to write a function that takes a collection of blocks and a target word and returns true or false depending on whether or not you can spell the target word with the collection of blocks.
+Example:
+(B,A),(A,B),(X,Y),(A,B): ""BABY"" => true
+(B,A),(A,B),(L,E),(A,B): ""ABLE"" => false (since L and E are on the same block)"
+5,1,5,Character Separation,Coding | Phone | Onsite,3 months ago,75,true,https://www.interviewdb.io/question/amazon/character-separation,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"Given a string like ""bcddd"", rearrange the string in a way that the output doesn’t have equal adjacent chars. Output should be: “dbdcd”.
+If no such rearrangement is possible, throw an exception."
+6,1,6,Common Manager,Coding | Phone | Onsite,1 month ago,75,true,https://www.interviewdb.io/question/amazon/common-manager,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"// Write a function that gives the first common manager for 2 employees.
+// You may design the data structure and APIs as you see fit.
+//
+// Examples:
+// Michael and Timothy -> Ann
+// Sofia and Isabel -> Jeff
+//
+//
+
+                Jeff
+                 +
+                 |
+       +---------+--------+--------+
+       |         |        |        |
+       +         +        +        +
+     Ann      Mathew   Jessica   George
+      +                           +
+      |                           |
+   +-------+                 +--------+
+   |       |                 |        |      
+   +       +                 +        +      
+Timothy  Sofia            Andrew    Isabel  
+	         +
+	         |
+	     +---+---+
+	     |       |
+	             +
+	         Michael
+
+//
+// Find the first common manager
+// Input: two person's name, Two nodes are given.
+// Output : the node of lowest manager.
+This question is similar to Leetcode 1650, but you need to design the data structure instead of having the definition of the tree node."
+7,1,7,Conversion Rate,Coding | Phone | Onsite,4 months ago,75,true,https://www.interviewdb.io/question/amazon/conversion-rate,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"Given an array of currency conversion rates. E.g. ['USD', 'GBP', 0.77] which means 1 USD is equal to 0.77 GBP, find the conversion rate from the 'from' currency to the 'to' currency. Your return value should be a number.
+Example:
+Rates: ['USD', 'JPY', 110] ['US', 'AUD', 1.45] ['JPY', 'GBP', 0.0070]
+To/From currency ['GBP', 'AUD']
+Find the rate for the 'To/From' curency. In this case, the correct result is 1.89."
+8,1,8,Delivery Time,Coding | Phone | Onsite,1 month ago,75,false,https://www.interviewdb.io/question/amazon/delivery-time,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"Given an array of delivery times, output the median of all values seen so far after each new delivery time arrives.
+Example:
+Input: [5, 17, 100, 11]
+Output: [5, 11, 17, 14]"
+10,1,10,Query Builder,Low Level Design | Onsite,6 months ago,75,false,https://www.interviewdb.io/question/amazon/query-builder,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"We need a library for finding files that match a condition. For now we have only two conditions ­ ""the filename contains "" and ""the file extension is "". In the future we will want to support more. Conditions can be combined in a query. For example, ""filename contains foo && (extension = png || extension = jpg)""."
+11,1,11,Raffle Winners,Coding | Phone | Onsite,5 months ago,75,false,https://www.interviewdb.io/question/amazon/raffle-winners,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"An e-conmerce platform wants to implement a promotional raffle system for a major sales event. Customers earn raffle entries based on their total spending during the promotional period. The probability of winning should be proportional to spending: a customer who spent $50 should have 5x the chance of winning compared to someone who spent $10. Write a function that takes a list of transactions (customer_id, amount) and returns K unique winners."
+12,1,12,Top Visit Sequence,Coding | Phone | Onsite,1 month ago,75,false,https://www.interviewdb.io/question/amazon/top-visit-sequence,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"You are given a log of website visits. Each log entry contains:
+- Time – when the page was visited
+- Customer ID – the user who visited the page
+- Page – the page that was visited
+Your task is to determine the most frequently visited sequence of three consecutive pages (a 3-page sequence) across all customers.
+Example
+Input (Website Log)
+Time   Customer   Page
+T0     C1         A
+T0     C2         E
+T1     C1         B
+T1     C2         B
+T2     C1         C
+T2     C2         C
+T3     C1         D
+T3     C2         D
+T4     C1         E
+T5     C2         A
+Customer Visit Sequences
+- C1: A → B → C → D → E
+- C2: E → B → C → D → A
+3-Page Sequences
+- C1:
+A → B → C
+B → C → D
+C → D → E
+- A → B → C
+- B → C → D
+- C → D → E
+- C2:
+E → B → C
+B → C → D
+C → D → A
+- E → B → C
+- B → C → D
+- C → D → A
+The sequence B → C → D appears twice, which is more frequent than any other sequence.
+Expected Output
+[B, C, D]"
+13,1,13,Tree Kyoukai,Coding | Phone | Onsite,4 months ago,75,false,https://www.interviewdb.io/question/amazon/tree-kyoukai,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"Given a root of a Binary Tree, return its boundary traversal in the following order:
+- Left Boundary: Nodes from the root to the leftmost non-leaf node, preferring the left child over the right and excluding leaves.
+- Leaf Nodes: All leaf nodes from left to right, covering every leaf in the tree.
+- Reverse Right Boundary: Nodes from the root to the rightmost non-leaf node, preferring the right child over the left, excluding leaves, and added in reverse order.
+Note: The root is included once, leaves are added separately to avoid repetition, and the right boundary follows traversal preference not the path from the rightmost leaf."
+15,1,15,Word Decomposition,Coding | Phone | Onsite,4 months ago,75,false,https://www.interviewdb.io/question/amazon/word-decomposition,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=1,"You are given a (potentially large) list of words.
+Some of these are compound words - the word can be broken down into parts and all parts of the word are also in the list.
+Identify all combinations where one word can be composed of two or more words of the same list, and print them.
+Example:
+Example 1:
+    Sample input:
+        [""bar"", ""foobar"", ""foo"",  ""foobarzaa""]
+
+    Sample output:
+        ""foobar"": [""foo"", ""bar""]
+
+
+Example 2:
+    Sample input:
+        [""high"", ""super"", ""way"", ""superhighway"", ""highway"", ""rockstar"", ""rock"", ""star"", ""rocks"", ""tar"", ""stars"", ""rockstars""]
+
+    Sample output:
+        ""superhighway"": [""super"", ""high"", ""way""]
+        ""superhighway"": [""super"", ""highway""]
+        ""highway"": [""high"", ""way""]
+        ""rockstar"": [""rock"", ""star""]
+        ""rockstar"": [""rocks"", ""tar""]
+        ""rockstars"": [""rock"", ""stars""]"
+16,2,1,XO Game,Coding | Onsite,4 months ago,75,false,https://www.interviewdb.io/question/amazon/xo-game,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=2,"Design tic-tac-toe (the board is not guaranteed to be 3x3). Implement a win, tie function, and initialize the board. This question is left general as the interviewer wants to prompt the interviewee to ask clarifying questions.
+Follow-up: what optimization techniques can be done for the board. How do you deal with diagonals for even boards?"
+18,2,3,Course Completion,Coding | Phone | Onsite,6 months ago,50,false,https://www.interviewdb.io/question/amazon/course-completion,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=2,"An Amazon employee must complete a list of required courses. Each course can have a prerequisite course. Return whether or not it is possible for an employee to complete all of the courses.
+Example:
+The hashmap is structured as [course, prerequisite] Courses: { [Python Course, Systems Course], [Systems, Course, Python Course], [Low Level Course, Python Course] }
+This example above is impossible, there is no way for the student to complete all the courses because the Python and System courses are prerequisites of each other."
+20,2,5,Increment One,Coding | Phone | Onsite,4 months ago,50,false,https://www.interviewdb.io/question/amazon/increment-one,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=2,"Given a linked list of size with values being integers between 0-9, increment the number formed by the linked list by one.
+Example 1
+Input: 1->2->3->4 Output: 1->2->3->5
+Explanation
+1234 + 1 = 1235
+Example 2
+Input: 1->2->3->9 Output: 1->2->4->0
+Explanation
+1249 + 1 = 1250
+Example 2
+Input: 9->9->9->9 Output: 1->0->0->0->0
+Explanation
+9999 + 1 = 10000
+Follow-up 1
+You cannot alter the pointers i.e., no reversing the linked list
+Follow-up 2
+Along with the constraint in Follow-up 1, the linked list size can now be up to 10^8. So you must achieve the solution with constant O(1) space"
+21,2,6,Jihanki Network,System Design | Onsite,2 months ago,50,false,https://www.interviewdb.io/question/amazon/jihanki-network,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=2,Design a network of vending machines where customers can order their items through an app. The system should notify suppliers to stock the vending machines when items are running low or out of stock.
+23,2,8,Number of Paths,Coding | Phone | Onsite,3 months ago,50,false,https://www.interviewdb.io/question/amazon/number-of-paths,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=2,"Given a grid of n * m, a robot starts at the left top corner and can move only right or down. Determine how many possible ways exist for this robot to reach the bottom right corner.
+Notes:
+- Grid is filled with 0.
+- There are no obstacles.
+- No need to return the path or max/min path: just possible ways from the left top to the borrom right corner.
+Example:
+[0, 0]
+[0, 0]
+
+result = 2 
+/*
+1st way to reach the right bottom is to move right then down
+2nd way to reach the right bottom is to move down then right
+*/
+
+[0, 0]
+[0, 0]
+[0, 0]
+
+result = 3
+/*
+1st way to reach the right bottom is to move right - down - down
+2nd way to reach the right bottom is to move down - right - right
+3rd way to reach the right bottom is to move down - right - down
+*/"
+26,2,11,Streak Number,Coding | Phone | Onsite,2 weeks ago,50,true,https://www.interviewdb.io/question/amazon/streak-number,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=2,"Amazon has a package-receiving system. Each package has a unique integer ID starting from 0, but packages may be received out of order.
+Design a data structure that supports two functions:
+- receivePackage(id): Records that the package with the given ID has been received.
+- getPackageStatus(): Returns the largest package ID received so far and a list containing all missing package IDs between 0 and that largest ID.
+For example, after receiving packages in the order 0, 2, 4, 1, getPackageStatus() should return the largest package ID 4 and the missing package IDs [3]."
+28,2,13,Top Customers,Coding | Phone | Onsite,1 month ago,50,false,https://www.interviewdb.io/question/amazon/top-customers,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=2,"Given a website access log, find the N most frequent visitors.
+Given an access log for a feature, count the number of repeat customers. In order to filter out the ""novelty effect"" a repeat customer is defined as a customer who has used the feature on more than one day. Each line of the access log is tab delimited with two fields: the timestamp of when the customer visited, and the customer id (a 10 byte string). The feature writes an entry to the log file as it gets the hits. Below is an example log file.
+11-Jun-2018 1:00 AM, 1ABCDEFGHI 11-Jun-2018 3:01 AM, 1ABCDEFGHI 11-Jun-2018 4:12
+AM, 2ABCDEFGHI 12-Jun-2018 8:23 AM, 3ABCDEFGHI 12-Jun-2018 4:21 PM, 2ABCDEFGHI
+13-Jun-2018 1:14 PM, 3ABCDEFGHI
+In this example, the repeat customers are ""3ABCDEFGHI"" and ""2ABCDEFGHI"". The result that your program generates is the count of repeat customers, in this case 2.
+Twists:
+- allow us to specify the time frame (start and end time for the analysis)
+- find customers visiting website for N consecutive days"
+30,2,15,VM Load,Coding | Phone | Onsite,3 months ago,50,false,https://www.interviewdb.io/question/amazon/vm-load,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=2,"Amazon has to process numerous critical business intelligence jobs a day. Most of those tend to be very computationally heavy in nature such that they require a single virtual machine while they run and need to be guaranteed to run between certain times.
+Given a set of jobs we need to know how many virtual machines we will need to provision? That is, given a set of jobs with start and end times like {(6,8), (2,5), (3,7)}, calculate the number of virtual machines required to execute all those jobs?"
+31,3,1,ASIN Average Price,Coding | Phone | Onsite,6 months ago,25,false,https://www.interviewdb.io/question/amazon/asin-average-price,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"Assuming there is a data set that contains UPC, Date and Price. Knowing many UPCs may map to a single ASIN, calculate the average price per ASIN per month.
+Clarification with the interviewer:
+// UPC means: ID string
+// Date means: time
+// ASIN means: Amazon Standard Identification Number. It’s a unique 10-character alphanumeric code assigned to every product listed in the Amazon store.
+// UPCs => ASIN many to one
+// One ASIN can have many UPCs associated, each UPC has a price.
+// Per month added
+One UPC contains information like this: this can be an array of UPCs given to us.
+UPC Date Price
+// UPC1, 10/12/10, $1
+// UPC1, 10/13/10, $2
+// UPC1, 10/13/10, $1
+// UPC2342, 10/13/10, $7
+UPCs can map to different ASINs as below: this can be a map given to us showing the relation between UPC and ASIN.
+// UPC1 -> ASIN1
+// UPC2342 -> ASIN2"
+33,3,3,CloudWatch,System Design | Onsite,4 months ago,25,false,https://www.interviewdb.io/question/amazon/cloudwatch,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"Design AWS Cloudwatch. The AWS Cloudwatch service is used to query logs emitted by applications running on AWS. The service should be highly scalable to support the massive AWS scale, and the query results should be fetched with a reasonably low latency.
+Start from the point of applications emitting the logs and design till the querying service
+Follow-ups
+- What kind of query filters would you put?
+- How would you handle bursts of log streams?
+- How would you choose partition keys?"
+34,3,4,Config Distribution,System Design | Onsite,4 months ago,25,false,https://www.interviewdb.io/question/amazon/config-distribution,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"Design a system that distributes configuration updates to a fleet of 100,000 servers worldwide. Updates must reach all healthy servers within 60 seconds. Servers can go offline and come back later. When a server comes back, it needs to get caught up to the latest configuration."
+35,3,5,Config Manager,Low Level Design | Onsite,4 months ago,25,false,https://www.interviewdb.io/question/amazon/config-manager,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"The IT team at Amazon has device configurations for Amazon employees' devices for their work laptops, work mobile phones, etc.
+Assuming there's a RemoteConfigurationSender service implemented that sends the given configuration to the device, write the LLD for the device configurations manager.
+Device configurations can be like:
+{
+  ""namespace"": ""com.amazon.laptop"",
+  ""attributes"": {
+    ""key1"": ""value1"",
+    ""key2"": ""value2"",
+  },
+  ""priority"": 1
+}"
+37,3,7,Discount,Low Level Design | Onsite,4 months ago,25,false,https://www.interviewdb.io/question/amazon/discount,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"Implement a class for applying discounts to shopping cart/order following OOP principles.
+Suppose various kinds of discounts available:
+- list item fixed user's discount (for example, I'd like to give 10% discount to my favourite customer)
+- discount for number of items (for example, you're buying 10 different colored pens and you'll be getting discount of 1.5%)
+- discount for coupon (for example, during promo action we've produced 100 coupons with 10% discount each. Coupons work only for one order and expire on yyyy-mm-dd)
+- present for purchasing item or group of items (for example, you're buying pen, list of paper and shop presents a sharpener to you)"
+38,3,8,Distributed Sort-Softmax,MLE | System Design | Onsite,3 weeks ago,25,false,https://www.interviewdb.io/question/amazon/distributed-sort-softmax,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"You are given an extremely large array of floating-point numbers that cannot fit into the memory of a single GPU. You have access to 4 GPUs connected via a high-speed interconnect (e.g., NVLink), and you may use collective communication primitives (e.g., all-reduce, all-gather, reduce-scatter, broadcast).
+Your task is to:
+- Sort the array globally across all 4 GPUs using collective operations.
+- Compute the softmax of the entire array:
+[
+   \text{softmax}(x_i) = \frac{e^{x_i}}{\sum_j e^{x_j}}
+   ]
+- Optimize the pipeline to compute the final softmax output in a single pass over the data, minimizing memory movement and synchronization overhead.
+Assumptions
+- Each GPU initially holds a disjoint partition of the array.
+- Communication between GPUs is expensive relative to local computation.
+- You may assume access to standard collective primitives:
+AllReduce
+AllGather
+ReduceScatter
+Broadcast
+- AllReduce
+- AllGather
+- ReduceScatter
+- Broadcast
+Part 1: Distributed Sorting
+Design an algorithm to sort the full array across all GPUs.
+Questions to consider:
+- How will you partition data across GPUs?
+- Which collectives will you use to ensure global ordering?
+- How do you minimize communication overhead?
+Part 2: Distributed Softmax
+After sorting, compute the softmax across the entire array.
+Questions to consider:
+- How do you compute the global denominator efficiently?
+- How do you ensure numerical stability?
+- Which collective(s) are required?
+Part 3: Single-Pass Optimization
+The naïve approach requires multiple passes:
+- One pass to compute the max (for stability)
+- One pass to compute the sum of exponentials
+- One pass to normalize
+Challenge: Design a method to compute softmax in a single pass over the distributed data.
+Questions to consider:
+- Can you fuse reductions?
+- How can you combine max and sum computations?
+- What trade-offs exist between memory, latency, and numerical precision?
+Follow-ups
+- How would your solution scale to N GPUs?
+- How would your design change if GPUs were connected over slower networks (e.g., Ethernet)?
+- Can you overlap communication and computation?
+- What are the failure modes (e.g., overflow, underflow, skewed data)?"
+39,3,9,Employee Directory,Coding | Phone | Onsite,6 months ago,25,false,https://www.interviewdb.io/question/amazon/employee-directory,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"Design an employee directory for a company
+- Employee: Developer or Manager
+- Each employee must have a manager to report to
+Implement below methods for the Directory
+- Insert / Delete an employee
+- calculate avg working years for employees under a given employee"
+41,3,11,Financial Dashboard,System Design | Onsite,1 month ago,25,false,https://www.interviewdb.io/question/amazon/financial-dashboard,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"Design a financial dashboard system that presents various financial metrics to users, including account balances and stock holdings, etc. The system must ingest data from multiple external providers (e.g., stock market APIs, cryptocurrency exchange APIs), and perform necessary data aggregation and calculations."
+42,3,12,Food Delivery,System Design | Onsite,2 months ago,25,false,https://www.interviewdb.io/question/amazon/food-delivery,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"Design the core architecture for a food delivery platform.
+Key Discussion Areas:
+- Restaurant onboarding & Menu management
+- Search & Discovery
+- Order placement & Payments
+- Delivery assignment & Real-time tracking
+- Notifications
+Deep Dive Topics:
+- System scaling and Database choices
+- Caching strategies
+- Real-time tracking mechanisms
+- Event-driven architecture and Failure handling"
+43,3,13,Friendship Path,Coding | Phone | Onsite,6 months ago,25,false,https://www.interviewdb.io/question/amazon/friendship-path,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"Consider a popular social networking website, Facebook for example.
+People can create their own profile and add the profiles of others to their friends list.
+You are given two Facebook profiles, ""Gordon"" and ""Stephen"".
+I would like to find out how to get from Gordon's profile to Stephen's profile by navigating through Gordon's friends,
+then friends of friends and so on. For example:
+    * Gordon
+    * Shantel (who is friends with Gordon)
+    * Maria (who is friends with Shantel)
+    * David (who is friends with Maria)
+    * Stephen (who is friends with David)
+I would like you to create an algorithm to automatically generate a list of profiles,
+each of who is a friend of the previous entry, which link the starting profile to
+the end profile. The algorithm will return the list of selected profiles."
+44,3,14,Friends Purchases,Coding | Phone | Onsite,6 months ago,25,false,https://www.interviewdb.io/question/amazon/friends-purchases,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"Amazon is releasing a new feature called ""Stuff Your Friends Are Buying."" This feature aims to list a set of products that you have not already purchased, chosen from the items your friends have bought. The list should be ordered from most bought to least bought.
+To facilitate this, we have access to the following two APIs:
+- getPurchases(person): Returns a list of purchases made by the given person. If a product was purchased multiple times, it will appear multiple times in this list.
+- getFriends(person): Returns a list of friends of the given person.
+Task: Complete the function itemsFriendsPurchases(person) that takes a person (user ID) as input and returns a list of products that person's friends are buying, adhering to the following rules:
+- Products must not have been already purchased by the input person.
+- Products should be ordered from most frequently purchased by friends to least frequently purchased by friends.
+- If no friends are found, or friends have no relevant purchases, return an empty list."
+45,3,15,Fulfillment,Coding | Phone | Onsite,1 month ago,25,false,https://www.interviewdb.io/question/amazon/fulfillment,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=3,"You are a software engineer at Amazon working on the Fulfillment Network routing system. The network consists of several fulfillment centers (represented as nodes) connected by bidirectional delivery routes.
+A specific fulfillment center (the destination) is currently experiencing a shortage of a popular item and needs to request inventory transfers from nearby centers. However, due to delivery time constraints, the inventory can only be transferred if the sending center is within a certain number of delivery routes (maxStep) from the destination.
+You are given the following inputs:
+- connections: A 2D array of integers representing the bidirectional delivery routes between fulfillment centers (e.g., [u, v] means there is a direct route between center u and center v).
+- destination: An integer representing the ID of the fulfillment center that needs the inventory.
+- maxStep: An integer representing the maximum number of routes (edges) an inventory transfer can take to reach the destination.
+- inventory: A hash map (or dictionary) where the key is the fulfillment center ID and the value is the current quantity of the item in stock at that center.
+Task:
+Write a function that returns an array of all fulfillment center IDs that can successfully transfer inventory to the destination center.
+To be included in the result, a fulfillment center must meet all of the following criteria:
+- It is not the destination center itself.
+- It has at least 1 item in stock (inventory > 0).
+- The shortest path from the center to the destination is less than or equal to maxStep.
+The returned array can be in any order."
+46,4,1,Merge Interval,Coding | Phone | Onsite,1 month ago,25,false,https://www.interviewdb.io/question/amazon/merge-interval,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=4,"Given an array of intervals where intervals[i] = [starti, endi], merge all overlapping intervals, and return an array of the non-overlapping intervals that cover all the intervals in the input.
+Example:
+intervals = [[1,3],[2,6],[8,10],[15,18]]
+
+Output: [[1,6],[8,10],[15,18]]"
+49,4,4,Non-Returning Users,Coding | Phone | Onsite,6 months ago,25,false,https://www.interviewdb.io/question/amazon/non-returning-users,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=4,"A website is planning to run a campaign to attract their registered users to come back to visit their website. The campaign planner wants to offer their non returning users some promotions via email to get their attention again. The website has up to date login logs for all registered user whenever a user signed in. They estimated there are around 2 million registered users and 80% of them have NOT been visited their website after registered. Please write a function to return the oldest 20,000 customers who visited the website only once."
+51,4,6,Package Installation,Coding | Onsite,6 months ago,25,false,https://www.interviewdb.io/question/amazon/package-installation,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=4,"We are in charge of designing a system to install packages. We are required to support the installation of a package and all of its dependent packages. Define what a package looks like and code a solution to this problem.
+Clarification with the interviewer:
+- If A depends on B, B depends on C and D has no dependencies, return the order of installation [D, C, B, A].
+- We can indicate a package with string, the dependency package with string as well.
+- Find All packages to install, and build up the relationship between them.
+- We can define some existing functions to return all dependent packages to install for a certain package.
+- Get the adjacency list to indicate the relationship between packages.
+- This is a question about topological sort. The key is to detect the cycle dependencies.
+- The input can be one package, or even a list of packages."
+53,4,8,Playlist,Coding | Phone | Onsite,6 months ago,25,false,https://www.interviewdb.io/question/amazon/playlist,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=4,"Imagine you are building a music streaming service. A core feature is the user's playlist. We need you to design and implement a Playlist class in the language of your choice.
+Requirements: The Playlist class must support the following operations:
+- add_song(song_name: str): Adds a new song to the very end of the playlist.
+- remove_nth_from_end(n: int) -> str: Finds and removes the nth song from the end of the playlist. n=1 represents the last song, n=2 the second to last, and so on. This method should return the name of the song that was removed. If n is an invalid value (e.g., out of bounds), it should handle the error gracefully.
+- print_playlist(): Displays the current playlist in order, from the first song added to the last. If the playlist is empty, it should indicate that.
+Example Usage:
+playlist = Playlist()
+playlist.add_song(""Bohemian Rhapsody"")
+playlist.add_song(""Stairway to Heaven"")
+playlist.add_song(""Hotel California"")
+playlist.add_song(""Sweet Child O' Mine"")
+
+# Current playlist:
+# 1. Bohemian Rhapsody
+# 2. Stairway to Heaven
+# 3. Hotel California
+# 4. Sweet Child O' Mine
+
+playlist.print_playlist()
+
+removed = playlist.remove_nth_from_end(2) 
+# Should remove ""Hotel California""
+print(f""\nRemoved: {removed}"")
+
+# Current playlist:
+# 1. Bohemian Rhapsody
+# 2. Stairway to Heaven
+# 3. Sweet Child O' Mine
+
+playlist.print_playlist()
+Follow-up Question: After you've implemented the class, let's discuss how you would add a shuffle() method to the playlist. What would be an efficient algorithm to implement this?"
+55,4,10,Rate Limiter,Coding | Phone | Onsite,1 month ago,25,true,https://www.interviewdb.io/question/amazon/rate-limiter,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=4,"Implement a rate limiter class. The rate limiter supports one function: API Call. The API call takes two fields: userID and timestamp. Upon receiving the API call, it checks if it has received more than k API calls from the userID within the last 10 seconds. If it has, it returns False, otherwise, returns True."
+57,4,12,Sawtooth Pattern String Builder,Coding | Phone | Onsite,4 weeks ago,25,true,https://www.interviewdb.io/question/amazon/sawtooth-pattern-string-builder,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=4,"You are given three inputs:
+- An integer height representing the number of rows in a sawtooth pattern.
+- An integer width representing the number of repeating zigzag segments.
+- A string word consisting of uppercase English letters.
+Write a function that arranges the characters of word into a sawtooth (zigzag) pattern with the given height and width, filling characters left to right across each segment. After constructing the pattern, return a string formed by reading the pattern row by row from top to bottom.
+Pattern Rules
+- Each segment forms a vertical zigzag:
+Starts at the top row.
+Moves diagonally down to the bottom row.
+- Starts at the top row.
+- Moves diagonally down to the bottom row.
+- This zigzag repeats width times.
+- Characters from word are placed sequentially into the pattern.
+- If word has extra characters after filling full segments, continue the pattern as far as possible.
+Example
+Input:
+height = 3
+width = 2
+word = ""ABCDEFGHIJKLMN""
+
+Pattern:
+A B       F G       K L
+    C   E       H   J       M
+        D           I           N
+
+Output:
+""ABFGKLCEHJMDIN"""
+59,4,14,Shima,Coding | Phone | Onsite,1 month ago,25,false,https://www.interviewdb.io/question/amazon/shima,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=4,"You are given binary matrix grid of size m x n, where '1' denotes land and '0' signifies water. Determine the count of islands present in this grid. An island is defined as a region of contiguous land cells connected either vertically or horizontally, and it is completely encircled by water. Assume that the grid is bordered by water on all sides.
+Input:
+grid = [
+[1,1,0,1],
+[1,1,0,1],
+[1,1,0,0],
+]
+Output: 2"
+60,4,15,Shipping Cost,Low Level Design | Onsite,2 months ago,25,false,https://www.interviewdb.io/question/amazon/shipping-cost,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=4,"Design a system to calculate shipping costs based on multiple dynamic conditions, including weight, distance, delivery type, priority shipping, region-based pricing, and special handling."
+62,5,2,Spell Checker,Low Level Design | Onsite,2 weeks ago,25,false,https://www.interviewdb.io/question/amazon/spell-checker,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=5,"Design and implement a spell checker. This spell checker should be capable of:
+- Validating if a given word or set of words is spelled correctly against a dictionary.
+- Providing suggestions for correctly spelled words when an input word is misspelled.
+Core Functionality Requirements:
+The spell checker needs to support the following operations:
+- Initialization: Load a source file (dictionary) to build the vocabulary for spell checking.
+- Word Extraction: Given an input string, extract individual words, handling punctuation."
+64,5,4,Usage Tracker,Coding | Phone | Onsite,5 months ago,25,false,https://www.interviewdb.io/question/amazon/usage-tracker,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=5,"Implement an interface to track asset usage:
+interface UsageTracker {    
+   void recordUsage(Integer assetId);
+   void decrementUsage(Integer assetId);
+   Integer getMostUsed();
+}
+Example usage:
+usageTracker.recordUsage(101);
+usageTracker.recordUsage(102);
+usageTracker.getMostUsed(); // Result: 101 or 102 (Tie)
+usageTracker.recordUsage(101);
+usageTracker.getMostUsed(); // Result: 101
+usageTracker.recordUsage(102); 
+usageTracker.recordUsage(102);
+usageTracker.getMostUsed(); // Result: 102
+usageTracker.decrementUsage(102);
+usageTracker.decrementUsage(102);
+usageTracker.getMostUsed(); // Result: 101 (since 101 has count 2)
+usageTracker.decrementUsage(101);
+usageTracker.decrementUsage(101);
+usageTracker.decrementUsage(102);
+usageTracker.getMostUsed(); // Result: -1 (All usage records cleared)"
+65,5,5,Validation Framework,Low Level Design | Onsite,1 month ago,25,false,https://www.interviewdb.io/question/amazon/validation-framework,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=5,"You are building an analysis framework for validating customer's infrastructure definition files, known as 'Application Definition files' or 'AppDefs'. Each Application Definition contains a collection of resources. Each resource has:
+- a name
+- a resource type
+- a set of key/value properties
+Your task is to design and implement a validation framework that can run a configurable set of validation rules against an Application Definition. Each Customer that fails validation will need to update their Application Definition files to resolve issues. Each application definition is validated once daily You do not need to worry about file parsing. You can represent the input however you like.
+- All resources must have unique name"
+66,5,6,Word Trail,Coding | Phone | Onsite,1 month ago,25,false,https://www.interviewdb.io/question/amazon/word-trail,https://www.interviewdb.io/question/amazon?sortBy=frequency&page=5,"You are given a continuous string of lowercase English characters without any spaces (e.g., ""myhousehavecat"").
+You are also provided with a helper method, boolean isWord(String str), which queries a dictionary and returns true if the given string is a valid word, and false otherwise.
+Task: Write a function that uses backtracking to segment the input string into a sequence of valid dictionary words. Return the result as an array of strings.
+Notes / Constraints:
+- There may be multiple valid ways to segment the input string. You only need to return one valid solution.
+- You can safely assume that the input string will always have at least one valid segmentation.
+- You cannot change the order of the characters in the input string.
+Example:
+input:
+s = ""myhousehavecat""
+output:
+[""my"", ""house"", ""have"", ""cat""]"
