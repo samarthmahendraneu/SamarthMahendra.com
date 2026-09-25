@@ -24,6 +24,7 @@ load_dotenv()
 from celery_worker import tool_call_fn
 import mongo_tool
 from live_bridge import LiveBridge
+from question_store import QuestionStore
 from live_config import LIVE_URL, TOOLS, VOICEMAIL_TOOLS, LiveSettings, greeting, session_config
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ class CallContextStore:
 
 
 contexts = CallContextStore()
+questions = QuestionStore(contexts.redis)
 
 
 def generate_jitsi_meeting_url(user_name="samarth"):
@@ -107,6 +109,19 @@ def relay_message_to_samarth(call_id, args):
     return {"status": "saved", "message_id": message_id, "relay": "queued"}
 
 
+def describe_reply(question_id):
+    """Report only what the store actually holds; never guess Samarth's answer."""
+    record = questions.get(question_id)
+    if record is None:
+        return {"status": "unknown", "message": "That question is no longer tracked."}
+    waited = round(questions.waiting_for(record))
+    if record["status"] == "answered":
+        return {"status": "answered", "reply": record["reply"], "waited_seconds": waited}
+    return {"status": "waiting", "waited_seconds": waited,
+            "message": ("Samarth has not answered yet. Offer a call back if this has "
+                        "been going on for more than about fifteen seconds.")}
+
+
 def make_tool_executor(context, voicemail=False):
     schemas = {tool["name"]: tool["parameters"] for tool in (VOICEMAIL_TOOLS if voicemail else TOOLS)}
 
@@ -125,6 +140,28 @@ def make_tool_executor(context, voicemail=False):
             if timing.utcoffset() is None or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", args["user_email"]):
                 raise ValueError("Meeting needs a timezone and valid email")
             return await asyncio.to_thread(schedule_meeting, args)
+        if name == "ask_samarth":
+            question_id = await asyncio.to_thread(
+                questions.ask, args["question"], args["caller_name"], context.get("call_sid", ""))
+            logger.info("Asked Samarth question=%s", question_id)
+            return {"status": "asked", "question_id": question_id,
+                    "message": "Posted to Samarth. Keep talking and check back shortly."}
+        if name == "check_samarth_reply":
+            return await asyncio.to_thread(describe_reply, args["question_id"])
+        if name == "request_callback":
+            if not re.fullmatch(r"\+[1-9]\d{7,14}", args["phone_number"]):
+                raise ValueError("Callback needs an E.164 number, e.g. +16175550123")
+            record = await asyncio.to_thread(
+                questions.request_callback, args["question_id"],
+                args["caller_name"], args["phone_number"])
+            if record is None:
+                return {"status": "unknown", "message": "That question is no longer tracked."}
+            if record["status"] == "answered":
+                # Already answered: say it now rather than promising a call.
+                return {"status": "already_answered", "reply": record["reply"]}
+            logger.info("Callback requested question=%s", args["question_id"])
+            return {"status": "callback_requested",
+                    "message": "They will be called back when Samarth answers."}
         if name == "send_messages_to_samarth":
             return await asyncio.to_thread(relay_message_to_samarth, call_id, args)
         if name == "save_reponse_from_caller":
