@@ -302,11 +302,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Initialize AOS Animation
-    AOS.init({
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (window.AOS) AOS.init({
         duration: 800,
         easing: 'ease-out-cubic',
         once: true,
-        offset: 50
+        offset: 50,
+        disable: () => window.innerWidth <= 768 || reducedMotion.matches
     });
 
     // Update Year
@@ -316,21 +318,55 @@ document.addEventListener('DOMContentLoaded', function () {
     const mobileToggle = document.querySelector('.mobile-toggle');
     const mobileMenu = document.querySelector('.mobile-menu');
     const mobileClose = document.querySelector('.mobile-close');
+    const mobileBackdrop = document.querySelector('.mobile-menu-backdrop');
     const mobileLinks = document.querySelectorAll('.mobile-links a');
+    let menuScrollPosition = 0;
 
     function toggleMenu() {
-        mobileMenu.classList.toggle('active');
-        document.body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+        if (mobileMenu.classList.contains('active')) {
+            closeMenu();
+            return;
+        }
+        menuScrollPosition = window.scrollY;
+        document.body.style.top = `-${menuScrollPosition}px`;
+        document.body.classList.add('menu-open');
+        mobileMenu.inert = false;
+        mobileMenu.classList.add('active');
+        mobileBackdrop.classList.add('active');
+        mobileToggle.setAttribute('aria-expanded', 'true');
+        mobileClose.focus({ preventScroll: true });
     }
 
     function closeMenu() {
-        if (!mobileMenu) return;
+        if (!mobileMenu || !mobileMenu.classList.contains('active')) return;
         mobileMenu.classList.remove('active');
-        document.body.style.overflow = '';
+        mobileMenu.inert = true;
+        mobileBackdrop.classList.remove('active');
+        mobileToggle.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('menu-open');
+        document.body.style.top = '';
+        window.scrollTo({ top: menuScrollPosition, behavior: 'instant' });
+        mobileToggle.focus({ preventScroll: true });
     }
 
     if (mobileToggle) mobileToggle.addEventListener('click', toggleMenu);
     if (mobileClose) mobileClose.addEventListener('click', closeMenu);
+    if (mobileBackdrop) mobileBackdrop.addEventListener('click', closeMenu);
+
+    document.addEventListener('keydown', event => {
+        if (!mobileMenu.classList.contains('active')) return;
+        if (event.key === 'Escape') closeMenu();
+        if (event.key === 'Tab') {
+            const lastLink = mobileLinks[mobileLinks.length - 1];
+            if (event.shiftKey && document.activeElement === mobileClose) {
+                event.preventDefault();
+                lastLink.focus();
+            } else if (!event.shiftKey && document.activeElement === lastLink) {
+                event.preventDefault();
+                mobileClose.focus();
+            }
+        }
+    });
 
     mobileLinks.forEach(link => {
         link.addEventListener('click', closeMenu);
@@ -697,19 +733,37 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initial Load
     refreshStarterPrompts();
 
+    function updateChatViewport() {
+        if (!chatbotContainer.classList.contains('active') || !window.visualViewport) return;
+        const viewport = window.visualViewport;
+        chatbotContainer.style.setProperty('--chat-viewport-height', `${viewport.height}px`);
+        chatbotContainer.style.setProperty('--chat-viewport-bottom', `${Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)}px`);
+    }
+
+    window.visualViewport?.addEventListener('resize', updateChatViewport);
+    window.visualViewport?.addEventListener('scroll', updateChatViewport);
+
     // Refresh on Toggle Open
     chatbotToggle.addEventListener('click', () => {
         refreshStarterPrompts();
         chatbotContainer.classList.add('active');
+        chatbotContainer.inert = false;
+        updateChatViewport();
+        chatbotToggle.setAttribute('aria-expanded', 'true');
         chatbotToggle.style.display = 'none';
-        chatbotInput.focus();
+        // Let touch users read the chat before raising the software keyboard.
+        if (window.matchMedia('(pointer: fine)').matches) chatbotInput.focus();
+        else chatbotClose.focus({ preventScroll: true });
     });
 
     // Refresh on Close
     chatbotClose.addEventListener('click', () => {
         refreshStarterPrompts();
         chatbotContainer.classList.remove('active');
+        chatbotContainer.inert = true;
+        chatbotToggle.setAttribute('aria-expanded', 'false');
         chatbotToggle.style.display = 'flex';
+        chatbotToggle.focus({ preventScroll: true });
     });
 
     // --- Custom Cursor Logic-- -
@@ -1029,6 +1083,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- LeetCode Calendar Stats (2025 Active Days & Streak) ---
     async function fetchLeetCodeCalendarStats() {
+        // This summary is not present in every portfolio layout.
+        if (!document.getElementById('lc-active-days') || !document.getElementById('lc-streak')) return;
         console.log('Fetching LeetCode calendar stats...');
         try {
             const query = `
@@ -1160,8 +1216,10 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('Error fetching GitHub stats:', error);
             document.getElementById('gh-total-contributions').textContent = '5000+';
             document.getElementById('gh-repos').textContent = '80+';
-            document.getElementById('gh-last-year').textContent = '800+';
-            document.getElementById('gh-past-5-years').textContent = '4000+';
+            const lastYear = document.getElementById('gh-last-year');
+            const pastFiveYears = document.getElementById('gh-past-5-years');
+            if (lastYear) lastYear.textContent = '800+';
+            if (pastFiveYears) pastFiveYears.textContent = '4000+';
             if (document.getElementById('gh-lang-tags'))
                 document.getElementById('gh-lang-tags').textContent = 'Python, Java, C++';
 
@@ -1488,12 +1546,12 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             const target = document.querySelector(href);
             if (target) {
-                const navbarHeight = 80;
+                const navbarHeight = (navbar?.getBoundingClientRect().bottom || 64) + 16;
                 const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
 
                 window.scrollTo({
                     top: targetPosition,
-                    behavior: 'smooth'
+                    behavior: reducedMotion.matches ? 'instant' : 'smooth'
                 });
 
                 history.pushState(null, null, href);

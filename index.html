@@ -117,14 +117,16 @@
                     aria-label="Schedule a meeting">Schedule</a>
                 <a href="ssamarth_resume_systems_backend.pdf" class="btn btn-outline btn-sm magnetic-btn" download
                     aria-label="Download Resume">Resume <i class="fas fa-download"></i></a>
-                <button class="mobile-toggle" aria-label="Toggle navigation menu"><i class="fas fa-bars"></i></button>
+                <button class="mobile-toggle" aria-label="Open navigation menu" aria-controls="mobile-menu"
+                    aria-expanded="false"><i class="fas fa-bars" aria-hidden="true"></i></button>
             </div>
         </div>
     </nav>
 
     <!-- Mobile Menu -->
-    <div class="mobile-menu">
-        <button class="mobile-close"><i class="fas fa-times"></i></button>
+    <div class="mobile-menu-backdrop" aria-hidden="true"></div>
+    <div class="mobile-menu" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Navigation" inert>
+        <button class="mobile-close" aria-label="Close navigation menu"><i class="fas fa-times" aria-hidden="true"></i></button>
         <ul class="mobile-links">
             <li><a href="#home">Home</a></li>
             <li><a href="#about">About</a></li>
@@ -158,7 +160,7 @@
                             <div class="hero-main-top">
                                 <span class="hero-location-tag">
                                     <span class="status-dot"></span>
-                                    Boston, MA &middot; Research Engineer @ Northeastern
+                                    <span>Boston, MA</span><span class="hero-location-role"> &middot; Research Engineer @ Northeastern</span>
                                 </span>
                                 <span class="hero-availability-note">Backend, full stack, systems</span>
                             </div>
@@ -171,13 +173,11 @@
                             </h1>
 
                             <p class="hero-lead">
-                                Software engineer with experience across product-facing applications, backend systems,
-                                and platform infrastructure, with strongest depth in backend and systems.
+                                Software engineer building reliable backend systems and thoughtful product experiences.
                             </p>
 
                             <p class="hero-bio">
-                                I like building software that is useful on the surface and well-reasoned underneath,
-                                especially where reliability, performance, and product quality all intersect.
+                                From the interface to the infrastructure, I care about how software feels, performs, and holds up at scale.
                             </p>
 
                             <div class="hero-focus-pills">
@@ -245,7 +245,7 @@
                                                 opacity="0.65"
                                                 d="M112 97C142 58 205 43 268 43C340 44 405 55 439 94C475 134 472 193 472 258C473 332 484 418 445 474C405 531 327 549 258 549C189 548 126 530 92 481C58 431 53 355 55 285C57 211 67 139 112 97Z" />
                                         </g>
-                                        <image href="display_picturev2.png" width="520" height="640"
+                                        <image href="assets/portrait.webp" width="520" height="640"
                                             preserveAspectRatio="xMidYMid slice" mask="url(#heroBlobMask)" />
                                     </svg>
                                 </div>
@@ -448,8 +448,7 @@
             <div class="container">
                 <div class="stacked-section-intro" data-aos="fade-up">
                     <span class="stacked-section-label">About Me</span>
-                    <h2 class="stacked-section-title">Building software across backend systems, distributed
-                        infrastructure, and thoughtful product experiences.</h2>
+                    <h2 class="stacked-section-title">Thoughtful software, from product to platform.</h2>
                     <p class="stacked-section-copy">I care about the full arc of engineering work, from how a product
                         feels to how the underlying systems perform under real load.</p>
                 </div>
@@ -542,8 +541,7 @@
             <div class="container">
                 <div class="stacked-section-intro" data-aos="fade-up">
                     <span class="stacked-section-label">Capabilities</span>
-                    <h2 class="stacked-section-title">A systems-first engineering toolkit shaped by backend work,
-                        infrastructure thinking, and product delivery.</h2>
+                    <h2 class="stacked-section-title">The tools behind the work.</h2>
                     <p class="stacked-section-copy">I care less about collecting tools and more about knowing where they
                         matter: which abstractions hold up in production, which ones fall apart, and how to move
                         comfortably from feature work into system behavior.</p>
@@ -735,8 +733,7 @@
             <div class="container">
                 <div class="stacked-section-intro" data-aos="fade-up">
                     <span class="stacked-section-label">Experience</span>
-                    <h2 class="stacked-section-title">Experience across production platforms, research systems, and
-                        performance-focused engineering.</h2>
+                    <h2 class="stacked-section-title">Built in production. Explored in research.</h2>
                     <p class="stacked-section-copy">From shipping backend features at scale to studying system behavior
                         more deeply, each role strengthened how I design, debug, and deliver software.</p>
                 </div>
@@ -968,8 +965,7 @@
             <div class="container">
                 <div class="stacked-section-intro" data-aos="fade-up">
                     <span class="stacked-section-label">Writing</span>
-                    <h2 class="stacked-section-title">Writing about storage, query planning, infrastructure, and the
-                        systems ideas behind reliable software.</h2>
+                    <h2 class="stacked-section-title">Notes on how systems work.</h2>
                     <p class="stacked-section-copy">I use writing to make technical ideas clearer, especially where
                         performance, architecture, and implementation details quietly shape outcomes.</p>
                 </div>
@@ -1059,8 +1055,7 @@
             <div class="container">
                 <div class="stacked-section-intro" data-aos="fade-up">
                     <span class="stacked-section-label">Projects</span>
-                    <h2 class="stacked-section-title">Selected projects across systems, infra, AI tooling, and
-                        product-facing builds.</h2>
+                    <h2 class="stacked-section-title">Systems, tools, and experiments.</h2>
                     <p class="stacked-section-copy">The projects below are the strongest signals for how I build:
                         distributed runtimes, storage and data systems, cloud-backed infra, real-time AI workflows, and
                         product experiments with clear user feel.</p>
@@ -1451,8 +1446,7 @@
             <div class="container">
                 <div class="stacked-section-intro" data-aos="fade-up">
                     <span class="stacked-section-label">Contact</span>
-                    <h2 class="stacked-section-title">If you’re building something ambitious, I’d love to hear about it.
-                    </h2>
+                    <h2 class="stacked-section-title">Let’s build something useful.</h2>
                     <p class="stacked-section-copy">I’m currently open to software engineering opportunities where I can
                         contribute across backend architecture, systems thinking, and product-facing delivery.</p>
                 </div>
@@ -1587,12 +1581,12 @@
     </footer>
 
     <!-- Chatbot Widget -->
-    <div id="chatbot-container" class="chatbot-container">
+    <div id="chatbot-container" class="chatbot-container" role="region" aria-label="Luma AI chat" inert>
         <div class="chatbot-header">
             <div class="chatbot-title">
                 <i class="fas fa-robot"></i> Luma AI
             </div>
-            <button id="chatbot-close"><i class="fas fa-times"></i></button>
+            <button id="chatbot-close" aria-label="Close chat"><i class="fas fa-times" aria-hidden="true"></i></button>
         </div>
         <div id="chatbot-messages" class="chatbot-messages">
             <div class="message bot-message">
@@ -1610,12 +1604,12 @@
             <div id="chatbot-starter-prompts" class="starter-prompts"></div>
         </div>
         <div class="chatbot-input-area">
-            <input type="text" id="chatbot-input" placeholder="Type a message..." autocomplete="off">
-            <button id="chatbot-send"><i class="fas fa-paper-plane"></i></button>
+            <input type="text" id="chatbot-input" placeholder="Type a message..." aria-label="Message" autocomplete="off">
+            <button id="chatbot-send" aria-label="Send message"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
         </div>
     </div>
 
-    <button id="chatbot-toggle" class="chatbot-toggle">
+    <button id="chatbot-toggle" class="chatbot-toggle" aria-label="Chat with AI" aria-controls="chatbot-container" aria-expanded="false">
         <i class="fas fa-robot"></i>
         <span class="chatbot-toggle-label">Chat with AI</span>
     </button>
