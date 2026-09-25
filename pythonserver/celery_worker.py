@@ -84,8 +84,12 @@ def tool_call_fn(self, tool_name, call_id, args):
                 logger.error(f"[Celery Worker] Failed to send email: {e}")
                 result = {"status": "error", "error": str(e)}
         else:
-            logger.warning(f"[Celery Worker] Unknown tool_name: {tool_name}")
-            result = None
+            # Do not report success for work that never happened. This is what a
+            # worker running older code than the service that queued it looks
+            # like, and it is the failure that silently dropped Discord relays.
+            logger.error("[Celery Worker] Unknown tool_name: %s - this worker may be "
+                         "running older code than the service that queued it", tool_name)
+            raise ValueError(f"Unknown tool_name: {tool_name}")
 
         logger.info(f"[Celery Worker] Task result: {result}")
         if call_id:
