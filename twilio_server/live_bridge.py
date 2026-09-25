@@ -44,9 +44,7 @@ class LiveBridge:
     def __init__(self, twilio, live, stream_sid, config, greeting, execute_tool,
                  *, startup_timeout=10, close_timeout=15, tool_timeout=15,
                  goodbye_grace=2, goodbye_quiet=1, goodbye_timeout=10,
-                 mark_timeout=3, max_catchup=0.5,
-                 greeting_grace=0.5, greeting_quiet=0.6, greeting_timeout=12,
-                 greeting_start_timeout=5):
+                 mark_timeout=3, max_catchup=0.5, audio_start_timeout=1):
         self.twilio = twilio
         self.live = live
         self.stream_sid = stream_sid
@@ -61,13 +59,9 @@ class LiveBridge:
         self.goodbye_timeout = goodbye_timeout
         self.mark_timeout = mark_timeout
         self.max_catchup = max_catchup
-        self.greeting_grace = greeting_grace
-        self.greeting_quiet = greeting_quiet
-        self.greeting_timeout = greeting_timeout
-        self.greeting_start_timeout = greeting_start_timeout
-        self.input_muted = False
-        self.greeting_task = None
+        self.audio_start_timeout = audio_start_timeout
         self.ready = asyncio.Event()
+        self.audio_flowing = asyncio.Event()
         self.closed = asyncio.Event()
         self.hangup = asyncio.Event()
         self.mark_played = asyncio.Event()
@@ -122,10 +116,6 @@ class LiveBridge:
         next_frame = time.monotonic()
         while not self.closing:
             payload = await self.audio.get()
-            if self.input_muted:
-                # Discard rather than queue: this audio is not conversation and
-                # would arrive at Live in a burst the moment input resumes.
-                continue
             duration = len(base64.b64decode(payload, validate=True)) / 8000
             # Twilio already delivers in real time, so pacing a queue that is
             # never empty just holds the backlog: whatever accumulated during
@@ -143,6 +133,7 @@ class LiveBridge:
             # overruns and send overhead must not add latency on every frame.
             next_frame += pace
             await self.send({"type": "session.input_audio.append", "audio": payload})
+            self.audio_flowing.set()
 
     async def read_live(self):
         async for raw in self.live:
@@ -151,17 +142,24 @@ class LiveBridge:
             if kind == "session.started":
                 if not self.ready.is_set():
                     self.session_id = event["session"]["id"]
-                    # Mute input first: line noise or a caller's "hello" before
-                    # the greeting reads as taking the floor, and Luma yields.
-                    await self.send({"type": "session.input_audio.mute",
-                                     "event_id": event_id()})
-                    self.input_muted = True
+                    # Release audio BEFORE appending the greeting. The model
+                    # only speaks first if input is already flowing (silence
+                    # included) when the instruction arrives; instructing a
+                    # session with no input stream yields no greeting.
+                    self.ready.set()
+                    # Best effort: give the first frame a moment to land so the
+                    # instruction arrives on a live input stream. Never block on
+                    # it -- a silent or stalled stream must not cost a greeting.
+                    try:
+                        await asyncio.wait_for(self.audio_flowing.wait(),
+                                               self.audio_start_timeout)
+                    except TimeoutError:
+                        logger.warning("Greeting sent with no input audio yet stream=%s",
+                                       self.stream_sid)
                     await self.send({
                         "type": "session.instructions.append", "event_id": event_id(),
                         "delegation_id": None, "content": self.greeting,
                     })
-                    self.ready.set()
-                    self.greeting_task = asyncio.create_task(self.finish_greeting())
             elif kind == "session.output_audio.delta":
                 if not self.closing and not self.playback_finished:
                     payload = event["delta"]
@@ -240,9 +238,17 @@ class LiveBridge:
                         args = json.loads(item["arguments"])
                         if not isinstance(args, dict):
                             raise ValueError("Function arguments must be an object")
+                        logger.info("Tool start stream=%s name=%s call_id=%s",
+                                    self.stream_sid, item["name"], call_id)
                         result = await self.execute_tool(item["name"], call_id, args)
+                        logger.info("Tool ok stream=%s name=%s status=%s",
+                                    self.stream_sid, item["name"],
+                                    result.get("status") if isinstance(result, dict) else "?")
                     except Exception as exc:
-                        logger.warning("Tool failed name=%s error=%s", item["name"], type(exc).__name__)
+                        # Message, not just the type: "RuntimeError" alone has
+                        # repeatedly been too little to diagnose a failed call.
+                        logger.warning("Tool failed name=%s (%s: %s)",
+                                       item["name"], type(exc).__name__, exc)
                         result = {"status": "error", "message": (
                             "The operation could not be confirmed. Do not claim success or retry "
                             "automatically; explain that it needs to be checked."
@@ -263,33 +269,6 @@ class LiveBridge:
                 # These commands deliberately have no invented delegation/response
                 # fields: Live correlates function results by their original call_id.
                 await self.send({"type": "response.create", "event_id": event_id()})
-
-    async def finish_greeting(self):
-        """Hold input muted until the greeting has been spoken and gone quiet."""
-        started = time.monotonic()
-        try:
-            while time.monotonic() - started < self.greeting_timeout:
-                await asyncio.sleep(0.05)
-                now = time.monotonic()
-                if self.last_speech <= started:
-                    # Never leave the caller muted waiting on a greeting that is
-                    # not coming; a silent assistant is better than a deaf one.
-                    if now - started >= self.greeting_start_timeout:
-                        logger.warning("Greeting did not begin; restoring caller input")
-                        return
-                    continue
-                if now - started >= self.greeting_grace and now - self.last_speech >= self.greeting_quiet:
-                    return
-        finally:
-            # Always restore input, including on timeout or cancellation, or the
-            # caller would be unable to speak for the rest of the call.
-            if self.input_muted and not self.closing:
-                self.input_muted = False
-                try:
-                    await self.send({"type": "session.input_audio.unmute",
-                                     "event_id": event_id()})
-                except Exception as exc:
-                    logger.warning("Input unmute failed (%s)", type(exc).__name__)
 
     async def finish_goodbye(self):
         started = time.monotonic()
@@ -313,6 +292,8 @@ class LiveBridge:
     async def run(self):
         tasks = []
         reader = None
+        started = time.monotonic()
+        trigger = "unknown"
         try:
             await self.send({"type": "session.start", "event_id": event_id(), "session": self.config})
             reader = asyncio.create_task(self.read_live())
@@ -321,10 +302,18 @@ class LiveBridge:
             hangup = asyncio.create_task(self.hangup.wait())
             ready = asyncio.create_task(asyncio.wait_for(self.ready.wait(), self.startup_timeout))
             tasks = [reader, receiver, sender, hangup, ready]
+            # Name the tasks so the log says who ended the call: the caller
+            # hanging up, the assistant, Live closing, or a failure.
+            labels = {id(reader): "live_closed", id(receiver): "twilio_stopped",
+                      id(sender): "audio_stopped", id(hangup): "assistant_ended",
+                      id(ready): "startup_timeout"}
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             if ready in done:
                 ready.result()
                 done, _ = await asyncio.wait(tasks[:-1], return_when=asyncio.FIRST_COMPLETED)
+            trigger = ",".join(sorted(labels.get(id(t), "?") for t in done))
+            logger.info("Call ending stream=%s trigger=%s after=%.1fs",
+                        self.stream_sid, trigger, time.monotonic() - started)
             for task in done:
                 task.result()
         finally:
@@ -337,8 +326,6 @@ class LiveBridge:
                     task.cancel()
             if self.end_task:
                 self.end_task.cancel()
-            if self.greeting_task:
-                self.greeting_task.cancel()
             if self.workers:
                 _, pending = await asyncio.wait(self.workers, timeout=self.tool_timeout)
                 for task in pending:
@@ -355,8 +342,7 @@ class LiveBridge:
                     logger.warning("Live finalization incomplete (%s)", type(exc).__name__)
             if reader:
                 reader.cancel()
-            cleanup = (tasks + list(self.workers)
-                       + [t for t in (self.end_task, self.greeting_task) if t])
+            cleanup = tasks + list(self.workers) + ([self.end_task] if self.end_task else [])
             await asyncio.gather(*cleanup, return_exceptions=True)
             if self.dropped_audio_frames:
                 logger.warning("Twilio input audio dropped stream=%s frames=%d",
@@ -366,3 +352,9 @@ class LiveBridge:
                             self.close_reason, self.final_usage)
             else:
                 logger.warning("Live final usage unconfirmed session=%s", self.session_id)
+            logger.info(
+                "Call summary stream=%s session=%s trigger=%s duration=%.1fs "
+                "tools=%d dropped_frames=%d close_reason=%s",
+                self.stream_sid, self.session_id, trigger, time.monotonic() - started,
+                len(self.tool_results), self.dropped_audio_frames, self.close_reason,
+            )
