@@ -2,7 +2,8 @@ import asyncio
 import base64
 import json
 import unittest
-from unittest.mock import AsyncMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from live_bridge import LiveBridge, has_speech
 from live_config import DEFAULT_VOICE_STYLE, LIVE_URL, LiveSettings, greeting, session_config
@@ -112,6 +113,62 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(has_speech(SPEECH))
 
 
+class AudioPacingTests(unittest.IsolatedAsyncioTestCase):
+    async def simulate_audio(self, durations, *, send_delay=0, wakeup_delay=0,
+                             stall_frame=None, stall_duration=0):
+        bridge = LiveBridge(Socket(), Socket(), "MZ-test", {}, "", AsyncMock())
+        bridge.ready.set()
+        now = 100.0
+        sent_at = []
+
+        def enqueue(index):
+            bridge.audio.put_nowait(base64.b64encode(
+                b"\xff" * round(durations[index] * 8000)).decode())
+
+        async def sleep(delay):
+            nonlocal now
+            now += delay + wakeup_delay
+
+        async def send(event):
+            nonlocal now
+            sent_at.append(now)
+            now += send_delay
+            if len(sent_at) == stall_frame:
+                now += stall_duration
+            if len(sent_at) == len(durations):
+                bridge.closing = True
+            else:
+                enqueue(len(sent_at))
+
+        enqueue(0)
+        bridge.send = send
+        # Patch only the bridge's clock and sleep, leaving the event loop's
+        # real clock intact. Simulate long calls without wall-clock waits.
+        with patch("live_bridge.time", SimpleNamespace(monotonic=lambda: now)), \
+                patch("live_bridge.asyncio", SimpleNamespace(sleep=sleep)):
+            await bridge.send_audio()
+        return sent_at
+
+    async def test_send_overhead_and_wakeup_jitter_do_not_accumulate(self):
+        durations = [0.02, 0.04, 0.01] * 2000
+        sent_at = await self.simulate_audio(durations, send_delay=0.003, wakeup_delay=0.002)
+        expected = sent_at[0]
+        for sent, duration in zip(sent_at, durations):
+            self.assertAlmostEqual(sent, expected, places=6)
+            expected += duration
+
+    async def test_buffered_audio_is_paced_at_sample_rate(self):
+        sent_at = await self.simulate_audio([0.02, 0.04, 0.01, 0.02])
+        for sent, expected in zip(sent_at, [100, 100.02, 100.06, 100.07]):
+            self.assertAlmostEqual(sent, expected, places=6)
+
+    async def test_long_send_stall_does_not_cause_a_catchup_burst(self):
+        sent_at = await self.simulate_audio([0.02] * 10, stall_frame=2, stall_duration=1)
+        self.assertAlmostEqual(sent_at[2] - sent_at[1], 1, places=6)
+        for previous, current in zip(sent_at[2:], sent_at[3:]):
+            self.assertAlmostEqual(current - previous, 0.02, places=6)
+
+
 class BridgeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.twilio = Socket()
@@ -168,6 +225,57 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([e["item"]["call_id"] for e in tool_events[:2]], ["c1", "c2"])
         self.assertEqual(self.execute.await_count, 2)
         await self.stop()
+
+    async def test_startup_overflow_keeps_recent_audio_and_still_starts(self):
+        capacity = self.bridge.audio.maxsize
+        self.twilio.feed({"event": "media", "media": {"payload": SPEECH}})
+        for _ in range(capacity):
+            self.twilio.feed({"event": "media", "media": {"payload": SILENCE}})
+        with self.assertLogs("live_bridge", level="WARNING") as logs:
+            await until(lambda: self.twilio.incoming.empty())
+        self.assertEqual(len(logs.output), 1)
+        self.assertEqual(self.bridge.audio.qsize(), capacity)
+        self.assertFalse(self.task.done())
+        self.assertEqual(self.types(), ["session.start"])
+        await self.start()
+        await until(lambda: "session.input_audio.append" in self.types())
+        self.assertEqual(self.live.sent[2]["audio"], SILENCE)
+        await self.stop()
+        self.assertTrue(self.bridge.closed.is_set())
+
+    async def test_overflow_during_stalled_send_preserves_controls_and_recovers(self):
+        release = asyncio.Event()
+        sending = asyncio.Event()
+        original_send = self.live.send
+
+        async def stalled_send(raw):
+            if json.loads(raw)["type"] == "session.input_audio.append" and not sending.is_set():
+                sending.set()
+                await release.wait()
+            await original_send(raw)
+
+        self.live.send = stalled_send
+        await self.start()
+        self.twilio.feed({"event": "media", "media": {"payload": SILENCE}})
+        await asyncio.wait_for(sending.wait(), 1)
+        capacity = self.bridge.audio.maxsize
+        for _ in range(capacity):
+            self.twilio.feed({"event": "media", "media": {"payload": SILENCE}})
+        for _ in range(capacity):
+            self.twilio.feed({"event": "media", "media": {"payload": SPEECH}})
+        self.twilio.feed({"event": "mark", "mark": {"name": self.bridge.end_mark}})
+        with self.assertLogs("live_bridge", level="WARNING") as logs:
+            await asyncio.wait_for(self.bridge.mark_played.wait(), 1)
+        self.assertEqual(len(logs.output), 1)
+        self.assertFalse(self.task.done())
+        self.assertEqual(self.bridge.audio.qsize(), capacity)
+        release.set()
+        await until(lambda: self.types().count("session.input_audio.append") >= 2)
+        audio = [e["audio"] for e in self.live.sent if e["type"] == "session.input_audio.append"]
+        self.assertEqual(audio[:2], [SILENCE, SPEECH])
+        await self.stop()
+        self.assertEqual(self.types().count("session.close"), 1)
+        self.assertEqual(self.bridge.final_usage, {"seconds": 12})
 
     async def test_audio_continues_while_tool_waits_and_duplicate_call_is_not_reexecuted(self):
         release = asyncio.Event()

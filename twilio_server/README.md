@@ -78,6 +78,11 @@ and its Realtime model environment value; changing `MODEL` alone is insufficient
 - Connect to `wss://api.openai.com/v1/live/sessions`, send `session.start`, and wait
   for `session.started` before greeting or audio. Twilio μ-law at 8 kHz passes
   through unchanged. Startup audio is bounded and paced, not replayed in a burst.
+  Pacing follows audio duration without accumulating send/scheduling overhead.
+  If the 250-frame input buffer fills, discard the oldest frames and keep the
+  call running; mark/stop events remain readable. This can lose caller speech
+  during a sustained stall. Log the first overflow and total dropped frames at
+  shutdown without logging audio; long stalls reset pacing to avoid catchup bursts.
 - Use `session.input_audio.append` and `session.output_audio.delta`. GPT-Live
   manages listening/speaking continuously; the old server VAD, truncation, and
   voice `response.create` logic are removed. No arbitrary clear is sent when a
@@ -111,7 +116,8 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=twilio_server python -m unittest discover -
 
 The tests use fake audio sockets and replace MongoDB, Redis, Celery, and Twilio
 call creation. They do not contact OpenAI, dial phone numbers, or send messages.
-They cover startup gating, audio passthrough, function result ordering,
+They cover startup gating, audio passthrough, sustained audio pacing, buffer
+overflow recovery, function result ordering,
 duplicate tool calls, failures, graceful shutdown, playback acknowledgment,
 per-call context isolation, voicemail saving, and the existing HTTP routes.
 

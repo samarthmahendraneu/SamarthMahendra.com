@@ -63,6 +63,7 @@ class LiveBridge:
         self.hangup = asyncio.Event()
         self.mark_played = asyncio.Event()
         self.audio = asyncio.Queue(maxsize=250)
+        self.dropped_audio_frames = 0
         self.send_lock = asyncio.Lock()
         self.tool_lock = asyncio.Lock()
         self.batches = {}
@@ -91,7 +92,16 @@ class LiveBridge:
             if kind == "media" and not self.closing:
                 media = event["media"]
                 if media.get("track", "inbound") == "inbound":
-                    # Fail rather than accumulate unbounded latency on a stalled call.
+                    # Keep recent audio if startup or transport stalls. Blocking
+                    # here would also prevent reading Twilio's mark/stop events.
+                    if self.audio.full():
+                        self.audio.get_nowait()
+                        self.dropped_audio_frames += 1
+                        if self.dropped_audio_frames == 1:
+                            logger.warning(
+                                "Twilio input audio buffer full stream=%s; dropping oldest frames",
+                                self.stream_sid,
+                            )
                     self.audio.put_nowait(media["payload"])
             elif kind == "mark" and event.get("mark", {}).get("name") == self.end_mark:
                 self.mark_played.set()
@@ -107,9 +117,14 @@ class LiveBridge:
             await asyncio.sleep(max(0, next_frame - time.monotonic()))
             if self.closing:
                 return
+            now = time.monotonic()
+            if now - next_frame > duration:
+                # Rebase after a long stall instead of bursting overdue audio.
+                next_frame = now
+            # Advance the sample clock, not send completion time. Small sleep
+            # overruns and send overhead must not add latency on every frame.
+            next_frame += duration
             await self.send({"type": "session.input_audio.append", "audio": payload})
-            # Keep startup/network buffers paced at the recorded sample rate.
-            next_frame = max(next_frame, time.monotonic()) + duration
 
     async def read_live(self):
         async for raw in self.live:
@@ -286,6 +301,9 @@ class LiveBridge:
                 reader.cancel()
             cleanup = tasks + list(self.workers) + ([self.end_task] if self.end_task else [])
             await asyncio.gather(*cleanup, return_exceptions=True)
+            if self.dropped_audio_frames:
+                logger.warning("Twilio input audio dropped stream=%s frames=%d",
+                               self.stream_sid, self.dropped_audio_frames)
             if self.closed.is_set():
                 logger.info("Live session=%s reason=%s final_usage=%s", self.session_id,
                             self.close_reason, self.final_usage)
