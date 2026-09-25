@@ -629,6 +629,10 @@ async def chat(request: Request):
     tool_outputs = []
     tool_calls = [tc for tc in response.output if getattr(tc, 'type', None) == 'function_call']
     if tool_calls:
+        # Replay the model's output verbatim, once. Reasoning models pair each
+        # function_call with a reasoning item and reject the continuation when
+        # only the function_call is sent back.
+        conversation += list(response.output)
         for tool_call in tool_calls:
             print("tool call", tool_call.name)
             name = tool_call.name
@@ -637,13 +641,13 @@ async def chat(request: Request):
             if name == 'schedule_meeting_on_jitsi' or name == 'query_profile_info' or name == 'make_calls':
                 if name == 'make_calls':
                     print("make_calls")
-                    from urllib.parse import quote
                     # post request to https://twillio-ai-assistant.onrender.com/start-calls?script=2
                     nums = args.get("numbers")
                     name = args.get("name")
                     message = args.get("message", "")
-                    name = quote(name)
-                    message = quote(message)
+                    # Send these raw. They travel as JSON here, and the call
+                    # service URL-encodes them itself when it builds the Twilio
+                    # webhook; quoting first reaches the agent as literal %20s.
 
                     password_to_make_calls = args.get("password")
                     import bcrypt
@@ -656,8 +660,8 @@ async def chat(request: Request):
                             "Content-Type": "application/json"
                         }
                         import requests
-                        response = requests.post("https://twillio-ai-assistant.onrender.com/start-calls?script=2", json={"numbers": nums, "name": name, "message": message}, headers=headers)
-                        result = response.json()
+                        call_response = requests.post("https://twillio-ai-assistant.onrender.com/start-calls?script=2", json={"numbers": nums, "name": name, "message": message}, headers=headers)
+                        result = call_response.json()
                 if name == 'schedule_meeting_on_jitsi':
                     print("schedule_meeting_on_jitsi")
                     result = schedule_meeting(args)
@@ -669,13 +673,15 @@ async def chat(request: Request):
                 #     result = mongo_tool.query_phone_numbers(args["name"])
                 #     print(" result", result)
                 output_str = json.dumps(result, ensure_ascii=False)
-                conversation += [tc for tc in tool_calls]
-                tool_outputs.append({
+                tool_output = {
                     "type": "function_call_output",
                     "call_id": call_id,
                     "output": output_str
-                })
-                conversation += tool_outputs
+                }
+                tool_outputs.append(tool_output)
+                # Append only this call's output: `tool_outputs` accumulates, so
+                # adding the whole list per iteration repeated earlier results.
+                conversation.append(tool_output)
                 response2 = client.responses.create(
                     model=model_name,
                     input=conversation,

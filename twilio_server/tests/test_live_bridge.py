@@ -192,11 +192,6 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.live.feed({"type": "session.started", "session": {"id": "live-test"}})
         await self.bridge.ready.wait()
 
-    async def greet(self):
-        """Speak the greeting so the bridge unmutes caller input."""
-        self.live.feed({"type": "session.output_audio.delta", "delta": SPEECH})
-        await until(lambda: "session.input_audio.unmute" in self.types())
-
     async def stop(self):
         self.twilio.feed({"event": "stop"})
         await asyncio.wait_for(self.task, 1)
@@ -209,13 +204,14 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.01)
         self.assertEqual(self.types(), ["session.start"])
         await self.start()
-        self.assertEqual(self.types()[:3], ["session.start", "session.input_audio.mute",
-                                            "session.instructions.append"])
-        await self.greet()
-        # Only audio that arrives after the greeting reaches Live, byte for byte.
-        self.twilio.feed({"event": "media", "media": {"payload": SILENCE}})
-        await until(lambda: "session.input_audio.append" in self.types())
-        self.assertEqual(self.live.sent[-1]["audio"], SILENCE)
+        # Audio must already be flowing when the greeting instruction lands, or
+        # the model never speaks first.
+        await until(lambda: "session.instructions.append" in self.types())
+        types = self.types()
+        self.assertLess(types.index("session.input_audio.append"),
+                        types.index("session.instructions.append"))
+        self.assertEqual(self.live.sent[1]["audio"], SILENCE)
+        self.live.feed({"type": "session.output_audio.delta", "delta": SPEECH})
         await until(lambda: self.twilio.sent)
         self.assertEqual(self.twilio.sent[0], {"event": "media", "streamSid": "MZ-test", "media": {"payload": SPEECH}})
         await self.stop()
@@ -259,42 +255,6 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             await bridge.send_audio()
         return sent_at
 
-    async def test_input_is_muted_until_the_greeting_has_been_spoken(self):
-        bridge, twilio, live = self.bridge, self.twilio, self.live
-        run = asyncio.create_task(bridge.run())
-        twilio.feed({"event": "media", "media": {"payload": SPEECH}})
-        live.feed({"type": "session.started", "session": {"id": "live-test"}})
-        await until(lambda: bridge.ready.is_set())
-
-        types = [e["type"] for e in live.sent]
-        self.assertLess(types.index("session.input_audio.mute"),
-                        types.index("session.instructions.append"))
-        # Caller audio arriving before the greeting must not reach Live at all.
-        await asyncio.sleep(0.05)
-        self.assertNotIn("session.input_audio.append", [e["type"] for e in live.sent])
-
-        live.feed({"type": "session.output_audio.delta", "delta": SPEECH})
-        await until(lambda: any(e["type"] == "session.input_audio.unmute"
-                                for e in live.sent))
-        self.assertFalse(bridge.input_muted)
-
-        twilio.feed({"event": "media", "media": {"payload": SPEECH}})
-        await until(lambda: any(e["type"] == "session.input_audio.append"
-                                for e in live.sent))
-        bridge.hangup.set()
-        await run
-
-    async def test_unmute_still_happens_if_the_greeting_never_arrives(self):
-        bridge = self.bridge
-        bridge.greeting_timeout, bridge.greeting_grace = 0.2, 0.05
-        run = asyncio.create_task(bridge.run())
-        self.live.feed({"type": "session.started", "session": {"id": "live-test"}})
-        await until(lambda: any(e["type"] == "session.input_audio.unmute"
-                                for e in self.live.sent))
-        self.assertFalse(bridge.input_muted)
-        bridge.hangup.set()
-        await run
-
     async def test_startup_backlog_drains_instead_of_delaying_every_turn(self):
         # Twilio already delivers in real time, so pacing a queue that never
         # empties holds the backlog forever: audio buffered while the session
@@ -315,12 +275,8 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.task.done())
         self.assertEqual(self.types(), ["session.start"])
         await self.start()
-        await self.greet()
-        # The startup backlog is discarded while muted; the call still runs.
-        await until(lambda: self.bridge.audio.qsize() == 0)
-        self.twilio.feed({"event": "media", "media": {"payload": SILENCE}})
         await until(lambda: "session.input_audio.append" in self.types())
-        self.assertEqual(self.live.sent[-1]["audio"], SILENCE)
+        self.assertEqual(self.live.sent[1]["audio"], SILENCE)
         await self.stop()
         self.assertTrue(self.bridge.closed.is_set())
 
@@ -337,7 +293,6 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
 
         self.live.send = stalled_send
         await self.start()
-        await self.greet()
         self.twilio.feed({"event": "media", "media": {"payload": SILENCE}})
         await asyncio.wait_for(sending.wait(), 1)
         capacity = self.bridge.audio.maxsize

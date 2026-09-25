@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import time
 import uuid
 from datetime import datetime
 from urllib.parse import urlencode
@@ -189,10 +190,18 @@ async def wait_for_stream(websocket):
 
 async def handle_stream(websocket, voicemail=False):
     await websocket.accept()
+    # Record how far setup got: a failure before the bridge starts looks
+    # identical in the logs otherwise, and each stage has a different cause.
+    stage, stream_sid, started = "await_twilio_start", "unknown", time.monotonic()
     try:
         start = await asyncio.wait_for(wait_for_stream(websocket), timeout=10)
+        stream_sid = start.get("streamSid", "unknown")
+        logger.info("Call started stream=%s call=%s voicemail=%s", stream_sid,
+                    start.get("callSid"), voicemail)
+        stage = "call_context"
         token = start.get("customParameters", {}).get("context_id", "")
         context = await asyncio.to_thread(contexts.take, token)
+        stage = "live_connect"
         async with websockets.connect(
             LIVE_URL, extra_headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
             open_timeout=10, close_timeout=5, max_size=2**22,
@@ -200,16 +209,33 @@ async def handle_stream(websocket, voicemail=False):
             # in each direction costs CPU and a per-message flush for nothing.
             compression=None,
         ) as live:
+            logger.info("Live socket open stream=%s in=%.2fs", stream_sid,
+                        time.monotonic() - started)
+            stage = "bridge"
             bridge = LiveBridge(
                 websocket, live, start["streamSid"], session_config(SETTINGS, context, voicemail),
                 greeting(context, voicemail), make_tool_executor(context, voicemail),
             )
             await bridge.run()
+        stage = "done"
     except WebSocketDisconnect:
-        pass
+        logger.info("Twilio disconnected stream=%s stage=%s after=%.1fs",
+                    stream_sid, stage, time.monotonic() - started)
+    except TimeoutError:
+        logger.error("Call setup timed out stream=%s stage=%s after=%.1fs",
+                     stream_sid, stage, time.monotonic() - started)
+    except ValueError as exc:
+        # Expected and self-explanatory (expired/replayed context token, wrong
+        # audio format); a stack trace here is noise, the reason is not.
+        logger.warning("Call rejected stream=%s stage=%s reason=%s",
+                       stream_sid, stage, exc)
     except Exception as exc:
-        logger.error("Call bridge failed (%s)", type(exc).__name__)
+        logger.error("Call bridge failed stream=%s stage=%s after=%.1fs (%s: %s)",
+                     stream_sid, stage, time.monotonic() - started,
+                     type(exc).__name__, exc, exc_info=True)
     finally:
+        logger.info("Call closed stream=%s stage=%s duration=%.1fs",
+                    stream_sid, stage, time.monotonic() - started)
         try:
             await websocket.close()
         except (RuntimeError, WebSocketDisconnect):
