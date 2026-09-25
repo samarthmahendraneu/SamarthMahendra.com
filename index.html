@@ -30,9 +30,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" as="style"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+        href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
         rel="stylesheet">
 
     <!-- Icons -->
@@ -51,6 +51,7 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="draup.css">
     <script>
         (function (h, o, u, n, d) {
             h = h[d] = h[d] || { q: [], onReady: function (c) { h.q.push(c) } }
@@ -729,7 +730,7 @@
             </div>
         </section>
         <!-- Experience Section -->
-        <section id="experience" class="section alt-bg" style="background: #FFFFFF; position: relative; z-index: 2;">
+        <section id="experience" class="section alt-bg" style="position: relative; z-index: 2;">
             <div class="container">
                 <div class="stacked-section-intro" data-aos="fade-up">
                     <span class="stacked-section-label">Experience</span>
@@ -1051,7 +1052,7 @@
         </section>
 
         <!-- Projects Section -->
-        <section id="projects" class="section alt-bg" style="background: #FFFFFF; position: relative; z-index: 2;">
+        <section id="projects" class="section alt-bg" style="position: relative; z-index: 2;">
             <div class="container">
                 <div class="stacked-section-intro" data-aos="fade-up">
                     <span class="stacked-section-label">Projects</span>
@@ -1525,6 +1526,17 @@
                     </div>
 
                     <div class="type-lab-options" role="radiogroup" aria-label="Site font presets">
+                        <button class="font-choice-card is-active" type="button" data-font-choice="draup"
+                            data-font-label="Signal" aria-pressed="true">
+                            <span class="font-choice-kicker">Default</span>
+                            <strong>Signal</strong>
+                            <p>Thin Geist display, monospace labels, bold numbers. Quiet, precise, technical.</p>
+                            <div class="font-choice-preview font-choice-preview--draup">
+                                <span>Systems that hold up.</span>
+                                <span>Precise + calm</span>
+                            </div>
+                        </button>
+
                         <button class="font-choice-card" type="button" data-font-choice="cupertino"
                             data-font-label="Cupertino" aria-pressed="false">
                             <span class="font-choice-kicker">Apple-like</span>
@@ -1536,8 +1548,9 @@
                             </div>
                         </button>
 
-                        <button class="font-choice-card is-active" type="button" data-font-choice="editorial"
-                            data-font-label="Editorial" aria-pressed="true">
+
+                        <button class="font-choice-card" type="button" data-font-choice="editorial"
+                            data-font-label="Editorial" aria-pressed="false">
                             <span class="font-choice-kicker">Essay-led</span>
                             <strong>Editorial</strong>
                             <p>Newsreader display with clean sans body copy. More thoughtful, more authored.</p>

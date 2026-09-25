@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const themeAwareImages = Array.from(document.querySelectorAll('[data-light-src][data-dark-src]'));
 
     function applyFontPreset(preset) {
-        const selectedPreset = preset || 'editorial';
+        const selectedPreset = preset || 'draup';
         document.body.dataset.fontPreset = selectedPreset;
 
         fontPresetButtons.forEach(button => {
@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const savedFontPreset = localStorage.getItem(fontPresetStorageKey);
-    applyFontPreset(savedFontPreset || 'editorial');
+    applyFontPreset(savedFontPreset || 'draup');
 
     fontPresetButtons.forEach(button => {
         button.addEventListener('click', () => {

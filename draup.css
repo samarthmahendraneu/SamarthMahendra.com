@@ -1,0 +1,496 @@
+/* ============================================================
+   DRAUP-INSPIRED THEME
+   A layer over styles.css, loaded after it; nothing in styles.css is edited.
+
+   The language, borrowed from draup.com and rebuilt with open (OFL) fonts:
+   - warm off-white surfaces alternating with pure black sections
+   - thin display type with tight tracking, bold sans for numbers
+   - monospace uppercase eyebrows and step labels
+   - a terracotta -> blue shimmer band travelling through headlines
+
+   Structure:
+     1. Tokens
+     2. Type (applies in both colour modes)
+     3. Light-mode colour and surfaces
+     4. Dark-mode tokens
+     5. Type Lab
+   Colour rules are scoped to light mode because the existing dark theme
+   styles surfaces its own way; hard-coding cream surfaces here left dark
+   mode's light text sitting on a light page.
+   ============================================================ */
+
+
+/* ---------- 1. Tokens ---------- */
+:root {
+    --dr-cream: #F6F5F3;
+    --dr-cream-2: #EFEDE9;
+    --dr-ink: #0F1115;
+    --dr-ink-soft: #4F4F4F;
+    --dr-ink-mute: #8A8780;
+    --dr-black: #000000;
+    --dr-terracotta: #E8765E;
+    --dr-blue: #518DD2;
+    --dr-peach: #EDBDAA;
+    --dr-salmon: #E9A08C;
+    --dr-line: rgba(15, 17, 21, 0.10);
+    --dr-line-strong: rgba(15, 17, 21, 0.18);
+    --dr-accent-grad: linear-gradient(100deg, var(--dr-peach) 0%, var(--dr-salmon) 45%, #9FC1EA 100%);
+    --dr-shimmer: linear-gradient(100deg,
+        currentColor 36%, var(--dr-terracotta) 46%, var(--dr-blue) 54%, currentColor 64%);
+    --dr-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    /* Re-point the existing tokens so every var()-driven rule follows. */
+    --bg-main: var(--dr-cream);
+    --bg-alt: var(--dr-cream-2);
+    --bg-card: #FFFFFF;
+    --bg-card-hover: #FBFAF8;
+    --text-primary: var(--dr-ink);
+    --text-secondary: var(--dr-ink-soft);
+    --text-tertiary: var(--dr-ink-mute);
+    --accent-primary: var(--dr-ink);
+    --accent-secondary: var(--dr-blue);
+    --border-color: var(--dr-line);
+    --border-hover: var(--dr-line-strong);
+    --shadow-sm: none;
+    --shadow-md: 0 1px 0 rgba(15, 17, 21, 0.04);
+    --shadow-lg: 0 24px 60px -30px rgba(15, 17, 21, 0.18);
+    --shadow-hover: 0 24px 60px -28px rgba(15, 17, 21, 0.22);
+    --radius: 14px;
+    --radius-sm: 10px;
+}
+
+
+/* ---------- 2. Type ---------- */
+
+/* A fourth Type Lab voice, and the new default. */
+body[data-font-preset="draup"] {
+    --font-display: "Geist", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-heading: "Geist", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: "Geist", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Headlines: thin and tight. */
+body[data-font-preset="draup"] .hero-display-name,
+body[data-font-preset="draup"] .stacked-section-title,
+body[data-font-preset="draup"] .type-lab-title {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-style: normal;
+}
+
+body[data-font-preset="draup"] .hero-display-name {
+    font-size: clamp(3.4rem, 7vw, 6.2rem);
+    line-height: 0.98;
+    letter-spacing: -0.045em;
+}
+
+body[data-font-preset="draup"] .stacked-section-title {
+    font-size: clamp(2.2rem, 4.4vw, 3.5rem);
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+}
+
+/* Card headlines sit between: light enough not to fight the thin titles. */
+body[data-font-preset="draup"] .about-story-title,
+body[data-font-preset="draup"] .skills-feature-card h3,
+body[data-font-preset="draup"] .writing-feature-copy h3,
+body[data-font-preset="draup"] .contact-box h3 {
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    line-height: 1.12;
+}
+
+body[data-font-preset="draup"] .showcase-title {
+    font-weight: 500;
+    letter-spacing: -0.035em;
+}
+
+/* The shimmer: text in its own colour with a narrow warm-to-cool band
+   passing through. currentColor keeps it right on light and dark surfaces. */
+.dr-shimmer,
+body[data-font-preset="draup"] .stacked-section-title,
+body[data-font-preset="draup"] .hero-display-name .dn-line {
+    background-image: var(--dr-shimmer);
+    background-size: 300% 100%;
+    background-position: 100% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: dr-shimmer 7s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+}
+
+body[data-font-preset="draup"] .hero-display-name .dn-line + .dn-line {
+    animation-delay: 0.35s;
+}
+
+/* The old accent-coloured second line would fight the shimmer. */
+body[data-font-preset="draup"] .dn-indent {
+    color: var(--text-primary);
+}
+
+@keyframes dr-shimmer {
+    0%, 18% { background-position: 100% 0; }
+    62%, 100% { background-position: 0% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dr-shimmer,
+    body[data-font-preset="draup"] .stacked-section-title,
+    body[data-font-preset="draup"] .hero-display-name .dn-line {
+        animation: none;
+        background: none;
+        -webkit-text-fill-color: currentColor;
+    }
+}
+
+/* Numbers: bold sans, as draup.com sets its stats. */
+body[data-font-preset="draup"] .journey-year,
+body[data-font-preset="draup"] [class*="stat-value"],
+body[data-font-preset="draup"] [class*="stat-number"],
+body[data-font-preset="draup"] [class*="metric-value"] {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+/* Eyebrows: monospace, uppercase, no pill. */
+.stacked-section-label,
+.hero-kicker,
+.hero-location-tag {
+    font-family: var(--dr-mono);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.stacked-section-label {
+    padding: 0;
+    margin-bottom: 18px;
+    background: none;
+    border-radius: 0;
+}
+
+.stacked-section-label::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 10px;
+    border-radius: 50%;
+    background: var(--dr-accent-grad);
+    vertical-align: middle;
+}
+
+/* Numbered steps read as draup.com's monospace step labels. */
+.skills-feature-points > div > span {
+    font-family: var(--dr-mono);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+}
+
+.btn {
+    border-radius: 999px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+}
+
+
+/* ---------- 3. Light-mode colour and surfaces ---------- */
+body:not([data-theme="dark"]) {
+    background: var(--dr-cream);
+    color: var(--dr-ink);
+}
+
+body:not([data-theme="dark"]) .hero-section,
+body:not([data-theme="dark"]) .section:not(.alt-bg) {
+    background: var(--dr-cream);
+}
+
+/* styles.css pins #about to white with !important; only an equal !important
+   later in the cascade can return it to the cream surface. */
+body:not([data-theme="dark"]) #about {
+    background-color: var(--dr-cream) !important;
+}
+
+body:not([data-theme="dark"]) .stacked-section-label {
+    color: var(--dr-ink-soft);
+}
+
+/* Draup's rhythm: strongest statements on pure black. The existing cards in
+   these sections were designed for light surfaces only, so they are left as
+   they are and float on the black stage; only the section's own intro text
+   flips. Re-scoping the colour tokens instead would turn every card's text
+   near-white on its own cream background.
+   The #id selectors match the specificity of styles.css's per-section
+   overrides, which would otherwise force dark text here. */
+body:not([data-theme="dark"]) .section.alt-bg {
+    background: var(--dr-black);
+}
+
+body:not([data-theme="dark"]) #experience.alt-bg .stacked-section-title,
+body:not([data-theme="dark"]) #projects.alt-bg .stacked-section-title {
+    color: #F6F5F3;
+}
+
+body:not([data-theme="dark"]) #experience.alt-bg .stacked-section-copy,
+body:not([data-theme="dark"]) #projects.alt-bg .stacked-section-copy {
+    color: #A8A59F;
+}
+
+body:not([data-theme="dark"]) #experience.alt-bg .stacked-section-label,
+body:not([data-theme="dark"]) #projects.alt-bg .stacked-section-label {
+    color: #8F8C86;
+}
+
+body:not([data-theme="dark"]) .section.alt-bg [class*="-card"] {
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Soft warm glow under the hero, as on draup.com's landing. */
+.hero-section {
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section > * {
+    position: relative;
+    z-index: 1;
+}
+
+body:not([data-theme="dark"]) .hero-section::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -38%;
+    width: 120%;
+    height: 70%;
+    transform: translateX(-50%);
+    background:
+        radial-gradient(closest-side, rgba(237, 189, 170, 0.55), transparent 70%),
+        radial-gradient(closest-side at 70% 50%, rgba(132, 191, 255, 0.28), transparent 70%);
+    filter: blur(20px);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Buttons. */
+body:not([data-theme="dark"]) .btn-primary {
+    background: var(--dr-ink);
+    color: #FFFFFF;
+    box-shadow: none;
+}
+
+body:not([data-theme="dark"]) .btn-primary:hover {
+    background: #26282D;
+    color: #FFFFFF;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px -12px rgba(15, 17, 21, 0.45);
+}
+
+body:not([data-theme="dark"]) .btn-outline {
+    background: #FFFFFF;
+    color: var(--dr-ink);
+    border: 1px solid var(--dr-line-strong);
+}
+
+body:not([data-theme="dark"]) .btn-outline:hover {
+    border-color: var(--dr-ink);
+    color: var(--dr-ink);
+}
+
+/* The one warm call to action, like draup.com's "Book a Demo". Kept in both
+   modes: peach reads well on black too. The body prefix matches the
+   specificity of the light-mode .btn-primary rule above, which would
+   otherwise paint these black. */
+body .btn-primary.btn-lg,
+body .navbar .btn-primary {
+    background: var(--dr-accent-grad);
+    background-size: 200% 100%;
+    color: var(--dr-ink);
+    box-shadow: none;
+    transition: background-position 0.6s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+body .btn-primary.btn-lg:hover,
+body .navbar .btn-primary:hover {
+    background: var(--dr-accent-grad);
+    background-size: 200% 100%;
+    background-position: 100% 0;
+    color: var(--dr-ink);
+}
+
+/* Navigation: flat, hairline, on cream. */
+body:not([data-theme="dark"]) .navbar .nav-container {
+    background: rgba(246, 245, 243, 0.78);
+    border: 1px solid var(--dr-line);
+    box-shadow: none;
+}
+
+/* Cards: hairlines instead of shadows. */
+body:not([data-theme="dark"]) [class*="-card"] {
+    box-shadow: none;
+}
+
+body:not([data-theme="dark"]) .section:not(.alt-bg) [class*="-card"] {
+    border-color: var(--dr-line);
+}
+
+/* Off-palette pieces from the indigo theme. The card family now spans
+   Draup's range: warm neutrals (cream/ivory/sand), a warm accent (lilac,
+   remapped to peach) and a cool accent (mist). */
+body:not([data-theme="dark"]) .showcase-card--lilac {
+    background: #F6E5DB;
+}
+
+body:not([data-theme="dark"]) .skills-feature-card {
+    background: linear-gradient(155deg, #FBEFE8 0%, #F6F5F3 100%);
+    border: 1px solid var(--dr-line);
+}
+
+body:not([data-theme="dark"]) .skills-feature-points > div {
+    background: rgba(255, 255, 255, 0.6);
+    border-color: var(--dr-line);
+}
+
+body:not([data-theme="dark"]) .skills-feature-points > div > span {
+    background: none;
+    border: 1px solid rgba(232, 118, 94, 0.35);
+    color: var(--dr-terracotta);
+}
+
+body:not([data-theme="dark"]) .contact-box {
+    background: linear-gradient(150deg, #FBF3EC 0%, #F6E8E1 100%);
+}
+
+body:not([data-theme="dark"]) .about-panel {
+    background: var(--dr-cream-2);
+}
+
+body:not([data-theme="dark"]) ::selection {
+    background: rgba(232, 118, 94, 0.22);
+    color: var(--dr-ink);
+}
+
+:focus-visible {
+    outline: 2px solid var(--dr-terracotta);
+    outline-offset: 3px;
+}
+
+
+/* ---------- 4. Dark-mode tokens ---------- */
+/* The existing dark theme keeps its own component rules. Only its token
+   values move to Draup's palette -- true black, warm off-white, peach accent
+   in place of indigo -- and every token keeps the same light/dark polarity it
+   had, so no existing dark component flips contrast. */
+body[data-theme="dark"] {
+    --bg-main: #000000;
+    --bg-alt: #0A0A0B;
+    --bg-card: #121214;
+    --bg-card-hover: #19191C;
+    --text-primary: #F6F5F3;
+    --text-secondary: #B5B2AC;
+    --text-tertiary: #7C7973;
+    --accent-primary: var(--dr-peach);
+    --accent-secondary: #84BFFF;
+    --border-color: rgba(255, 255, 255, 0.10);
+    --border-hover: rgba(255, 255, 255, 0.22);
+    background:
+        radial-gradient(circle at top, rgba(232, 118, 94, 0.10), transparent 30%),
+        #000000;
+}
+
+
+/* ---------- 5. Type Lab ---------- */
+/* Four voices sit as a 2x2. Desktop only: styles.css drops to one column
+   below 860px, and an unconditional rule here would override that and
+   squeeze the cards into two narrow columns on phones. */
+@media (min-width: 861px) {
+    .type-lab-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+body:not([data-theme="dark"]) .font-choice-card.is-active {
+    background: linear-gradient(180deg, #FFFFFF 0%, #FBF0EA 100%);
+    border-color: rgba(232, 118, 94, 0.38);
+    box-shadow: 0 22px 44px -26px rgba(232, 118, 94, 0.45);
+}
+
+.font-choice-card.is-active::after {
+    background: var(--dr-accent-grad);
+    color: var(--dr-ink);
+    font-family: var(--dr-mono);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+/* Pinned to Geist, like the other previews are pinned to their own faces, so
+   the card still shows Signal after a visitor switches to another voice. */
+.font-choice-preview--draup span:first-child {
+    font-family: "Geist", "Inter", sans-serif;
+    font-weight: 300;
+    letter-spacing: -0.04em;
+}
+
+.font-choice-preview--draup span:last-child {
+    font-family: var(--dr-mono);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+}
+
+
+/* ---------- Announcement banner ---------- */
+.announcement-kicker {
+    font-family: var(--dr-mono);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--dr-terracotta);
+}
+
+body:not([data-theme="dark"]) .home-announcement-banner {
+    background: rgba(255, 255, 255, 0.7);
+    border-color: var(--dr-line);
+    box-shadow: none;
+}
+
+/* styles.css gives this banner a fixed white background and no dark-mode
+   rule, while its text follows the (light) dark-mode token -- white on white
+   in the original dark theme too. */
+body[data-theme="dark"] .home-announcement-banner {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.10);
+}
+
+body[data-theme="dark"] .announcement-action {
+    color: var(--dr-peach);
+}
+
+
+/* ---------- Every small uppercase label in mono ---------- */
+/* draup.com sets all of its small caps labels in its monospace face; that
+   consistency is much of what makes the system read as precise. Sizes are
+   left to each component -- mono runs wider, so tracking is tighter here
+   than on the section eyebrows. */
+.hero-panel-label,
+.hero-intro-line,
+.hero-availability-note,
+.showcase-kicker,
+.showcase-side-label,
+.showcase-mini-card > span,
+.project-surface-card > span,
+.project-browser-pill,
+.project-browser-column > span,
+.writing-mini-card > span,
+.writing-quote-card > span,
+.writing-note-label,
+.font-choice-kicker,
+.type-lab-live-label {
+    font-family: var(--dr-mono);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+}
