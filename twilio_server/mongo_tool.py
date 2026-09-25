@@ -118,6 +118,19 @@ def save_voice_mail_message(call_id, args):
     return str(insert_result.inserted_id)
 
 
+def save_relayed_message(call_id, args):
+    """Save a message the caller asked to be passed on to Samarth."""
+    message_dict = {
+        "message_id": call_id,
+        "caller_name": args.get("caller_name"),
+        "message": args.get("message"),
+        "timestamp": datetime.datetime.utcnow(),
+    }
+    messages_collection = db["messages_relayed"]
+    insert_result = messages_collection.insert_one(message_dict)
+    return str(insert_result.inserted_id)
+
+
 def save_meeting_via_call(args):
     """Save meeting details via call ID."""
     """properties": {
