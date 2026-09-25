@@ -132,6 +132,7 @@ def make_tool_executor(context, voicemail=False):
                 mongo_tool.mongo_save_message, context.get("name", ""),
                 context.get("message", ""), args["response"],
             )
+            return await asyncio.to_thread(relay_message_to_samarth, call_id, args)
         else:
             # mongo_tool expects (call_id, args), not three positional strings.
             message_id = await asyncio.to_thread(mongo_tool.save_voice_mail_message, call_id, args)
