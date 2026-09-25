@@ -3,7 +3,7 @@
 import os
 import logging
 from celery import Celery
-from discord_tool import ask_and_get_reply
+from discord_tool import ask_and_get_reply, send_message_to_channel
 import asyncio
 from mongo_tool import save_tool_message, query_mongo_db_for_candidate_profile, save_meeting_via_call
 
@@ -81,7 +81,13 @@ def add_meeting_to_db(args):
 def tool_call_fn(self, tool_name, call_id, args):
     logger.info(f"[Celery Worker] Received task: tool_call_fn with tool_name={tool_name}, call_id={call_id}, args={args}")
     try:
-        if tool_name == "talk_to_samarth_discord":
+        if tool_name == "send_discord_message":
+            logger.info("[Celery Worker] Relaying a caller message to Discord")
+            # Send and disconnect. Unlike talk_to_samarth_discord this never
+            # waits for a reply: the caller is on the phone while it runs.
+            asyncio.run(send_message_to_channel(args["content"]))
+            result = {"status": "sent"}
+        elif tool_name == "talk_to_samarth_discord":
             logger.info("[Celery Worker] Calling discord_tool.ask_and_get_reply")
             result = ask_and_get_reply(args["message"]["content"])
         elif tool_name == "query_profile_info":

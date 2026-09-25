@@ -5,7 +5,7 @@ import datetime
 
 load_dotenv()
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://stackoverflow:stackoverflow%40123@cluster0.3kqbc.mongodb.net/myDatabase?retryWrites=true&w=majority&appName=Cluster0")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://r_w:KRjIcduDzWInuUM6@cluster0.3kqbc.mongodb.net/myDatabase?retryWrites=true&w=majority&appName=Cluster0")
 DB_NAME = os.getenv("MONGO_DB_NAME", "profile_db")
 COLLECTION_NAME = os.getenv("MONGO_COLLECTION_NAME", "candidate_profiles")
 
@@ -157,7 +157,7 @@ if __name__ == "__main__":
         {
             "institution": "Northeastern University, Boston, MA",
             "degree": "Master of Science (MS), Computer Science",
-            "dates": "Jan 2024 – Dec 2025",
+            "dates": "Jan 2024 – Dec 2025 (Ended)",
             "courses": [
                 "CS 5010: Programming Design Paradigm",
                 "CS 5200: Database Management Systems",
@@ -206,6 +206,27 @@ Cloud & Big Data Laboratory with ProjectC Programming for Problem Solving Discre
         }
     ],
     "experience": [
+        {
+            "role": "Software Development Engineer (Incoming)",
+            "company": "Amazon - AWS",
+            "type": "Full-time",
+            "dates": "Oct 2026 (Incoming)",
+            "location": "Seattle (In - person)",
+            "highlights": [
+                "Joining IAM team"
+            ]
+        },
+        {
+            "role": "Research Engineer",
+            "company": "Northeastern University, Boston",
+            "type": "Full-time",
+            "dates": "May 2026 – Present",
+            "location": "Boston (In - person)",
+            "highlights": [
+      "Migrated FreeRADIUS auth from flat files → PostgreSQL (SQLAlchemy ORM + Repository pattern, integration tests, bare-metal server with manual network exposure) — ~99% reduction in auth config time; prototyped realtime VLAN reassignment via CoA (RFC 3576) using pyrad over UDP 3799, validating end-to-end RADIUS auth flow on UDP 1812/1813.",
+     "Building out observability and monitoring stack: structured JSON logging, distributed tracing, Prometheus metrics with alerting rules, and dashboards — enabling first-time visibility into infrastructure failures across the testbed in real time",
+            ]
+        },
         {
             "role": "Associate Software Development Engineer – Backend",
             "company": "Draup (Startup)",

@@ -92,6 +92,20 @@ def schedule_meeting(args):
             "notifications": "queued"}
 
 
+def relay_message_to_samarth(call_id, args):
+    message_id = mongo_tool.save_relayed_message(call_id, args)
+    try:
+        tool_call_fn.delay("send_discord_message", None, {"content": (
+            f"Phone message from {args['caller_name']}: {args['message']}"
+        )})
+    except Exception:
+        # Saving succeeded: don't tell the model to retry and send it twice.
+        logger.warning("Caller message saved but Discord relay enqueue was incomplete")
+        return {"status": "saved", "message_id": message_id,
+                "relay": "incomplete; delivery must be checked"}
+    return {"status": "saved", "message_id": message_id, "relay": "queued"}
+
+
 def make_tool_executor(context, voicemail=False):
     schemas = {tool["name"]: tool["parameters"] for tool in (VOICEMAIL_TOOLS if voicemail else TOOLS)}
 
@@ -110,6 +124,8 @@ def make_tool_executor(context, voicemail=False):
             if timing.utcoffset() is None or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", args["user_email"]):
                 raise ValueError("Meeting needs a timezone and valid email")
             return await asyncio.to_thread(schedule_meeting, args)
+        if name == "send_messages_to_samarth":
+            return await asyncio.to_thread(relay_message_to_samarth, call_id, args)
         if name == "save_reponse_from_caller":
             message_id = await asyncio.to_thread(
                 mongo_tool.mongo_save_message, context.get("name", ""),

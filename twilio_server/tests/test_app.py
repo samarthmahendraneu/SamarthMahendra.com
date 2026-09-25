@@ -31,6 +31,7 @@ mongo = ModuleType("mongo_tool")
 mongo.mongo_save_message = Mock(return_value="message-1")
 mongo.save_voice_mail_message = Mock(return_value="voicemail-1")
 mongo.insert_meeting = Mock(return_value="meeting-1")
+mongo.save_relayed_message = Mock(return_value="relay-1")
 worker = ModuleType("celery_worker")
 worker.tool_call_fn = Mock()
 memory = MemoryRedis()
@@ -49,6 +50,7 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         mongo.mongo_save_message.reset_mock()
         mongo.save_voice_mail_message.reset_mock()
         mongo.insert_meeting.reset_mock()
+        mongo.save_relayed_message.reset_mock()
         worker.tool_call_fn.reset_mock()
         worker.tool_call_fn.delay.side_effect = None
 
@@ -85,6 +87,32 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], "saved")
         self.assertIn("incomplete", result["notifications"])
         self.assertEqual(mongo.insert_meeting.call_count, 1)
+
+    async def test_relayed_message_is_saved_and_queued_for_discord(self):
+        args = {"caller_name": "Alice", "message": "Call me about the offer"}
+        result = await main.make_tool_executor({})("send_messages_to_samarth", "r1", args)
+        mongo.save_relayed_message.assert_called_once_with("r1", args)
+        self.assertEqual(result, {"status": "saved", "message_id": "relay-1", "relay": "queued"})
+        # Never the blocking talk_to_samarth_discord: it waits up to 120s for a
+        # reply, which would strand the caller mid-call.
+        name, call_id, payload = worker.tool_call_fn.delay.call_args.args
+        self.assertEqual(name, "send_discord_message")
+        self.assertIn("Alice", payload["content"])
+        self.assertIn("Call me about the offer", payload["content"])
+
+    async def test_relay_failure_does_not_lose_the_saved_message(self):
+        worker.tool_call_fn.delay.side_effect = RuntimeError("broker unavailable")
+        result = await main.make_tool_executor({})(
+            "send_messages_to_samarth", "r1", {"caller_name": "Alice", "message": "Hi"})
+        self.assertEqual(result["status"], "saved")
+        self.assertIn("incomplete", result["relay"])
+        self.assertEqual(mongo.save_relayed_message.call_count, 1)
+
+    async def test_relay_is_not_offered_during_voicemail(self):
+        with self.assertRaises(ValueError):
+            await main.make_tool_executor({}, True)(
+                "send_messages_to_samarth", "r1", {"caller_name": "A", "message": "Hi"})
+        mongo.save_relayed_message.assert_not_called()
 
     async def test_invalid_or_unavailable_tools_cannot_run_side_effects(self):
         execute = main.make_tool_executor({}, True)

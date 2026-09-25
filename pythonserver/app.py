@@ -43,8 +43,8 @@ from fastapi import Body
 api_key = os.getenv("OPENAI_API_KEY", '')
 
 
-# models : gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
-model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-5.4-nano")
+# models : gpt-6-astra, gpt-6-sol, gpt-6-luna
+model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-6-luna")
 
 client = OpenAI(api_key=api_key)
 
@@ -621,11 +621,9 @@ async def chat(request: Request):
         model=model_name,
         input=conversation,
         text={"format": {"type": "text"}},
-        reasoning={},
+        reasoning={"effort": "low"},
         tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
-        temperature=1,
-        max_output_tokens=2048,
-        top_p=1,
+        max_output_tokens=4096,
         store=True
     )
     tool_outputs = []
@@ -682,11 +680,9 @@ async def chat(request: Request):
                     model=model_name,
                     input=conversation,
                     text={"format": {"type": "text"}},
-                    reasoning={},
+                    reasoning={"effort": "low"},
                     tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
-                    temperature=1,
-                    max_output_tokens=2048,
-                    top_p=1,
+                    max_output_tokens=4096,
                     store=True
                 )
 
@@ -723,11 +719,9 @@ async def chat(request: Request):
             model=model_name,
             input=conversation,
             text={"format": {"type": "text"}},
-            reasoning={},
+            reasoning={"effort": "low"},
             tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
-            temperature=1,
-            max_output_tokens=2048,
-            top_p=1,
+            max_output_tokens=4096,
             store=True
         )
         #
