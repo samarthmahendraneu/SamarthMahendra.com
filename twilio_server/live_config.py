@@ -81,6 +81,20 @@ save whatever they say in reply before closing, even a brief yes or no. Use the 
 CALL_INSTRUCTIONS = """Use save_reponse_from_caller for the caller's reply to the
 call's purpose, and send_messages_to_samarth when they are sending Samarth a
 message of their own.
+
+Asking Samarth live:
+When only Samarth can answer - his availability, whether he is interested, a
+decision - use ask_samarth. It returns a question_id at once and does not wait.
+Tell the caller you are checking with him, then keep the conversation going;
+never sit in silence. Call check_samarth_reply now and then, between your own
+turns, not repeatedly in a row.
+If it returns answered, tell the caller what he said. Report it as his answer
+only when the tool gives you one; if it is still waiting, say so plainly.
+Once about fifteen seconds have passed with no reply, offer a call back instead
+of holding them: ask whether they would like one when he answers, and only if
+they say yes, take and read back their number and use request_callback. If they
+decline, carry on and let them know you will pass the answer along.
+Never invent Samarth's answer, and never imply he has seen the question.
 """
 
 VOICEMAIL_INSTRUCTIONS = """Take a voicemail for Samarth. Collect the caller's
@@ -118,6 +132,18 @@ TOOLS = [
     function("send_messages_to_samarth", "Relay a message to Samarth on Discord.", {
         "caller_name": "Caller's name",
         "message": "The message to pass on to Samarth",
+    }),
+    function("ask_samarth", "Ask Samarth a question on Discord. Returns immediately.", {
+        "question": "The question to put to Samarth",
+        "caller_name": "Caller's name, or an empty string if not given",
+    }),
+    function("check_samarth_reply", "Check whether Samarth has answered yet.", {
+        "question_id": "The question_id returned by ask_samarth",
+    }),
+    function("request_callback", "Arrange a call back once Samarth answers.", {
+        "question_id": "The question_id returned by ask_samarth",
+        "caller_name": "Caller's name",
+        "phone_number": "Confirmed callback number in E.164 form, e.g. +16175550123",
     }),
     END_CALL,
 ]
