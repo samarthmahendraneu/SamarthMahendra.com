@@ -44,7 +44,7 @@ class LiveBridge:
     def __init__(self, twilio, live, stream_sid, config, greeting, execute_tool,
                  *, startup_timeout=10, close_timeout=15, tool_timeout=15,
                  goodbye_grace=2, goodbye_quiet=1, goodbye_timeout=10,
-                 mark_timeout=3):
+                 mark_timeout=3, max_catchup=0.5):
         self.twilio = twilio
         self.live = live
         self.stream_sid = stream_sid
@@ -58,6 +58,7 @@ class LiveBridge:
         self.goodbye_quiet = goodbye_quiet
         self.goodbye_timeout = goodbye_timeout
         self.mark_timeout = mark_timeout
+        self.max_catchup = max_catchup
         self.ready = asyncio.Event()
         self.closed = asyncio.Event()
         self.hangup = asyncio.Event()
@@ -114,16 +115,21 @@ class LiveBridge:
         while not self.closing:
             payload = await self.audio.get()
             duration = len(base64.b64decode(payload, validate=True)) / 8000
+            # Twilio already delivers in real time, so pacing a queue that is
+            # never empty just holds the backlog: whatever accumulated during
+            # startup is added to every later caller turn for the rest of the
+            # call. Drain at twice the sample rate while frames are waiting.
+            pace = duration / 2 if self.audio.qsize() else duration
             await asyncio.sleep(max(0, next_frame - time.monotonic()))
             if self.closing:
                 return
             now = time.monotonic()
-            if now - next_frame > duration:
-                # Rebase after a long stall instead of bursting overdue audio.
+            if now - next_frame > self.max_catchup:
+                # Resync only after a stall too long to drain smoothly.
                 next_frame = now
             # Advance the sample clock, not send completion time. Small sleep
             # overruns and send overhead must not add latency on every frame.
-            next_frame += duration
+            next_frame += pace
             await self.send({"type": "session.input_audio.append", "audio": payload})
 
     async def read_live(self):

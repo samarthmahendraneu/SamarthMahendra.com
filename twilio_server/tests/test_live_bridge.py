@@ -226,6 +226,39 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.execute.await_count, 2)
         await self.stop()
 
+    async def simulate_backlog(self, count, duration=0.02):
+        """Drain a queue that is already full when the session opens."""
+        bridge = LiveBridge(Socket(), Socket(), "MZ-test", {}, "", AsyncMock())
+        bridge.ready.set()
+        now = 100.0
+        sent_at = []
+        frame = base64.b64encode(b"\xff" * round(duration * 8000)).decode()
+        for _ in range(count):
+            bridge.audio.put_nowait(frame)
+
+        async def sleep(delay):
+            nonlocal now
+            now += delay
+
+        async def send(event):
+            sent_at.append(now)
+            if len(sent_at) == count:
+                bridge.closing = True
+
+        bridge.send = send
+        with patch("live_bridge.time", SimpleNamespace(monotonic=lambda: now)), \
+                patch("live_bridge.asyncio", SimpleNamespace(sleep=sleep)):
+            await bridge.send_audio()
+        return sent_at
+
+    async def test_startup_backlog_drains_instead_of_delaying_every_turn(self):
+        # Twilio already delivers in real time, so pacing a queue that never
+        # empties holds the backlog forever: audio buffered while the session
+        # was opening would be added to every later caller turn.
+        sent_at = await self.simulate_backlog(10)
+        self.assertAlmostEqual(sent_at[-1] - sent_at[0], 0.09, places=6)
+        self.assertLess(sent_at[-1] - sent_at[0], 9 * 0.02)
+
     async def test_startup_overflow_keeps_recent_audio_and_still_starts(self):
         capacity = self.bridge.audio.maxsize
         self.twilio.feed({"event": "media", "media": {"payload": SPEECH}})

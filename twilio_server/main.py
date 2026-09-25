@@ -180,6 +180,9 @@ async def handle_stream(websocket, voicemail=False):
         async with websockets.connect(
             LIVE_URL, extra_headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
             open_timeout=10, close_timeout=5, max_size=2**22,
+            # mu-law barely compresses; deflating 160-byte frames 50x a second
+            # in each direction costs CPU and a per-message flush for nothing.
+            compression=None,
         ) as live:
             bridge = LiveBridge(
                 websocket, live, start["streamSid"], session_config(SETTINGS, context, voicemail),
