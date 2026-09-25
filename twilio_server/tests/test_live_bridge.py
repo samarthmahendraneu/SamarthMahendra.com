@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import AsyncMock
 
 from live_bridge import LiveBridge, has_speech
-from live_config import LIVE_URL, LiveSettings, greeting, session_config
+from live_config import DEFAULT_VOICE_STYLE, LIVE_URL, LiveSettings, greeting, session_config
 
 
 SILENCE = base64.b64encode(b"\xff" * 160).decode()
@@ -81,6 +81,30 @@ class ConfigTests(unittest.TestCase):
     def test_stale_model_fails_with_migration_instruction(self):
         with self.assertRaisesRegex(ValueError, "MODEL=gpt-live-1"):
             LiveSettings.from_env({"MODEL": "gpt-realtime-2.1"})
+
+    def test_operator_style_reaches_voice_sessions_without_changing_backend_or_voice(self):
+        style = "Use a relaxed American delivery; treat {pauses} as phrasing cues."
+        settings = LiveSettings.from_env({"VOICE_STYLE": style})
+        for voicemail in (False, True):
+            with self.subTest(voicemail=voicemail):
+                config = session_config(settings, {}, voicemail)
+                default = session_config(LiveSettings(), {}, voicemail)
+                self.assertIn(style, config["instructions"])
+                self.assertNotIn(DEFAULT_VOICE_STYLE, config["instructions"])
+                for policy in ("AI personal assistant", "Backchannel policy:",
+                               "Interruption policy:", "Delegation policy:"):
+                    self.assertIn(policy, config["instructions"])
+                self.assertEqual(config["delegation"], default["delegation"])
+                self.assertEqual(config["audio"]["output"]["voice"], "marin")
+                self.assertNotIn("style", config)
+                if voicemail:
+                    self.assertIn("Samarth is unavailable", config["instructions"])
+
+    def test_missing_or_blank_style_keeps_reviewed_default(self):
+        for env in ({}, {"VOICE_STYLE": ""}, {"VOICE_STYLE": "  \n  "}):
+            with self.subTest(env=env):
+                config = session_config(LiveSettings.from_env(env), {})
+                self.assertIn(DEFAULT_VOICE_STYLE, config["instructions"])
 
     def test_mulaw_gate_distinguishes_speech_and_silence(self):
         self.assertFalse(has_speech(SILENCE))
