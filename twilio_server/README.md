@@ -19,6 +19,7 @@ LIVE_BACKEND_MODEL=gpt-5.6-luna
 | --- | --- |
 | `MODEL` | Replace any Realtime/preview model with `gpt-live-1`. It is also the new default. An incompatible existing value fails at startup with an explicit error. |
 | `VOICE` | Set `marin` to use the new default. An existing `VOICE=sage` will otherwise remain in effect; environment variables override defaults. |
+| `VOICE_STYLE` | Optional speaking-style text, sent to the voice model in `session.instructions`. Omit or leave blank to use the built-in American conversational prompt. |
 | `LIVE_BACKEND_MODEL` | New optional setting, default `gpt-5.6-luna`. Used by Responses for reasoning and tools, not the speaking voice. |
 | `PUBLIC_BASE_URL` | New optional setting for outbound Twilio callbacks. Defaults to the existing `https://twillio-ai-assistant.onrender.com` host. Set only if your web service uses a different public hostname. |
 
@@ -27,6 +28,28 @@ and `PORT` settings. The same project key must have access to both configured
 OpenAI models. Voice sessions and delegated backend usage are billed separately.
 The Celery worker's environment and launch command do not need migration changes.
 See [.env.example](.env.example); it contains settings only, no credentials.
+
+## Conversational voice style
+
+The reviewed style is active by default for both regular calls and voicemail:
+General American English, warm and composed delivery, natural phrasing and
+pauses, brief replies, and selective listening acknowledgments. `VOICE=marin`
+still selects the voice. No environment change is required for the new prompt.
+
+To supply a different style without editing Python, set this optional variable:
+
+```dotenv
+VOICE_STYLE="Use General American English with a warm, relaxed conversational pace, natural pauses, and concise everyday phrasing."
+```
+
+This replaces the built-in **style paragraph**, while retaining Luma's identity,
+interruption policy, delegation rules, and call-ending behavior. It is trusted
+operator configuration; caller input is not used as a style override. The
+application inserts it into GPT-Live's `session.instructions` at session startup,
+as described in the [official prompting guide](https://developers.openai.com/api/docs/guides/live-prompting).
+It does not send an unsupported `style` parameter or add the style to the backend
+model's instructions. Restart the web service after changing the environment;
+new calls receive the updated style. See [the design and research notes](VOICE_PROMPT_REVIEW.md).
 
 ## Deployment
 
@@ -55,6 +78,11 @@ and its Realtime model environment value; changing `MODEL` alone is insufficient
 - Connect to `wss://api.openai.com/v1/live/sessions`, send `session.start`, and wait
   for `session.started` before greeting or audio. Twilio μ-law at 8 kHz passes
   through unchanged. Startup audio is bounded and paced, not replayed in a burst.
+  Pacing follows audio duration without accumulating send/scheduling overhead.
+  If the 250-frame input buffer fills, discard the oldest frames and keep the
+  call running; mark/stop events remain readable. This can lose caller speech
+  during a sustained stall. Log the first overflow and total dropped frames at
+  shutdown without logging audio; long stalls reset pacing to avoid catchup bursts.
 - Use `session.input_audio.append` and `session.output_audio.delta`. GPT-Live
   manages listening/speaking continuously; the old server VAD, truncation, and
   voice `response.create` logic are removed. No arbitrary clear is sent when a
@@ -88,7 +116,8 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=twilio_server python -m unittest discover -
 
 The tests use fake audio sockets and replace MongoDB, Redis, Celery, and Twilio
 call creation. They do not contact OpenAI, dial phone numbers, or send messages.
-They cover startup gating, audio passthrough, function result ordering,
+They cover startup gating, audio passthrough, sustained audio pacing, buffer
+overflow recovery, function result ordering,
 duplicate tool calls, failures, graceful shutdown, playback acknowledgment,
 per-call context isolation, voicemail saving, and the existing HTTP routes.
 
