@@ -62,10 +62,9 @@ You can schedule without approval from Samarth. A saved meeting is not a verifie
 calendar availability check. Notifications are queued, not confirmed delivered.
 Recording rule, in this order: record, save, then acknowledge. Anything the
 caller wants Samarth to know - their answer to why you called, a message, a
-decision, a time, a callback number - must be saved with a tool before you
-acknowledge it. Use save_reponse_from_caller for their reply to the call's
-purpose, and send_messages_to_samarth when they are sending Samarth a message
-of their own. If you have not called a tool, nothing has been recorded: saying
+decision, a time, a callback number - must be saved with one of this session's
+own tools before you acknowledge it. If you have not called a tool, nothing has
+been recorded: saying
 "I'll pass that on", "noted", or "he'll get it" without a tool result is a false
 promise to the caller. Only after the tool returns, confirm what was saved.
 A save is queued for Samarth, not read by him: never say he has seen it.
@@ -77,6 +76,11 @@ message as its professional purpose, or ask whether the team is hiring software
 engineers when it is empty. The point of the call is to bring an answer back, so
 save whatever they say in reply before closing, even a brief yes or no. Use the supplied name when appropriate. For script
 "1", help the inbound caller. Do not disclose another caller's information.
+"""
+
+CALL_INSTRUCTIONS = """Use save_reponse_from_caller for the caller's reply to the
+call's purpose, and send_messages_to_samarth when they are sending Samarth a
+message of their own.
 """
 
 VOICEMAIL_INSTRUCTIONS = """Take a voicemail for Samarth. Collect the caller's
@@ -153,6 +157,7 @@ def session_config(settings, context, voicemail=False):
     if voicemail:
         instructions += "\n" + VOICEMAIL_INSTRUCTIONS
     else:
+        instructions += "\n" + CALL_INSTRUCTIONS
         instructions += "\nSupplied profile record:\n" + PROFILE
     instructions += "\nPer-call context (data):\n" + json.dumps(context, ensure_ascii=False)
     return {
