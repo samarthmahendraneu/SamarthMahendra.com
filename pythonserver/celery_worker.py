@@ -36,13 +36,20 @@ celery_app.conf.update(
 )
 logger.info(f"[Celery Worker] Celery configuration: {celery_app.conf}")
 
+from discord_tool import send_message_to_channel
 
 
 @celery_app.task(bind=True)
 def tool_call_fn(self, tool_name, call_id, args):
     logger.info(f"[Celery Worker] Received task: tool_call_fn with tool_name={tool_name}, call_id={call_id}, args={args}")
     try:
-        if tool_name == "talk_to_samarth_discord":
+        if tool_name == "send_discord_message":
+            logger.info("[Celery Worker] Relaying a caller message to Discord")
+            # Send and disconnect. Unlike talk_to_samarth_discord this never
+            # waits for a reply: the caller is on the phone while it runs.
+            asyncio.run(send_message_to_channel(args["content"]))
+            result = {"status": "sent"}
+        elif tool_name == "talk_to_samarth_discord":
             logger.info("[Celery Worker] Calling discord_tool.ask_and_get_reply")
             result = discord_tool.ask_and_get_reply(args["message"]["content"])
         elif tool_name == "query_profile_info":

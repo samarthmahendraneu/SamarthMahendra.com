@@ -46,6 +46,7 @@ async def send_message_to_channel(message):
     client = DiscordSender(message, intents=intents)
     await client.start(DISCORD_TOKEN)
 
+
 def ask_and_get_reply(prompt_message, wait_user_id=None, timeout=120):
     import asyncio
     intents = discord.Intents.default()
@@ -102,3 +103,5 @@ def ask_and_get_reply(prompt_message, wait_user_id=None, timeout=120):
         return bot.reply or "Samarth didn't respond, he is away, but go ahead and schedule if its meeting"
 
     return asyncio.run(run_bot())
+
+
