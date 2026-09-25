@@ -48,6 +48,37 @@ model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-6-luna")
 
 client = OpenAI(api_key=api_key)
 
+# Output items come back from the SDK (and round-trip through the frontend) with
+# fields the API will not accept as input: status, and SDK-only bookkeeping like
+# async_/caller/namespace. Whitelist what each item type is allowed to send back.
+_API_FIELDS = {
+    "reasoning": ("id", "type", "summary", "content", "encrypted_content"),
+    "function_call": ("id", "type", "call_id", "name", "arguments"),
+    "function_call_output": ("type", "call_id", "output"),
+    "message": ("id", "type", "role", "content", "status"),
+}
+
+
+def api_input(conversation):
+    """Strip output-only fields so a conversation can be replayed as input."""
+    cleaned = []
+    for item in conversation:
+        data = item if isinstance(item, dict) else getattr(item, "__dict__", None)
+        if not isinstance(data, dict):
+            cleaned.append(item)
+            continue
+        if "role" in data and "type" not in data:
+            cleaned.append(data)          # plain role/content turns pass through
+            continue
+        allowed = _API_FIELDS.get(data.get("type"))
+        if allowed is None:
+            cleaned.append({k: v for k, v in data.items() if v is not None})
+            continue
+        cleaned.append({k: data[k] for k in allowed if data.get(k) is not None})
+    return cleaned
+
+
+
 
 def generate_jitsi_meeting_url(user_name=None):
     from mongo_tool import insert_meeting
@@ -619,7 +650,7 @@ async def chat(request: Request):
     print("conversation from frontend", conversation)
     response = client.responses.create(
         model=model_name,
-        input=conversation,
+        input=api_input(conversation),
         text={"format": {"type": "text"}},
         reasoning={"effort": "low"},
         tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
@@ -684,7 +715,7 @@ async def chat(request: Request):
                 conversation.append(tool_output)
                 response2 = client.responses.create(
                     model=model_name,
-                    input=conversation,
+                    input=api_input(conversation),
                     text={"format": {"type": "text"}},
                     reasoning={"effort": "low"},
                     tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
@@ -723,7 +754,7 @@ async def chat(request: Request):
         print(conversation)
         response2 = client.responses.create(
             model=model_name,
-            input=conversation,
+            input=api_input(conversation),
             text={"format": {"type": "text"}},
             reasoning={"effort": "low"},
             tools=[mongo_query_tool_schema, discord_tool_schema, schedule_meeting_tool_schema, make_calls_tool_schema],
