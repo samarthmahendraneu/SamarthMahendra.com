@@ -1,4 +1,23 @@
 document.addEventListener('DOMContentLoaded', function () {
+    // Date-gated copy: [data-show-until] shows before its date and
+    // [data-show-from] on or after it, so time-sensitive text like "Incoming"
+    // retires itself without an edit. Compared at the visitor's local
+    // midnight, not UTC, so the switch lands on the named day in every
+    // timezone -- new Date('2026-10-12') would be the evening before in the US.
+    function applyDateGates(now = new Date()) {
+        const reached = iso => {
+            const [y, m, d] = iso.split('-').map(Number);
+            return now >= new Date(y, m - 1, d);
+        };
+        document.querySelectorAll('[data-show-until]').forEach(el => {
+            el.hidden = reached(el.dataset.showUntil);
+        });
+        document.querySelectorAll('[data-show-from]').forEach(el => {
+            el.hidden = !reached(el.dataset.showFrom);
+        });
+    }
+    applyDateGates();
+
     // Clean white theme — no zoom applied
 
     const marqueeTracks = document.querySelectorAll('.marquee-multi-track');

@@ -508,3 +508,9 @@ body[data-theme="dark"] .announcement-action {
         flex-basis: 100%;
     }
 }
+
+
+/* "Incoming" in the accent colour until its start date passes. */
+.showcase-kicker-upcoming {
+    color: var(--dr-terracotta);
+}
