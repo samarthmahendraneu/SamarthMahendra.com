@@ -204,6 +204,20 @@ class WatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Is he free Thursday?", self.bridge.said[0])
         self.assertTrue(self.store.get(qid)["delivered_live"])
 
+    def test_commentary_mentions_the_dropped_callback_only_when_one_was_asked_for(self):
+        plain = self.store.get(answered_question(self.store))
+        asked = self.store.get(answered_question(self.store, callback=True))
+        self.assertNotIn("call back", question_watch.reply_commentary(plain))
+        self.assertIn("no longer needed", question_watch.reply_commentary(asked))
+
+    def test_commentary_stays_well_under_the_500_token_limit(self):
+        # A rejected append used to end the call, and a Discord reply can run to
+        # thousands of characters.
+        record = self.store.get(answered_question(self.store, reply="word " * 2000))
+        said = question_watch.reply_commentary(record)
+        self.assertLess(len(said), 1400)       # ~350 tokens at ~4 characters each
+        self.assertIn("…", said)
+
     async def test_unanswered_question_stays_live_and_silent(self):
         qid = answered_question(self.store, reply=None)
         await self.run_watch([qid])

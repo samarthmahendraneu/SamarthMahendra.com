@@ -60,6 +60,9 @@ class LiveBridge:
         self.mark_timeout = mark_timeout
         self.max_catchup = max_catchup
         self.audio_start_timeout = audio_start_timeout
+        # Events whose rejection is survivable: a mid-call "by the way" that
+        # OpenAI refuses must not hang up on a caller mid-conversation.
+        self.optional_events = set()
         self.ready = asyncio.Event()
         self.audio_flowing = asyncio.Event()
         self.closed = asyncio.Event()
@@ -89,16 +92,23 @@ class LiveBridge:
             await self.live.send(json.dumps(event))
 
     async def say(self, content):
-        """Have the assistant pass on something the application learned mid-call.
+        """Have the assistant say a result the application learned mid-call.
 
-        Uses the greeting's channel: an instruction to the voice model, which
-        speaks at its next opportunity. Returns False, sending nothing, before
-        the session has started or once it is closing.
+        session.commentary.append is GPT-Live's channel for "results GPT-Live
+        should say aloud"; it is trained to paraphrase them to the caller.
+        session.instructions.append is for directives, and a result sent that
+        way was held until the caller next spoke. delegation_id is null because
+        this comes from the application, not a backend task.
+
+        Returns False, sending nothing, before the session has started or once
+        it is closing. A rejection of this event does not end the call.
         """
         if self.closing or not self.ready.is_set():
             return False
+        said = event_id()
+        self.optional_events.add(said)
         await self.send({
-            "type": "session.instructions.append", "event_id": event_id(),
+            "type": "session.commentary.append", "event_id": said,
             "delegation_id": None, "content": content,
         })
         return True
@@ -199,6 +209,9 @@ class LiveBridge:
                 logger.error("Live error code=%s command=%s param=%s message=%s",
                              error.get("code"), error.get("client_event_id"),
                              error.get("param"), error.get("message"))
+                if error.get("client_event_id") in self.optional_events:
+                    logger.warning("Rejected a mid-call update; keeping the call up")
+                    continue
                 # A rejected tool result/continuation can strand a call. Do not
                 # retry side effects or silently leave the caller waiting.
                 raise RuntimeError("OpenAI rejected a Live command")

@@ -255,18 +255,34 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             await bridge.send_audio()
         return sent_at
 
-    async def test_say_speaks_through_the_voice_model_only_while_live(self):
+    async def test_say_sends_commentary_only_while_live(self):
         self.assertFalse(await self.bridge.say("too early"))
         await self.start()
         self.assertTrue(await self.bridge.say("Samarth replied"))
         event = self.live.sent[-1]
-        self.assertEqual(event["type"], "session.instructions.append")
+        # Commentary is spoken aloud; instructions were held until the caller spoke.
+        self.assertEqual(event["type"], "session.commentary.append")
         self.assertIsNone(event["delegation_id"])
         self.assertEqual(event["content"], "Samarth replied")
         self.bridge.closing = True
         self.assertFalse(await self.bridge.say("too late"))
         self.bridge.closing = False
         await self.stop()
+
+    async def test_a_rejected_update_keeps_the_call_up_but_other_rejections_end_it(self):
+        await self.start()
+        await self.bridge.say("Samarth replied")
+        self.live.feed({"type": "error", "error": {
+            "code": "invalid_request_error", "client_event_id": self.live.sent[-1]["event_id"]}})
+        # Still a working call, not merely one whose teardown hasn't finished:
+        # the assistant's audio keeps reaching the caller.
+        self.live.feed({"type": "session.output_audio.delta", "delta": SPEECH})
+        await until(lambda: self.twilio.sent)
+        self.assertEqual(self.twilio.sent[-1]["media"]["payload"], SPEECH)
+        self.live.feed({"type": "error", "error": {
+            "code": "invalid_request_error", "client_event_id": "tool-result-1"}})
+        with self.assertRaises(RuntimeError):
+            await asyncio.wait_for(self.task, 1)
 
     async def test_startup_backlog_drains_instead_of_delaying_every_turn(self):
         # Twilio already delivers in real time, so pacing a queue that never
