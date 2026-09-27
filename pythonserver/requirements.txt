@@ -6,6 +6,8 @@ pymongo
 redis
 celery
 discord.py
+# discord_listener.py places callbacks through Twilio
+twilio
 httpx
 requests
 # Optional: For async tasks

@@ -1,6 +1,7 @@
 """Always-on Discord bot for live questions to Samarth.
 
-Runs as its own process. It stays logged in so posting a question is instant:
+Runs next to the Celery worker; start_workers.sh launches both. It stays
+logged in so posting a question is instant:
 ask_and_get_reply connects a fresh client per question and can spend 30s just
 reaching ready, which is longer than a caller will hold.
 

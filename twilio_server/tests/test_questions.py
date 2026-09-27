@@ -1,7 +1,20 @@
+import importlib.util
+import pathlib
 import unittest
 from unittest.mock import Mock
 
 from question_store import QuestionStore
+
+REPO = pathlib.Path(__file__).resolve().parents[2]
+
+
+def load_listener():
+    """discord_listener.py runs on the pythonserver worker, so it lives there."""
+    spec = importlib.util.spec_from_file_location(
+        "discord_listener", REPO / "pythonserver" / "discord_listener.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class FakeRedis:
@@ -89,7 +102,7 @@ class StoreTests(unittest.TestCase):
 
 class CallbackMessageTests(unittest.TestCase):
     def test_callback_call_carries_the_question_and_answer(self):
-        from discord_listener import place_callback
+        place_callback = load_listener().place_callback
         client = Mock()
         client.calls.create.return_value = Mock(sid="CA9")
         record = {"question": "Is he free Thursday?", "reply": "Thursday after 2pm",
@@ -99,6 +112,18 @@ class CallbackMessageTests(unittest.TestCase):
         self.assertIn("script=2", url)
         self.assertIn("Thursday+after+2pm", url)
         self.assertEqual(client.calls.create.call_args.kwargs["to"], "+16175550123")
+
+
+
+class SharedStoreTests(unittest.TestCase):
+    def test_both_services_use_the_same_question_store(self):
+        # The voice agent (twilio_server) and the listener (pythonserver) are
+        # deployed from separate folders, so each carries a copy. Letting them
+        # drift is how a worker ends up not knowing a task the web service sends.
+        voice = (REPO / "twilio_server" / "question_store.py").read_text()
+        listener = (REPO / "pythonserver" / "question_store.py").read_text()
+        self.assertEqual(voice, listener,
+                         "question_store.py differs between twilio_server/ and pythonserver/")
 
 
 if __name__ == "__main__":
