@@ -25,6 +25,7 @@ from celery_worker import tool_call_fn
 import mongo_tool
 from live_bridge import LiveBridge
 from question_store import QuestionStore
+from question_watch import finish_questions, watch_questions
 from live_config import LIVE_URL, TOOLS, VOICEMAIL_TOOLS, LiveSettings, greeting, session_config
 
 logger = logging.getLogger(__name__)
@@ -142,7 +143,9 @@ def describe_reply(question_id):
                         "been going on for more than about fifteen seconds.")}
 
 
-def make_tool_executor(context, voicemail=False):
+def make_tool_executor(context, voicemail=False, asked=None):
+    """asked, when given, collects the ids of questions this call puts to
+    Samarth, so the call can speak his reply the moment it lands."""
     schemas = {tool["name"]: tool["parameters"] for tool in (VOICEMAIL_TOOLS if voicemail else TOOLS)}
 
     async def execute(name, call_id, args):
@@ -163,9 +166,15 @@ def make_tool_executor(context, voicemail=False):
         if name == "ask_samarth":
             question_id = await asyncio.to_thread(
                 questions.ask, args["question"], args["caller_name"], context.get("call_sid", ""))
+            # Live from the moment it's asked, so a reply that lands before the
+            # call's watch first ticks is still spoken rather than called back.
+            await asyncio.to_thread(questions.mark_live, question_id)
+            if asked is not None:
+                asked.append(question_id)
             logger.info("Asked Samarth question=%s", question_id)
             return {"status": "asked", "question_id": question_id,
-                    "message": "Posted to Samarth. Keep talking and check back shortly."}
+                    "message": ("Posted to Samarth. You will be told as soon as he replies; "
+                                "keep the conversation going meanwhile.")}
         if name == "check_samarth_reply":
             return await asyncio.to_thread(describe_reply, args["question_id"])
         if name == "request_callback":
@@ -273,11 +282,18 @@ async def handle_stream(websocket, voicemail=False):
             logger.info("Live socket open stream=%s in=%.2fs", stream_sid,
                         time.monotonic() - started)
             stage = "bridge"
+            asked = []
             bridge = LiveBridge(
                 websocket, live, start["streamSid"], session_config(SETTINGS, context, voicemail),
-                greeting(context, voicemail), make_tool_executor(context, voicemail),
+                greeting(context, voicemail), make_tool_executor(context, voicemail, asked),
             )
-            await bridge.run()
+            watch = asyncio.create_task(watch_questions(bridge, asked, questions))
+            try:
+                await bridge.run()
+            finally:
+                watch.cancel()
+                await asyncio.gather(watch, return_exceptions=True)
+                await finish_questions(asked, questions)
         stage = "done"
     except WebSocketDisconnect:
         logger.info("Twilio disconnected stream=%s stage=%s after=%.1fs",

@@ -88,6 +88,21 @@ class LiveBridge:
         async with self.send_lock:
             await self.live.send(json.dumps(event))
 
+    async def say(self, content):
+        """Have the assistant pass on something the application learned mid-call.
+
+        Uses the greeting's channel: an instruction to the voice model, which
+        speaks at its next opportunity. Returns False, sending nothing, before
+        the session has started or once it is closing.
+        """
+        if self.closing or not self.ready.is_set():
+            return False
+        await self.send({
+            "type": "session.instructions.append", "event_id": event_id(),
+            "delegation_id": None, "content": content,
+        })
+        return True
+
     async def read_twilio(self):
         async for raw in self.twilio.iter_text():
             event = json.loads(raw)

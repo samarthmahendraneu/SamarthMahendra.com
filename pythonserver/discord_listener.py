@@ -1,14 +1,16 @@
 """Always-on Discord bot for live questions to Samarth.
 
-Runs next to the Celery worker; start_workers.sh launches both. It stays
-logged in so posting a question is instant:
-ask_and_get_reply connects a fresh client per question and can spend 30s just
-reaching ready, which is longer than a caller will hold.
+Runs next to the Celery worker on the pythonserver service. It stays logged
+in so posting a question is instant: ask_and_get_reply connects a fresh client
+per question and can spend 30s just reaching ready, which is longer than a
+caller will hold.
 
 Responsibilities:
   - post queued questions to the channel
   - record replies against the question they answer
-  - ring the caller back when a reply lands on a question that asked for one
+  - leave a reply alone if the caller is still on the line (the call speaks
+    it), otherwise ring them back if they asked for a callback
+  - ring back callers whose reply landed just as their call ended
 """
 
 import asyncio
@@ -68,33 +70,49 @@ class Listener(discord.Client):
             self.pump = asyncio.create_task(self.post_pending())
 
     async def post_pending(self):
-        """Drain queued questions onto the channel as they are asked."""
+        """Post questions as they're asked; ring back calls that ended mid-reply."""
         while not self.is_closed():
             try:
                 record = await asyncio.to_thread(self.store.pop_for_posting)
-                if record is None:
+                if record is not None:
+                    who = record.get("caller_name") or "A caller"
+                    await self.channel.send(
+                        f"**{who} is on the phone and asks:**\n{record['question']}\n"
+                        "_(reply here; if they're still on the call they'll hear it straight away)_"
+                    )
+                    logger.info("Posted question %s to Discord", record["id"])
+                question_id = await asyncio.to_thread(self.store.pop_callback)
+                if question_id is not None:
+                    handed_over = await asyncio.to_thread(self.store.get, question_id)
+                    if handed_over is not None:
+                        await self.maybe_call_back(handed_over)
+                if record is None and question_id is None:
                     await asyncio.sleep(POLL_INTERVAL)
-                    continue
-                who = record.get("caller_name") or "A caller"
-                await self.channel.send(
-                    f"**{who} is on the phone and asks:**\n{record['question']}\n"
-                    f"_(reply here; answering within ~15s reaches them live)_"
-                )
-                logger.info("Posted question %s to Discord", record["id"])
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("Failed to post a queued question")
+                logger.exception("Failed to post a question or place a handed-over callback")
                 await asyncio.sleep(POLL_INTERVAL)
 
     async def on_message(self, message):
         if message.author.id == self.user.id or message.channel.id != self.channel_id:
             return
-        record = await asyncio.to_thread(self.store.answer, message.content)
+        await self.on_reply(message.content)
+
+    async def on_reply(self, content):
+        record = await asyncio.to_thread(self.store.answer, content)
         if record is None:
             return          # nothing was waiting; ordinary channel chatter
         logger.info("Recorded reply for question %s", record["id"])
-        await self.maybe_call_back(record)
+        who = record.get("caller_name") or "They"
+        if await asyncio.to_thread(self.store.is_live, record["id"]):
+            # The call is still going; its watch speaks the reply within a second.
+            await self.channel.send(f"{who} is still on the call, so they'll hear that now.")
+        elif record.get("callback_state") == "requested":
+            await self.maybe_call_back(record)
+        else:
+            await self.channel.send(
+                f"{who} had already hung up and didn't ask for a call back. The reply is saved.")
 
     async def maybe_call_back(self, record):
         if record.get("callback_state") != "requested" or not record.get("callback_number"):

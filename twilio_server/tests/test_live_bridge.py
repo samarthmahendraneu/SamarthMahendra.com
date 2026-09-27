@@ -255,6 +255,19 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             await bridge.send_audio()
         return sent_at
 
+    async def test_say_speaks_through_the_voice_model_only_while_live(self):
+        self.assertFalse(await self.bridge.say("too early"))
+        await self.start()
+        self.assertTrue(await self.bridge.say("Samarth replied"))
+        event = self.live.sent[-1]
+        self.assertEqual(event["type"], "session.instructions.append")
+        self.assertIsNone(event["delegation_id"])
+        self.assertEqual(event["content"], "Samarth replied")
+        self.bridge.closing = True
+        self.assertFalse(await self.bridge.say("too late"))
+        self.bridge.closing = False
+        await self.stop()
+
     async def test_startup_backlog_drains_instead_of_delaying_every_turn(self):
         # Twilio already delivers in real time, so pacing a queue that never
         # empties holds the backlog forever: audio buffered while the session
