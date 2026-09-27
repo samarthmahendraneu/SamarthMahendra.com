@@ -188,6 +188,48 @@ class EndpointTests(unittest.TestCase):
         self.assertEqual(query, {"script": ["2"], "name": ["Alice & Bob"], "message": ["Hiring?"]})
 
 
+    def test_typed_numbers_are_normalised_to_e164(self):
+        cases = {
+            "857-707-1671": "+18577071671",
+            "(857) 707 1671": "+18577071671",
+            "857.707.1671": "+18577071671",
+            "1 857 707 1671": "+18577071671",
+            "+44 20 7946 0958": "+442079460958",
+            "+18577071671": "+18577071671",
+        }
+        for typed, expected in cases.items():
+            self.assertEqual(main.to_e164(typed), expected, typed)
+        for bad in ("707-1671", "12345", "call me", "", None, 8577071671):
+            self.assertIsNone(main.to_e164(bad), bad)
+
+    def test_outbound_call_dials_a_formatted_number_in_e164(self):
+        with patch.object(main.twilio_client.calls, "create", return_value=SimpleNamespace(sid="CA-1")) as create:
+            self.client.post("/start-calls", json={"numbers": ["(857) 707-1671"], "name": "A"})
+        self.assertEqual(create.call_args.kwargs["to"], "+18577071671")
+
+    def test_a_single_number_string_is_one_call_not_one_per_character(self):
+        with patch.object(main.twilio_client.calls, "create", return_value=SimpleNamespace(sid="CA-1")) as create:
+            response = self.client.post("/start-calls", json={"numbers": "+18577071671", "name": "A"})
+        self.assertEqual(create.call_count, 1)
+        self.assertEqual(response.json()["calls"][0]["sid"], "CA-1")
+
+    def test_an_invalid_number_is_rejected_before_reaching_twilio(self):
+        with patch.object(main.twilio_client.calls, "create") as create:
+            response = self.client.post("/start-calls", json={"numbers": ["707-1671"], "name": "A"})
+        create.assert_not_called()
+        self.assertIn("country code", response.json()["calls"][0]["error"])
+
+    def test_twilio_rejection_is_reported_with_its_reason(self):
+        rejected = Exception("HTTP 400")
+        rejected.code, rejected.msg = 13223, "Invalid phone number format"
+        with patch.object(main.twilio_client.calls, "create", side_effect=rejected), \
+                self.assertLogs("main", level="WARNING") as logs:
+            response = self.client.post("/start-calls", json={"numbers": ["+18577071671"], "name": "A"})
+        result = response.json()["calls"][0]
+        self.assertEqual(result["twilio_code"], 13223)
+        self.assertIn("Invalid phone number format", result["error"])
+        self.assertIn("code=13223", logs.output[0])
+
 class StreamTests(unittest.IsolatedAsyncioTestCase):
     async def test_route_waits_for_twilio_start_and_connects_to_live(self):
         token = main.contexts.put({"script": "1", "name": "Alice", "message": ""})

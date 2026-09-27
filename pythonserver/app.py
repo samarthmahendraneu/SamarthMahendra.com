@@ -209,7 +209,7 @@ make_calls_tool_schema = {
             "numbers": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "List of phone numbers to call"
+                "description": "Phone numbers to call, each in E.164 format with the country code, e.g. +16175550123"
             },
             "name": {
                 "type": "string",

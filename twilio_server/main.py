@@ -32,7 +32,32 @@ logger = logging.getLogger(__name__)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SETTINGS = LiveSettings.from_env(os.environ)
 PORT = int(os.getenv("PORT", "5050"))
-TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "+18339703274")
+# The account's own number is US, so a bare 10-digit number is taken as US.
+DEFAULT_COUNTRY_CODE = "1"
+
+
+def to_e164(raw):
+    """Normalise a typed phone number to E.164, or None if it can't be.
+
+    Twilio rejects anything else with error 13223. Numbers reach /start-calls
+    as the chatbot's model transcribed them, e.g. "857-707-1671".
+    """
+    if not isinstance(raw, str):
+        return None
+    number = re.sub(r"[\s().\-]", "", raw)
+    if not number.startswith("+"):
+        if len(number) == 10:
+            number = "+" + DEFAULT_COUNTRY_CODE + number
+        elif len(number) == 11 and number.startswith(DEFAULT_COUNTRY_CODE):
+            number = "+" + number
+    return number if re.fullmatch(r"\+[1-9]\d{7,14}", number) else None
+
+
+_from_number = os.getenv("TWILIO_FROM_NUMBER", "+18339703274")
+TWILIO_FROM_NUMBER = to_e164(_from_number) or _from_number
+if TWILIO_FROM_NUMBER != _from_number or not to_e164(_from_number):
+    logger.warning("TWILIO_FROM_NUMBER %r is not E.164; using %r",
+                   _from_number, TWILIO_FROM_NUMBER)
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://twillio-ai-assistant.onrender.com").rstrip("/")
 
 if not OPENAI_API_KEY:
@@ -333,18 +358,31 @@ async def handle_media_stream_voicemail(websocket: WebSocket):
 async def start_calls(request: Request):
     body = await request.json()
     numbers = body.get("numbers", ["+18577071671"])
+    if isinstance(numbers, str):
+        # One number sent as a string would otherwise be dialled per character.
+        numbers = [numbers]
     query = urlencode({"script": "2", "name": body.get("name", ""), "message": body.get("message", "")})
     url = f"{PUBLIC_BASE_URL}/incoming-call?{query}"
     results = []
-    for index, number in enumerate(numbers):
+    for index, raw in enumerate(numbers):
+        number = to_e164(raw)
+        if number is None:
+            logger.warning("Outbound call skipped: %r is not a phone number Twilio can dial", raw)
+            results.append({"to": raw, "error": (
+                "Not a valid phone number. Include the country code, e.g. +16175550123.")})
+            continue
         try:
             call = await asyncio.to_thread(twilio_client.calls.create, to=number,
                                            from_=TWILIO_FROM_NUMBER, url=url)
             results.append({"to": number, "sid": call.sid})
             if index < len(numbers) - 1:
                 await asyncio.sleep(15)
-        except Exception:
-            results.append({"to": number, "error": "Call could not be started"})
+        except Exception as exc:
+            # Twilio's own code and message say what's wrong; pass them on.
+            code, msg = getattr(exc, "code", None), getattr(exc, "msg", None) or str(exc)
+            logger.warning("Outbound call failed to=%s code=%s (%s)", number, code, msg)
+            results.append({"to": number, "error": f"Call could not be started: {msg}",
+                            "twilio_code": code})
     return {"status": "done", "calls": results}
 
 
