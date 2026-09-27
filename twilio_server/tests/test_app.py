@@ -88,6 +88,25 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("incomplete", result["notifications"])
         self.assertEqual(mongo.insert_meeting.call_count, 1)
 
+    async def test_caller_response_is_relayed_to_discord_with_its_question(self):
+        execute = main.make_tool_executor({"name": "Hrushank", "message": "Coming to the party?"})
+        result = await execute("save_reponse_from_caller", "r1", {"response": "Yes"})
+        self.assertEqual(result["relay"], "queued")
+        name, call_id, payload = worker.tool_call_fn.delay.call_args.args
+        self.assertEqual(name, "send_discord_message")
+        for part in ("Hrushank", "Coming to the party?", "Yes"):
+            self.assertIn(part, payload["content"])
+        # One copy of the response, not a second empty one in messages_relayed.
+        mongo.save_relayed_message.assert_not_called()
+
+    async def test_relay_failure_is_logged_with_its_cause(self):
+        worker.tool_call_fn.delay.side_effect = RuntimeError("broker down")
+        with self.assertLogs("main", level="WARNING") as logs:
+            result = await main.make_tool_executor({})(
+                "save_reponse_from_caller", "r1", {"response": "Yes"})
+        self.assertIn("incomplete", result["relay"])
+        self.assertIn("RuntimeError: broker down", logs.output[0])
+
     async def test_relayed_message_is_saved_and_queued_for_discord(self):
         args = {"caller_name": "Alice", "message": "Call me about the offer"}
         result = await main.make_tool_executor({})("send_messages_to_samarth", "r1", args)

@@ -95,18 +95,38 @@ def schedule_meeting(args):
             "notifications": "queued"}
 
 
+def queue_discord_message(content):
+    """Queue a Discord post; False, with the reason logged, if it can't be queued.
+
+    Only the enqueue is guarded. Building the message stays outside the try so
+    a bug there fails loudly instead of being reported as a broker problem.
+    """
+    try:
+        tool_call_fn.delay("send_discord_message", None, {"content": content})
+        return True
+    except Exception as exc:
+        logger.warning("Discord relay enqueue failed (%s: %s)", type(exc).__name__, exc)
+        return False
+
+
+def relay_status(message_id, relayed):
+    # Saving already succeeded: don't tell the model to retry and send it twice.
+    return {"status": "saved", "message_id": message_id,
+            "relay": "queued" if relayed else "incomplete; delivery must be checked"}
+
+
 def relay_message_to_samarth(call_id, args):
     message_id = mongo_tool.save_relayed_message(call_id, args)
-    try:
-        tool_call_fn.delay("send_discord_message", None, {"content": (
-            f"Phone message from {args['caller_name']}: {args['message']}"
-        )})
-    except Exception:
-        # Saving succeeded: don't tell the model to retry and send it twice.
-        logger.warning("Caller message saved but Discord relay enqueue was incomplete")
-        return {"status": "saved", "message_id": message_id,
-                "relay": "incomplete; delivery must be checked"}
-    return {"status": "saved", "message_id": message_id, "relay": "queued"}
+    content = f"Phone message from {args['caller_name']}: {args['message']}"
+    return relay_status(message_id, queue_discord_message(content))
+
+
+def relay_caller_response(context, response):
+    """Tell Samarth what a caller answered, alongside what they were asked."""
+    who = context.get("name") or "A caller"
+    asked = context.get("message")
+    about = f' to "{asked}"' if asked else ""
+    return queue_discord_message(f"Reply from {who}{about}: {response}")
 
 
 def describe_reply(question_id):
@@ -169,7 +189,10 @@ def make_tool_executor(context, voicemail=False):
                 mongo_tool.mongo_save_message, context.get("name", ""),
                 context.get("message", ""), args["response"],
             )
-            return await asyncio.to_thread(relay_message_to_samarth, call_id, args)
+            # Not relay_message_to_samarth: that expects caller_name/message
+            # and would store a second, empty copy of this response.
+            relayed = await asyncio.to_thread(relay_caller_response, context, args["response"])
+            return relay_status(message_id, relayed)
         else:
             # mongo_tool expects (call_id, args), not three positional strings.
             message_id = await asyncio.to_thread(mongo_tool.save_voice_mail_message, call_id, args)
