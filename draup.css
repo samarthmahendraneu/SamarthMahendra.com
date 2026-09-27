@@ -38,6 +38,8 @@
     --dr-shimmer: linear-gradient(100deg,
         currentColor 36%, var(--dr-terracotta) 46%, var(--dr-blue) 54%, currentColor 64%);
     --dr-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    /* One full shimmer cycle. The sweep is 60% of it; the rest is rest. */
+    --dr-shimmer-duration: 4s;
 
     /* Re-point the existing tokens so every var()-driven rule follows. */
     --bg-main: var(--dr-cream);
@@ -80,15 +82,15 @@ body[data-font-preset="draup"] .type-lab-title {
     font-style: normal;
 }
 
+/* Tracking only, no font-size: styles.css tunes these sizes per breakpoint,
+   and a size here would match the specificity of its mobile rules while
+   loading later, overriding all of them. Geist already reads larger than the
+   old serif at the same size because of its taller x-height. */
 body[data-font-preset="draup"] .hero-display-name {
-    font-size: clamp(3.4rem, 7vw, 6.2rem);
-    line-height: 0.98;
     letter-spacing: -0.045em;
 }
 
 body[data-font-preset="draup"] .stacked-section-title {
-    font-size: clamp(2.2rem, 4.4vw, 3.5rem);
-    line-height: 1.08;
     letter-spacing: -0.035em;
 }
 
@@ -118,7 +120,7 @@ body[data-font-preset="draup"] .hero-display-name .dn-line {
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: dr-shimmer 7s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+    animation: dr-shimmer var(--dr-shimmer-duration) cubic-bezier(0.45, 0, 0.2, 1) infinite;
 }
 
 body[data-font-preset="draup"] .hero-display-name .dn-line + .dn-line {
@@ -131,8 +133,8 @@ body[data-font-preset="draup"] .dn-indent {
 }
 
 @keyframes dr-shimmer {
-    0%, 18% { background-position: 100% 0; }
-    62%, 100% { background-position: 0% 0; }
+    0%, 12% { background-position: 100% 0; }
+    72%, 100% { background-position: 0% 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -493,4 +495,16 @@ body[data-theme="dark"] .announcement-action {
     font-family: var(--dr-mono);
     font-weight: 500;
     letter-spacing: 0.04em;
+}
+
+
+/* ---------- Hero eyebrows ---------- */
+/* Location and specialties used to sit on one line, told apart by case:
+   sentence-case sans against uppercase. With both now uppercase mono they
+   read as one string, so on desktop the specialties take their own line.
+   Mobile already stacks and centres them. */
+@media (min-width: 769px) {
+    .hero-availability-note {
+        flex-basis: 100%;
+    }
 }
