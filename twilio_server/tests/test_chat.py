@@ -169,6 +169,18 @@ class ChatTests(unittest.TestCase):
         self.assertIsNone(agent.follow_up(SESSION))
         self.assertEqual(len(self.model.requests), 3)
 
+    def test_the_news_says_when_a_call_back_was_booked(self):
+        agent = self.agent(calls(("c1", "ask_samarth", {"question": "Free?", "visitor_name": ""})),
+                           reply("Asked."), reply("He's free; we're calling you."))
+        question_id = self.ask(agent)
+        agent.questions.request_callback(question_id, "Ann", "+16175550123")
+        agent.questions.answer(question_id, "Yes")
+        agent.questions.claim_callback(question_id)          # the listener booked it
+        agent.events.publish(CHAT, "question.answered", question_id=question_id)
+        agent.follow_up(SESSION)
+        self.assertIn("a call back with his answer has been booked",
+                      self.model.inputs()[-1]["content"][0]["text"])
+
     def test_news_not_yet_told_is_part_of_the_next_turn(self):
         agent = self.agent(calls(("c1", "ask_samarth", {"question": "Free?", "visitor_name": ""})),
                            reply("Asked."), reply("He says yes, and to your question: no."))

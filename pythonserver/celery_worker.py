@@ -28,7 +28,9 @@ logger.info("[Celery Worker] Starting celery_worker.py")
 CELERY_BROKER_URL = os.getenv("REDIS_URL")
 
 CELERY_BROKER_URL = os.getenv("REDIS_URL")
-logger.info(f"[Celery Worker] Using broker URL: {CELERY_BROKER_URL}")
+# Never log the URL itself: it carries the Redis password.
+logger.info("[Celery Worker] Using broker at %s",
+            (CELERY_BROKER_URL or "").rpartition("@")[2] or "(REDIS_URL not set)")
 
 celery_app = Celery(
     "celery_worker",
@@ -43,7 +45,6 @@ celery_app.conf.update(
     timezone='UTC',
     enable_utc=True,
 )
-logger.info(f"[Celery Worker] Celery configuration: {celery_app.conf}")
 
 from discord_tool import send_message_to_channel
 

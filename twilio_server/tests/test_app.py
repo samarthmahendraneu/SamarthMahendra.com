@@ -450,7 +450,7 @@ class CallbackEndpointTests(unittest.TestCase):
         self.record = main.callbacks.schedule(
             "+16175550123", "Alice", purpose="You asked: Free Friday? Samarth's answer is: Yes",
             voicemail="Hi Alice, Samarth says yes.", now=time.time())
-        (self.record,) = main.callbacks.claim_due(now=time.time() + 86400)
+        (self.record,) = main.callbacks.claim_due(now=self.record["due_at"])
         main.callbacks.dialed(self.record["id"], "CA1")
 
     def test_a_person_answering_is_connected_to_the_agent_with_the_reason(self):

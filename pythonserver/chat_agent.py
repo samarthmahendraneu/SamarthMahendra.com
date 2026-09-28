@@ -518,7 +518,10 @@ class ChatAgent:
         """Samarth's answer, as news; each answer is told once."""
         session["pending"].pop(record["id"], None)
         session["told"] = (session.get("told", []) + [record["id"]])[-50:]
-        return f'Samarth replied on Discord to "{clip(record["question"])}": "{clip(record["reply"])}"'
+        line = f'Samarth replied on Discord to "{clip(record["question"])}": "{clip(record["reply"])}"'
+        if record.get("callback_state") == "placed":
+            line += " They had left the chat, so a call back with his answer has been booked."
+        return line
 
     def unseen_answers(self, session):
         """Questions this chat is waiting on that have an answer, found by

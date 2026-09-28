@@ -39,6 +39,8 @@ RETRY_DELAYS = (10 * 60, 30 * 60)
 MAX_PER_NUMBER_PER_DAY = 3
 # How far ahead a caller can book a call.
 MAX_AHEAD = 14 * 86400
+# A call this overdue (the scheduler was down) is not placed at night.
+LATE = 15 * 60
 ID_PATTERN = re.compile(r"[0-9a-f]{32}")
 E164 = re.compile(r"\+[1-9]\d{7,14}")
 # +1 numbers that are not the US or Canada: Caribbean and Atlantic islands
@@ -188,6 +190,14 @@ class CallbackStore:
             record = self.get(callback_id)
             if record is None or record["state"] != "scheduled":
                 continue
+            if now - record["due_at"] > LATE:
+                on_time = self.calling_time(now, record.get("timezone"))
+                if on_time > now:
+                    # Hours late and it's night where they are: wait for morning.
+                    record["due_at"] = on_time
+                    self.save(record)
+                    self.redis.zadd(DUE_KEY, {callback_id: on_time})
+                    continue
             record["state"] = "dialing"
             record["attempts"] += 1
             self.save(record)

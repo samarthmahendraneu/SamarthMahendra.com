@@ -83,6 +83,7 @@ class Listener(discord.Client):
             return
         self.scheduler = asyncio.create_task(callback_scheduler.run(
             self.callbacks, self.twilio_client, self.from_number, PUBLIC_BASE_URL, self.notify))
+        logger.info("Call back scheduler running from %s", self.from_number)
 
     async def on_ready(self):
         self.channel = self.get_channel(self.channel_id)
@@ -246,7 +247,11 @@ class Listener(discord.Client):
             await self.notify("I could not book the call back. They have not been told.", about=record)
             return
         logger.info("Callback %s booked for question %s", booked["id"], record["id"])
-        if booked["due_at"] <= booked["created_at"] + 1:
+        if self.scheduler is None:
+            # Booked, and placed once the worker can dial, but not by this one.
+            await self.notify("I booked the call back, but this worker can't place calls: set "
+                              "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN on it.", about=record)
+        elif booked["due_at"] <= booked["created_at"] + 1:
             await self.notify(f"Calling {name or 'them'} back now.", about=record)
         else:
             await self.notify(f"It's outside calling hours where they are, so I'll call "

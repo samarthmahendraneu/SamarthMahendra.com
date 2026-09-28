@@ -108,6 +108,19 @@ class CallbackStoreTests(unittest.TestCase):
         self.assertEqual(self.store.claim_due(now=eastern(1, 15)), [])
         self.assertEqual(self.store.get(later["id"])["state"], "scheduled")
 
+    def test_a_call_that_is_hours_late_waits_for_morning_not_rings_at_night(self):
+        # The scheduler was down: a 2pm call found at 11pm must not ring then.
+        record = self.book(now=eastern(1, 14))
+        self.assertEqual(self.store.claim_due(now=eastern(1, 23)), [])
+        self.assertEqual(self.store.get(record["id"])["due_at"], eastern(2, 10))
+        (claimed,) = self.store.claim_due(now=eastern(2, 10))
+        self.assertEqual(claimed["id"], record["id"])
+
+    def test_a_late_call_still_inside_calling_hours_goes_out(self):
+        record = self.book(now=eastern(1, 14))
+        (claimed,) = self.store.claim_due(now=eastern(1, 16))
+        self.assertEqual(claimed["id"], record["id"])
+
     def test_a_cancelled_call_back_is_never_placed(self):
         record = self.book()
         self.store.cancel(record["id"])
