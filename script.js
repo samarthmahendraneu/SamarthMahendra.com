@@ -18,6 +18,127 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     applyDateGates();
 
+    // Keep the chat button off the content a visitor lands on. What sits
+    // under its corner depends on screen size, zoom and browser chrome, so no
+    // fixed offset works everywhere, and device detection goes stale with
+    // every new screen. Instead, measure the real layout: find the text, icons
+    // and controls on the first screen, and if any sit under the button's
+    // resting spot, lift it just clear of them. As they scroll away it follows
+    // them, then settles back into its corner. Content further down is left
+    // alone and scrolls under the button like under any floating control.
+    function keepChatButtonClear() {
+        const button = document.getElementById('chatbot-toggle');
+        const main = document.querySelector('main');
+        if (!button || !main) return;
+        // Text and icons under the button read as broken. Clipping the edge
+        // of a button or chip is only untidy, so those are given up first
+        // when no clear spot is close enough; images and card backgrounds
+        // are fine to float over.
+        const CONTROLS = 'a, button, input, select, textarea, [role="button"], ' +
+            '.hero-status-chip, .hero-floating-chip';
+        const GAP = 10;            // clearance kept once the button has to move
+        const MAX_LIFT = 0.25;     // of the screen height; a clear spot further up doesn't count
+        let marks = [];            // first-screen content, in page coordinates
+        let dodge = null;          // the marks the button keeps clear of, or null
+        let lift = 0;
+        let stale = true;
+        let queued = false;
+
+        const measure = () => {
+            // offsetTop/Left give the resting spot: they ignore the lift, so a
+            // lift still animating can't skew the measurement.
+            const left = button.offsetLeft - GAP;
+            const right = button.offsetLeft + button.offsetWidth + GAP;
+            const y = scrollY, screen = innerHeight;
+            const range = document.createRange();
+            marks = [];
+            const add = (r, hard) => {
+                if (r.width > 1 && r.height > 1 && r.left < right && r.right > left && r.top + y < screen) {
+                    marks.push({ top: r.top + y, bottom: r.bottom + y, left: r.left, right: r.right, hard });
+                }
+            };
+            for (const section of main.children) {
+                const box = section.getBoundingClientRect();
+                if (!box.height) continue;
+                if (box.top + y >= screen) break;
+                const each = (selector, mark) =>
+                    section.querySelectorAll(selector).forEach(el => mark(el.getBoundingClientRect()));
+                // Cards are judged by what's in them, not by their outline.
+                each(CONTROLS, r => r.height <= 64 && add(r, false));
+                each('i, svg', r => r.height <= 64 && add(r, true));
+                each('[data-keep-clear]', r => add(r, true));
+                const text = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
+                while (text.nextNode()) {
+                    if (!text.currentNode.data.trim()) continue;
+                    range.selectNodeContents(text.currentNode);
+                    for (const r of range.getClientRects()) add(r, true);
+                }
+            }
+        };
+
+        // Smallest lift that clears every mark in `list` with the page
+        // scrolled to `y`, or Infinity if there's none within `limit`.
+        // Clearing one mark can land on the next one up, so keep climbing.
+        const clearance = (list, y, limit) => {
+            const top = button.offsetTop + y, bottom = top + button.offsetHeight;
+            const left = button.offsetLeft, right = left + button.offsetWidth;
+            // Only move for something actually underneath, not merely close.
+            if (!list.some(m => m.top < bottom && m.bottom > top && m.left < right && m.right > left)) return 0;
+            let next = 0;
+            while (next <= limit) {
+                const hit = list.filter(m => m.top < bottom - next + GAP && m.bottom > top - next - GAP);
+                if (!hit.length) return next;
+                next = bottom - Math.min(...hit.map(m => m.top)) + GAP;
+            }
+            return Infinity;
+        };
+
+        const update = () => {
+            queued = false;
+            if (!button.offsetWidth) return;              // hidden while the chat is open
+            if (stale) {
+                measure();
+                stale = false;
+                // Decide on the landing view: clear everything if that's
+                // close, else at least the text and icons, else stay put.
+                const limit = innerHeight * MAX_LIFT;
+                dodge = [marks, marks.filter(m => m.hard)]
+                    .find(list => clearance(list, 0, limit) <= limit) || null;
+            }
+            let next = dodge ? clearance(dodge, scrollY, innerHeight) : 0;
+            if (next === Infinity) next = 0;
+            if (next !== lift) {
+                lift = next;
+                button.style.setProperty('--chat-lift', `${lift}px`);
+            }
+        };
+        const schedule = () => {
+            if (!queued) {
+                queued = true;
+                requestAnimationFrame(update);
+            }
+        };
+        const relayout = event => {
+            if (event && event.target === button) return;  // its own lift
+            stale = true;
+            schedule();
+        };
+        addEventListener('scroll', schedule, { passive: true });
+        addEventListener('resize', relayout);      // also fires on zoom and rotation
+        new MutationObserver(schedule).observe(button, { attributes: true, attributeFilter: ['aria-expanded'] });
+        new MutationObserver(() => relayout()).observe(document.body, {
+            attributes: true, attributeFilter: ['data-font-preset'] });
+        // Entrance animations move content after load; a fixed delay can fire
+        // mid-animation and measure the wrong layout. Re-measure whenever
+        // anything finishes animating, and once images and fonts have settled.
+        document.addEventListener('transitionend', relayout, true);
+        document.addEventListener('animationend', relayout, true);
+        addEventListener('load', () => relayout());
+        if (document.fonts) document.fonts.ready.then(() => relayout());
+        schedule();
+    }
+    keepChatButtonClear();
+
     // Clean white theme — no zoom applied
 
     const marqueeTracks = document.querySelectorAll('.marquee-multi-track');

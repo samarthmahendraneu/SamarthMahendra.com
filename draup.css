@@ -570,3 +570,18 @@ body[data-theme="dark"] .announcement-action {
 .prose-gh-link {
     min-height: 26px;
 }
+
+
+/* ---------- Chat button: lifted clear of important content ---------- */
+/* script.js (keepChatButtonClear) measures the layout and sets --chat-lift
+   when the button would cover text, icons or buttons on the first screen.
+   The separate `translate` property composes with the hover effect's
+   `transform` instead of overriding it; the existing transition animates
+   the move. */
+.chatbot-toggle {
+    translate: 0 calc(-1 * var(--chat-lift, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chatbot-toggle { transition: none; }
+}
