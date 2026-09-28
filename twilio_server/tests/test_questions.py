@@ -1,113 +1,90 @@
 import asyncio
-import importlib.util
-import pathlib
+import re
 import unittest
-from unittest.mock import AsyncMock, Mock
+from datetime import datetime
+from unittest.mock import AsyncMock, Mock, PropertyMock, patch
+from zoneinfo import ZoneInfo
 
-import question_watch
+import call_events
+from callbacks import CallbackStore
+from events import EventStream
+from memory_redis import MemoryRedis
+from worker_modules import REPO, load
+from question_store import LIVE_KEY, QuestionStore
 
-from question_store import QuestionStore
-
-REPO = pathlib.Path(__file__).resolve().parents[2]
-
-
-def load_listener():
-    """discord_listener.py runs on the pythonserver worker, so it lives there."""
-    spec = importlib.util.spec_from_file_location(
-        "discord_listener", REPO / "pythonserver" / "discord_listener.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+CALL = "call:CA" + "1" * 32
+CHAT = "chat:" + "a" * 32
+EASTERN = ZoneInfo("America/New_York")
 
 
-class FakeRedis:
-    """Enough of Redis for the store: string keys and list queues."""
+def eastern(hour):
+    return datetime(2026, 10, 1, hour, 0, tzinfo=EASTERN).timestamp()
 
-    def __init__(self):
-        self.values = {}
-        self.lists = {}
 
-    def setex(self, key, ttl, value):
-        self.values[key] = value
-
-    def get(self, key):
-        return self.values.get(key)
-
-    def rpush(self, key, value):
-        self.lists.setdefault(key, []).append(value)
-
-    def lpop(self, key):
-        items = self.lists.get(key) or []
-        return items.pop(0) if items else None
-
-    def lrem(self, key, count, value):
-        items = self.lists.get(key) or []
-        self.lists[key] = [i for i in items if i != value]
-
-    def set(self, key, value, nx=False, ex=None):
-        if nx and key in self.values:
-            return None
-        self.values[key] = value
-        return True
-
-    def exists(self, key):
-        return int(key in self.values)
-
-    def delete(self, key):
-        self.values.pop(key, None)
+def posted_question(store, question="Is he free Thursday?", origin=CALL, callback=False,
+                    reply=None, message_id=None):
+    qid = store.ask(question, "Alice", origin)
+    store.pop_for_posting()
+    if message_id is not None:
+        store.remember_post(qid, message_id)
+    if callback:
+        store.request_callback(qid, "Alice", "+16175550123")
+    if reply is not None:
+        store.answer(qid, reply)
+    return qid
 
 
 class StoreTests(unittest.TestCase):
     def setUp(self):
-        self.store = QuestionStore(FakeRedis())
+        self.store = QuestionStore(MemoryRedis())
 
     def test_question_is_queued_then_posted_once(self):
-        qid = self.store.ask("Is he free Thursday?", "Alice", "CA1")
-        self.assertEqual(self.store.get(qid)["status"], "pending")
-        record = self.store.pop_for_posting()
-        self.assertEqual(record["id"], qid)
+        qid = self.store.ask("Is he free Thursday?", "Alice", CALL)
+        record = self.store.get(qid)
+        self.assertEqual((record["status"], record["origin"]), ("pending", CALL))
+        self.assertEqual(self.store.pop_for_posting()["id"], qid)
         self.assertEqual(self.store.get(qid)["status"], "asked")
         self.assertIsNone(self.store.pop_for_posting())
 
-    def test_reply_answers_the_oldest_open_question(self):
-        first = self.store.ask("Is he free Thursday?")
-        second = self.store.ask("Is he interested?")
-        self.store.pop_for_posting()
-        self.store.pop_for_posting()
-        self.store.answer("Thursday works")
-        self.store.answer("Yes, very")
-        self.assertEqual(self.store.get(first)["reply"], "Thursday works")
+    def test_a_reply_is_matched_by_the_message_it_replies_to(self):
+        first = posted_question(self.store, "Free Thursday?", message_id=111)
+        second = posted_question(self.store, "Interested?", message_id=222)
+        self.assertEqual(self.store.question_for_post(222), second)
+        self.assertEqual(self.store.question_for_post("111"), first)
+        self.assertIsNone(self.store.question_for_post(333))
+        self.store.answer(second, "Yes, very")
         self.assertEqual(self.store.get(second)["reply"], "Yes, very")
+        self.assertIsNone(self.store.get(first)["reply"])
 
-    def test_chatter_with_nothing_open_is_not_recorded_as_an_answer(self):
-        self.assertIsNone(self.store.answer("unrelated channel message"))
+    def test_open_questions_are_the_ones_still_waiting(self):
+        answered = posted_question(self.store, "A?")
+        waiting = posted_question(self.store, "B?")
+        expired = posted_question(self.store, "C?")
+        self.store.answer(answered, "yes")
+        del self.store.redis.values["discord:q:" + expired]      # TTL elapsed
+        self.assertEqual([r["id"] for r in self.store.open_questions()], [waiting])
+        self.assertEqual(self.store.redis.lists["discord:open"], [waiting])
 
-    def test_a_question_is_not_answered_twice(self):
-        qid = self.store.ask("Is he free?")
-        self.store.pop_for_posting()
-        self.store.answer("Yes")
-        self.assertIsNone(self.store.answer("No", qid))
+    def test_a_question_is_answered_once_and_later_messages_are_follow_ups(self):
+        qid = posted_question(self.store, reply="Yes")
+        self.assertIsNone(self.store.answer(qid, "No"))
         self.assertEqual(self.store.get(qid)["reply"], "Yes")
+        record = self.store.add_followup(qid, "Actually, after 3pm")
+        self.assertEqual([f["text"] for f in record["followups"]], ["Actually, after 3pm"])
+        unanswered = posted_question(self.store)
+        self.assertIsNone(self.store.add_followup(unanswered, "hm"))
 
     def test_callback_is_claimed_once_so_the_caller_is_not_rung_twice(self):
-        qid = self.store.ask("Is he free?")
-        self.store.pop_for_posting()
-        self.store.request_callback(qid, "Alice", "+16175550123")
-        self.store.answer("Yes")
+        qid = posted_question(self.store, callback=True, reply="Yes")
         self.assertTrue(self.store.claim_callback(qid))
         self.assertFalse(self.store.claim_callback(qid))
 
     def test_callback_is_not_placed_when_none_was_requested(self):
-        qid = self.store.ask("Is he free?")
-        self.store.pop_for_posting()
-        self.store.answer("Yes")
+        qid = posted_question(self.store, reply="Yes")
         self.assertFalse(self.store.claim_callback(qid))
 
     def test_claim_is_atomic_across_processes(self):
-        qid = self.store.ask("Is he free?")
-        self.store.pop_for_posting()
-        self.store.request_callback(qid, "Alice", "+16175550123")
-        self.store.answer("Yes")
+        qid = posted_question(self.store, callback=True, reply="Yes")
         self.assertTrue(self.store.claim_callback(qid))
         # A second process that read the record before the first claim saved it
         # still sees "requested"; the SET NX claim key must stop it anyway.
@@ -115,14 +92,6 @@ class StoreTests(unittest.TestCase):
         record["callback_state"] = "requested"
         self.store.save(record)
         self.assertFalse(self.store.claim_callback(qid))
-
-    def test_live_key_tracks_whether_the_caller_is_on_the_line(self):
-        qid = self.store.ask("Is he free?")
-        self.assertFalse(self.store.is_live(qid))
-        self.store.mark_live(qid)
-        self.assertTrue(self.store.is_live(qid))
-        self.store.clear_live(qid)
-        self.assertFalse(self.store.is_live(qid))
 
     def test_delivered_flag_and_handoff_queue(self):
         first, second = self.store.ask("A?"), self.store.ask("B?")
@@ -146,21 +115,6 @@ class StoreTests(unittest.TestCase):
                 self.store.get(bad)
 
 
-class CallbackMessageTests(unittest.TestCase):
-    def test_callback_call_carries_the_question_and_answer(self):
-        place_callback = load_listener().place_callback
-        client = Mock()
-        client.calls.create.return_value = Mock(sid="CA9")
-        record = {"question": "Is he free Thursday?", "reply": "Thursday after 2pm",
-                  "callback_name": "Alice", "callback_number": "+16175550123"}
-        place_callback(record, client, "+18339703274")
-        url = client.calls.create.call_args.kwargs["url"]
-        self.assertIn("script=2", url)
-        self.assertIn("Thursday+after+2pm", url)
-        self.assertEqual(client.calls.create.call_args.kwargs["to"], "+16175550123")
-
-
-
 class FakeBridge:
     def __init__(self):
         self.closing = False
@@ -174,127 +128,283 @@ class FakeBridge:
         return True
 
 
-def answered_question(store, reply="Thursday works", callback=False):
-    qid = store.ask("Is he free Thursday?", "Alice")
-    store.pop_for_posting()
-    if callback:
-        store.request_callback(qid, "Alice", "+16175550123")
-    if reply is not None:
-        store.answer(reply)
-    return qid
-
-
-class WatchTests(unittest.IsolatedAsyncioTestCase):
+class CallEventTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.store = QuestionStore(FakeRedis())
+        redis = MemoryRedis()
+        self.store = QuestionStore(redis)
+        self.events = EventStream(redis)
         self.bridge = FakeBridge()
 
-    async def run_watch(self, asked, ticks=3):
-        task = asyncio.create_task(
-            question_watch.watch_questions(self.bridge, asked, self.store, interval=0.01))
+    async def run_watch(self, ticks=3):
+        task = asyncio.create_task(call_events.watch_call(
+            self.bridge, CALL, self.events, self.store, interval=0.01))
         await asyncio.sleep(0.01 * ticks + 0.02)
         self.bridge.closing = True
         await asyncio.wait_for(task, 1)
 
     async def test_reply_is_spoken_once_and_marked_delivered(self):
-        qid = answered_question(self.store)
-        await self.run_watch([qid], ticks=5)
+        qid = posted_question(self.store, reply="Thursday works")
+        self.events.publish(CALL, "question.answered", question_id=qid)
+        await self.run_watch(ticks=5)
         self.assertEqual(len(self.bridge.said), 1)
         self.assertIn("Thursday works", self.bridge.said[0])
         self.assertIn("Is he free Thursday?", self.bridge.said[0])
         self.assertTrue(self.store.get(qid)["delivered_live"])
 
+    async def test_finished_and_failed_jobs_are_told_to_the_caller(self):
+        self.events.publish(CALL, "job.done", job={"label": "emailing the invite to a@example.com",
+                                                   "status": "done"})
+        self.events.publish(CALL, "job.failed", job={"label": "emailing the invite to a@example",
+                                                     "status": "failed", "error": "the email address was rejected"})
+        await self.run_watch()
+        done, failed = self.bridge.said
+        self.assertIn("now done: emailing the invite to a@example.com", done)
+        self.assertIn("did not work", failed)
+        self.assertIn("the email address was rejected", failed)
+
+    async def test_follow_up_from_samarth_is_spoken_too(self):
+        qid = posted_question(self.store, reply="Yes")
+        self.store.add_followup(qid, "After 3pm though")
+        self.events.publish(CALL, "question.followup", question_id=qid, text="After 3pm though")
+        await self.run_watch()
+        self.assertIn("After 3pm though", self.bridge.said[0])
+
     def test_commentary_mentions_the_dropped_callback_only_when_one_was_asked_for(self):
-        plain = self.store.get(answered_question(self.store))
-        asked = self.store.get(answered_question(self.store, callback=True))
-        self.assertNotIn("call back", question_watch.reply_commentary(plain))
-        self.assertIn("no longer needed", question_watch.reply_commentary(asked))
+        plain = self.store.get(posted_question(self.store, reply="Yes"))
+        asked = self.store.get(posted_question(self.store, reply="Yes", callback=True))
+        self.assertNotIn("call back", call_events.reply_commentary(plain))
+        self.assertIn("no longer needed", call_events.reply_commentary(asked))
 
     def test_commentary_stays_well_under_the_500_token_limit(self):
         # A rejected append used to end the call, and a Discord reply can run to
         # thousands of characters.
-        record = self.store.get(answered_question(self.store, reply="word " * 2000))
-        said = question_watch.reply_commentary(record)
+        record = self.store.get(posted_question(self.store, reply="word " * 2000))
+        said = call_events.reply_commentary(record)
         self.assertLess(len(said), 1400)       # ~350 tokens at ~4 characters each
         self.assertIn("…", said)
+        job = call_events.job_commentary({"label": "x" * 5000, "status": "failed", "error": "y" * 5000})
+        self.assertLess(len(job), 1000)
 
-    async def test_unanswered_question_stays_live_and_silent(self):
-        qid = answered_question(self.store, reply=None)
-        await self.run_watch([qid])
+    async def test_the_call_stays_live_while_nothing_has_happened(self):
+        await self.run_watch()
         self.assertEqual(self.bridge.said, [])
-        self.assertTrue(self.store.is_live(qid))
+        self.assertTrue(self.events.is_live(CALL))
 
-    async def test_reply_not_marked_delivered_if_the_call_would_not_take_it(self):
-        qid = answered_question(self.store)
-        self.bridge.accepting = False          # session closing
-        await self.run_watch([qid])
+    async def test_news_not_taken_by_a_closing_call_is_tried_again(self):
+        qid = posted_question(self.store, reply="Yes")
+        self.events.publish(CALL, "question.answered", question_id=qid)
+        self.bridge.accepting = False
+        task = asyncio.create_task(call_events.watch_call(
+            self.bridge, CALL, self.events, self.store, interval=0.01))
+        await asyncio.sleep(0.05)
         self.assertFalse(self.store.get(qid)["delivered_live"])
+        self.bridge.accepting = True
+        await asyncio.sleep(0.05)
+        self.bridge.closing = True
+        await asyncio.wait_for(task, 1)
+        self.assertEqual(len(self.bridge.said), 1)
+        self.assertTrue(self.store.get(qid)["delivered_live"])
 
     async def test_call_end_hands_an_unspoken_reply_to_the_listener(self):
-        missed = answered_question(self.store, callback=True)
-        heard = answered_question(self.store, callback=True)
+        missed = posted_question(self.store, reply="Yes", callback=True)
+        heard = posted_question(self.store, reply="Yes", callback=True)
         self.store.mark_delivered(heard)
-        pending = answered_question(self.store, reply=None, callback=True)
-        for qid in (missed, heard, pending):
-            self.store.mark_live(qid)
-        await question_watch.finish_questions([missed, heard, pending], self.store)
+        pending = posted_question(self.store, callback=True)
+        self.events.mark_live(CALL)
+        await call_events.finish_call(CALL, [missed, heard, pending], self.events, self.store)
         # Only the reply that landed but was never spoken needs a ring-back now;
         # the pending one is rung back by the listener when its reply arrives.
         self.assertEqual(self.store.pop_callback(), missed)
         self.assertIsNone(self.store.pop_callback())
-        self.assertFalse(any(self.store.is_live(q) for q in (missed, heard, pending)))
+        self.assertFalse(self.events.is_live(CALL))
 
 
 class ListenerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         import discord
-        self.store = QuestionStore(FakeRedis())
-        self.twilio = Mock()
-        self.twilio.calls.create.return_value = Mock(sid="CA9")
-        self.listener = load_listener().Listener(
-            self.store, 123, self.twilio, "+18339703274", intents=discord.Intents.none())
-        self.listener.channel = Mock(send=AsyncMock())
+        redis = MemoryRedis()
+        self.store = QuestionStore(redis)
+        self.events = EventStream(redis)
+        self.callbacks = CallbackStore(redis)
+        self.chat_followup = Mock()
+        self.listener = load("discord_listener").Listener(
+            self.store, 123, Mock(), "+18339703274", events=self.events,
+            callbacks=self.callbacks, chat_followup=self.chat_followup,
+            intents=discord.Intents.none())
+        self.message_ids = iter(range(900, 999))
+        self.listener.channel = Mock(send=AsyncMock(
+            side_effect=lambda *a, **k: Mock(id=next(self.message_ids))))
 
     def posted(self):
         return " ".join(c.args[0] for c in self.listener.channel.send.await_args_list)
 
-    async def test_reply_while_caller_is_on_the_line_is_not_called_back(self):
-        qid = answered_question(self.store, reply=None, callback=True)
-        self.store.mark_live(qid)
+    def booked(self):
+        return [r for r in (self.callbacks.get(k.split(":")[-1]) for k in list(self.store.redis.values)
+                            if k.startswith("callback:"))]
+
+    async def test_reply_to_a_question_answers_that_question_among_several(self):
+        first = posted_question(self.store, "Free Thursday?", message_id=111)
+        second = posted_question(self.store, "Interested?", message_id=222)
+        await self.listener.on_reply("Yes, very", reference=222)
+        self.assertEqual(self.store.get(second)["reply"], "Yes, very")
+        self.assertEqual(self.store.get(first)["status"], "asked")
+        ((_, kind, data),) = self.events.read(CALL)
+        self.assertEqual((kind, data["question_id"]), ("question.answered", second))
+
+    async def test_a_plain_message_answers_the_only_open_question(self):
+        qid = posted_question(self.store)
         await self.listener.on_reply("Thursday works")
-        self.twilio.calls.create.assert_not_called()
+        self.assertEqual(self.store.get(qid)["reply"], "Thursday works")
+
+    async def test_with_several_waiting_a_plain_message_is_not_guessed(self):
+        first, second = posted_question(self.store, "A?"), posted_question(self.store, "B?")
+        await self.listener.on_reply("Yes")
+        self.assertEqual({self.store.get(q)["status"] for q in (first, second)}, {"asked"})
+        self.assertIn("Reply to the question", self.posted())
+
+    async def test_a_reply_to_some_other_message_is_not_guessed(self):
+        qid = posted_question(self.store, message_id=111)
+        await self.listener.on_reply("Yes", reference=555)
+        self.assertEqual(self.store.get(qid)["status"], "asked")
+        self.assertIn("Reply to the question", self.posted())
+
+    async def test_chatter_with_nothing_open_is_ignored(self):
+        await self.listener.on_reply("unrelated channel message")
+        self.listener.channel.send.assert_not_awaited()
+
+    async def test_reply_while_caller_is_on_the_line_is_not_called_back(self):
+        posted_question(self.store, callback=True)
+        self.events.mark_live(CALL)
+        await self.listener.on_reply("Thursday works")
+        self.assertEqual(self.booked(), [])
         self.assertIn("still on the call", self.posted())
 
-    async def test_reply_after_hang_up_rings_back_when_asked(self):
-        answered_question(self.store, reply=None, callback=True)
-        await self.listener.on_reply("Thursday works")
-        self.twilio.calls.create.assert_called_once()
+    async def test_a_caller_from_before_the_event_streams_still_counts_as_live(self):
+        qid = self.store.ask("Free?", "Alice", None)
+        self.store.pop_for_posting()
+        self.store.request_callback(qid, "Alice", "+16175550123")
+        self.store.redis.setex(LIVE_KEY + qid, 10, "1")
+        await self.listener.on_reply("Yes")
+        self.assertEqual(self.booked(), [])
+        self.assertIn("still on the call", self.posted())
+
+    async def test_reply_after_hang_up_books_a_call_back_when_asked(self):
+        qid = posted_question(self.store, callback=True)
+        with patch("time.time", return_value=eastern(14)):
+            await self.listener.on_reply("Thursday works")
+        (record,) = self.booked()
+        self.assertEqual((record["to"], record["question_id"], record["due_at"]),
+                         ("+16175550123", qid, eastern(14)))
+        self.assertIn("Thursday works", record["purpose"])
+        self.assertIn("Thursday works", record["voicemail"])
         self.assertIn("back now", self.posted())
 
+    async def test_a_late_reply_is_called_back_in_the_morning(self):
+        posted_question(self.store, callback=True)
+        with patch("time.time", return_value=eastern(23)):
+            await self.listener.on_reply("Yes")
+        (record,) = self.booked()
+        self.assertEqual(record["due_at"], eastern(10) + 86400)
+        self.assertIn("outside calling hours", self.posted())
+
     async def test_reply_after_hang_up_without_callback_is_just_saved(self):
-        answered_question(self.store, reply=None)
+        posted_question(self.store)
         await self.listener.on_reply("Thursday works")
-        self.twilio.calls.create.assert_not_called()
+        self.assertEqual(self.booked(), [])
         self.assertIn("already hung up", self.posted())
 
-    async def test_handed_over_callback_is_placed_once(self):
-        qid = answered_question(self.store, callback=True)
+    async def test_a_chat_question_is_answered_in_the_chat(self):
+        qid = posted_question(self.store, origin=CHAT)
+        await self.listener.on_reply("Yes")
+        self.chat_followup.assert_called_once_with("a" * 32)
+        ((_, kind, data),) = self.events.read(CHAT)
+        self.assertEqual((kind, data["question_id"]), ("question.answered", qid))
+        self.assertIn("chat window", self.posted())
+
+    async def test_a_second_reply_is_passed_on_as_a_follow_up(self):
+        qid = posted_question(self.store, reply="Yes", message_id=111)
+        self.events.mark_live(CALL)
+        await self.listener.on_reply("After 3pm though", reference=111)
+        ((_, kind, data),) = self.events.read(CALL)
+        self.assertEqual((kind, data["question_id"], data["text"]),
+                         ("question.followup", qid, "After 3pm though"))
+        self.assertEqual(self.store.get(qid)["reply"], "Yes")
+
+    async def test_a_reply_to_the_bots_own_note_counts_as_a_reply_to_the_question(self):
+        qid = posted_question(self.store, message_id=111, origin=CHAT)
+        await self.listener.on_reply("Yes")                 # the note is message 900
+        record = self.store.get(qid)
+        self.assertEqual(self.store.question_for_post(900), qid)
+        await self.listener.on_reply("And bring a CV", reference=900)
+        self.assertEqual([e[1] for e in self.events.read(CHAT)],
+                         ["question.answered", "question.followup"])
+        self.assertEqual(record["reply"], "Yes")
+
+    async def test_messages_are_routed_from_the_channel_and_its_threads_only(self):
+        self.listener.on_reply = AsyncMock()
+        me = Mock(id=1)
+        user = patch.object(type(self.listener), "user", new_callable=PropertyMock, return_value=me)
+        user.start()
+        self.addCleanup(user.stop)
+        cases = [
+            (Mock(author=Mock(id=2), channel=Mock(id=123), reference=Mock(message_id=111)), 111),
+            (Mock(author=Mock(id=2), channel=Mock(id=123), reference=None), None),
+            # A thread started from question 111 has id 111.
+            (Mock(author=Mock(id=2), channel=Mock(id=111, parent_id=123), reference=None), 111),
+        ]
+        for message, reference in cases:
+            await self.listener.on_message(message)
+            self.assertEqual(self.listener.on_reply.await_args.args[1], reference)
+        self.listener.on_reply.reset_mock()
+        for ignored in (Mock(author=me, channel=Mock(id=123)),
+                        Mock(author=Mock(id=2), channel=Mock(id=555, parent_id=999))):
+            await self.listener.on_message(ignored)
+        self.listener.on_reply.assert_not_awaited()
+
+    async def test_posting_a_question_remembers_its_message(self):
+        qid = self.store.ask("Free?", "Alice", CHAT)
+        self.listener.is_closed = Mock(side_effect=[False, True])
+        await self.listener.post_pending()
+        self.assertEqual(self.store.question_for_post(900), qid)
+        self.assertIn("on the website chat", self.posted())
+
+    async def test_handed_over_callback_is_booked_once(self):
+        qid = posted_question(self.store, reply="Yes", callback=True)
         self.store.queue_callback(qid)
         self.store.queue_callback(qid)         # both sides decided it was due
         self.listener.is_closed = Mock(side_effect=[False, False, True])
         await self.listener.post_pending()
-        self.twilio.calls.create.assert_called_once()
+        self.assertEqual(len(self.booked()), 1)
 
 
-class SharedStoreTests(unittest.TestCase):
-    def test_both_services_use_the_same_question_store(self):
-        # The voice agent (twilio_server) and the listener (pythonserver) are
-        # deployed from separate folders, so each carries a copy. Letting them
-        # drift is how a worker ends up not knowing a task the web service sends.
-        voice = (REPO / "twilio_server" / "question_store.py").read_text()
-        listener = (REPO / "pythonserver" / "question_store.py").read_text()
-        self.assertEqual(voice, listener,
-                         "question_store.py differs between twilio_server/ and pythonserver/")
+class SharedModuleTests(unittest.TestCase):
+    def test_both_services_carry_the_same_shared_modules(self):
+        # The voice agent (twilio_server) and the worker, listener and chat
+        # (pythonserver) deploy from separate folders, so each carries a copy.
+        # Letting them drift is how one side stops understanding the other.
+        for name in ("question_store.py", "events.py", "jobs.py", "callbacks.py"):
+            with self.subTest(name):
+                self.assertEqual((REPO / "twilio_server" / name).read_text(),
+                                 (REPO / "pythonserver" / name).read_text(),
+                                 f"{name} differs between twilio_server/ and pythonserver/")
+
+
+    def test_every_task_sent_by_name_is_one_the_worker_runs(self):
+        # There is one Celery worker (pythonserver/celery_worker.py). The voice
+        # service and the listener queue work by name only, so a name the
+        # worker doesn't define would be dropped on arrival, and only this
+        # test would notice.
+        worker = (REPO / "pythonserver" / "celery_worker.py").read_text()
+        defined = set(re.findall(r'@celery_app\.task\([^)]*name="([\w.]+)"', worker))
+        defined |= {"celery_worker." + name for name in
+                    re.findall(r'@celery_app\.task(?:\(bind=True\))?\ndef (\w+)', worker)}
+        sent = set()
+        for folder in ("twilio_server", "pythonserver"):
+            for path in (REPO / folder).glob("*.py"):
+                sent |= set(re.findall(r'send_task\("([\w.]+)"', path.read_text()))
+        self.assertEqual(sent, {"celery_worker.run_job", "celery_worker.chat_followup"})
+        self.assertLessEqual(sent, defined)
+        self.assertIn("celery_worker.tool_call_fn", defined)     # for work queued before the redeploy
 
 
 if __name__ == "__main__":

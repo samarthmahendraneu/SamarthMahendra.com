@@ -528,8 +528,59 @@ document.addEventListener('DOMContentLoaded', function () {
     const starterPromptsContainer = document.getElementById('chatbot-starter-prompts');
 
     const SERVER_URL = 'https://samarthmahendra-github-io.onrender.com';
-    let conversation = [];
-    let chatUsername = null;
+    // The conversation lives on the server under this id; the page only
+    // shows it. Background work (Samarth's Discord reply, an invite email,
+    // a call's answer) arrives later as messages on /chat/events.
+    const chatSessionId = Array.from(crypto.getRandomValues(new Uint8Array(16)),
+        byte => byte.toString(16).padStart(2, '0')).join('');
+    let chatCursor = '0-0';          // last event this page has accounted for
+    const shownEvents = new Set();
+    let chatEvents = null;
+
+    function laterEvent(a, b) {
+        const [aMs, aSeq] = a.split('-').map(Number);
+        const [bMs, bSeq] = b.split('-').map(Number);
+        return aMs > bMs || (aMs === bMs && aSeq > bSeq);
+    }
+
+    function advanceCursor(id) {
+        if (id && laterEvent(id, chatCursor)) chatCursor = id;
+    }
+
+    // The same update can arrive twice, once with a reply and once on the
+    // event stream; show it once.
+    function showUpdate(id, text) {
+        if (!text || shownEvents.has(id)) return;
+        shownEvents.add(id);
+        addMessage(text, 'bot');
+        advanceCursor(id);
+    }
+
+    function stopWatching() {
+        if (chatEvents) {
+            chatEvents.close();
+            chatEvents = null;
+        }
+    }
+
+    // Listen only while something is pending, so an idle tab holds no connection.
+    function watchBackgroundWork(pending) {
+        if (!pending) {
+            stopWatching();
+            return;
+        }
+        if (chatEvents || !window.EventSource) return;
+        chatEvents = new EventSource(`${SERVER_URL}/chat/events?session_id=${chatSessionId}` +
+            `&after=${encodeURIComponent(chatCursor)}`);
+        chatEvents.addEventListener('message', event => {
+            const data = JSON.parse(event.data);
+            showUpdate(event.lastEventId, data.text);
+            if (data.pending === 0) stopWatching();
+        });
+        chatEvents.addEventListener('status', event => {
+            if (JSON.parse(event.data).pending === 0) stopWatching();
+        });
+    }
 
     // Toggle Chatbot
     // Toggle Chatbot Logic moved to refreshStarterPrompts section below
@@ -549,26 +600,24 @@ document.addEventListener('DOMContentLoaded', function () {
         // Show Typing Indicator
         showTypingIndicator();
 
-        // Generate Username if needed
-        if (!chatUsername) {
-            chatUsername = 'user_' + Math.random().toString(36).substring(2, 10);
-        }
-
         // Fetch Response
         fetch(`${SERVER_URL}/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: message,
-                conversation: conversation,
-                username: chatUsername
+                session_id: chatSessionId,
+                cursor: chatCursor
             })
         })
             .then(response => response.json())
             .then(data => {
                 removeTypingIndicator();
-                conversation = data.conversation || conversation;
+                (data.updates || []).forEach(update => showUpdate(update.id, update.text));
+                advanceCursor(data.cursor);
                 if (data.output) addMessage(data.output, 'bot');
+                else if (data.error) addMessage("Just a moment, I'm still working on your last message.", 'bot');
+                watchBackgroundWork(data.pending || 0);
             })
             .catch(error => {
                 removeTypingIndicator();

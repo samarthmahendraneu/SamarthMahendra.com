@@ -1,16 +1,18 @@
 """Shared state for questions the assistant asks Samarth on Discord.
 
 Kept byte-identical in twilio_server/ (the voice agent asks) and pythonserver/
-(the listener answers); tests/test_questions.py fails if the copies drift.
+(the chat asks and the listener answers); the tests fail if the copies drift.
 
-The voice bridge writes questions here and reads answers back; the persistent
-Discord listener posts them and records replies. Nothing blocks on Discord: a
-call must never go silent waiting for a human to type.
+Whoever asks writes the question here and gets its id straight back; the
+persistent Discord listener posts it and records Samarth's reply. Nothing
+blocks on Discord: a call must never go silent, nor a chat hang, waiting for
+a human to type.
 
-A reply reaches the caller one of two ways. While the call is live, the
-bridge keeps a short-lived live key alive for each question it asked and
-speaks the reply as soon as it lands. Once that key is gone (the caller hung
-up), the listener rings them back instead, if they asked for it.
+Each question remembers its origin -- the conversation that asked, as an
+events.py channel -- and the Discord message it was posted as. A reply is
+matched to its question by Discord's reply-to link, not by arrival order: with
+two conversations waiting, an oldest-first guess could read one caller
+another caller's answer out loud.
 """
 
 import json
@@ -21,15 +23,20 @@ import uuid
 QUESTION_KEY = "discord:q:"
 POST_QUEUE = "discord:post_queue"
 OPEN_QUEUE = "discord:open"
-LIVE_KEY = "discord:live:"
+POST_KEY = "discord:post:"
 CALLBACK_QUEUE = "discord:callback_queue"
 CLAIM_KEY = "discord:callback-claim:"
-# Long enough for a caller to be rung back, short enough not to accumulate.
-TTL = 3600
-# The bridge refreshes a live key every second, so a call that ended without
-# clearing its keys (a crashed web process) stops counting as live in 10s.
-LIVE_TTL = 10
+# Calls from before the event streams marked each question live instead of
+# the call; read so a listener deployed mid-call still sees those callers.
+LIVE_KEY = "discord:live:"
+# Long enough for Samarth to answer that evening and the caller still to be
+# rung back; short enough not to accumulate.
+TTL = 12 * 3600
 ID_PATTERN = re.compile(r"[0-9a-f]{32}")
+
+
+def _text(value):
+    return value.decode() if isinstance(value, bytes) else value
 
 
 class QuestionStore:
@@ -41,15 +48,15 @@ class QuestionStore:
             raise ValueError("Invalid question id")
         return QUESTION_KEY + question_id
 
-    def ask(self, question, caller_name="", call_sid=""):
+    def ask(self, question, caller_name="", origin=None):
         """Record a question and queue it for the listener to post."""
         question_id = uuid.uuid4().hex
         record = {
             "id": question_id, "question": question, "caller_name": caller_name,
-            "call_sid": call_sid, "asked_at": time.time(), "status": "pending",
-            "reply": None, "replied_at": None,
+            "origin": origin, "asked_at": time.time(), "status": "pending",
+            "reply": None, "replied_at": None, "followups": [],
             "callback_name": None, "callback_number": None, "callback_state": None,
-            "delivered_live": False,
+            "delivered_live": False, "discord_message_id": None,
         }
         self.redis.setex(QUESTION_KEY + question_id, TTL, json.dumps(record))
         self.redis.rpush(POST_QUEUE, question_id)
@@ -64,11 +71,9 @@ class QuestionStore:
 
     def pop_for_posting(self):
         """Listener side: take the next question to send to Discord."""
-        question_id = self.redis.lpop(POST_QUEUE)
+        question_id = _text(self.redis.lpop(POST_QUEUE))
         if question_id is None:
             return None
-        if isinstance(question_id, bytes):
-            question_id = question_id.decode()
         record = self.get(question_id)
         if record is None:
             return None            # expired before the listener got to it
@@ -77,16 +82,35 @@ class QuestionStore:
         self.redis.rpush(OPEN_QUEUE, question_id)
         return record
 
-    def answer(self, reply, question_id=None):
-        """Attach a reply, defaulting to the oldest question still waiting."""
-        if question_id is None:
-            question_id = self.redis.lpop(OPEN_QUEUE)
-            if isinstance(question_id, bytes):
-                question_id = question_id.decode()
-        else:
-            self.redis.lrem(OPEN_QUEUE, 0, question_id)
-        if not question_id:
-            return None
+    # ---- matching Discord replies to questions ----
+
+    def remember_post(self, question_id, message_id):
+        """Tie a Discord message (the question, or a note about it) to a question."""
+        self.redis.setex(POST_KEY + str(message_id), TTL, question_id)
+        record = self.get(question_id)
+        if record is not None and not record.get("discord_message_id"):
+            record["discord_message_id"] = str(message_id)
+            self.save(record)
+
+    def question_for_post(self, message_id):
+        question_id = _text(self.redis.get(POST_KEY + str(message_id)))
+        return question_id if question_id and ID_PATTERN.fullmatch(question_id) else None
+
+    def open_questions(self):
+        """Questions posted and still waiting for an answer, oldest first."""
+        waiting = []
+        for question_id in self.redis.lrange(OPEN_QUEUE, 0, -1):
+            question_id = _text(question_id)
+            record = self.get(question_id) if ID_PATTERN.fullmatch(question_id or "") else None
+            if record is None or record["status"] != "asked":
+                self.redis.lrem(OPEN_QUEUE, 0, question_id)     # expired or answered
+                continue
+            waiting.append(record)
+        return waiting
+
+    def answer(self, question_id, reply):
+        """Attach Samarth's reply. None if the question is gone or already answered."""
+        self.redis.lrem(OPEN_QUEUE, 0, question_id)
         record = self.get(question_id)
         if record is None or record["status"] == "answered":
             return None
@@ -95,6 +119,17 @@ class QuestionStore:
         record["replied_at"] = time.time()
         self.save(record)
         return record
+
+    def add_followup(self, question_id, reply):
+        """A second message on an answered question: a correction or an addition."""
+        record = self.get(question_id)
+        if record is None or record["status"] != "answered":
+            return None
+        record.setdefault("followups", []).append({"text": reply, "at": time.time()})
+        self.save(record)
+        return record
+
+    # ---- calling the caller back ----
 
     def request_callback(self, question_id, name, number):
         record = self.get(question_id)
@@ -107,10 +142,10 @@ class QuestionStore:
         return record
 
     def claim_callback(self, question_id):
-        """Claim the right to place a callback. Returns False if already claimed.
+        """Claim the right to arrange a call back. Returns False if already claimed.
 
-        Atomic (SET NX): both the listener, when a reply lands, and the bridge,
-        when a call ends mid-reply, can decide a callback is due. A read-then-
+        Atomic (SET NX): both the listener, when a reply lands, and the call,
+        when it ends mid-reply, can decide a call back is due. A read-then-
         write claim would let both win and ring the caller twice.
         """
         record = self.get(question_id)
@@ -122,33 +157,23 @@ class QuestionStore:
         self.save(record)
         return True
 
-    # ---- the call's side: is the caller still on the line? ----
-
-    def mark_live(self, question_id, ttl=LIVE_TTL):
-        self.redis.setex(LIVE_KEY + question_id, ttl, "1")
-
-    def clear_live(self, question_id):
-        self.redis.delete(LIVE_KEY + question_id)
-
-    def is_live(self, question_id):
-        return bool(self.redis.exists(LIVE_KEY + question_id))
-
     def mark_delivered(self, question_id):
         record = self.get(question_id)
         if record is not None:
             record["delivered_live"] = True
             self.save(record)
 
-    # ---- a call that ended before its reply was spoken ----
+    # A call that ended before its reply was spoken hands it over here.
 
     def queue_callback(self, question_id):
         self.redis.rpush(CALLBACK_QUEUE, question_id)
 
     def pop_callback(self):
-        question_id = self.redis.lpop(CALLBACK_QUEUE)
-        if isinstance(question_id, bytes):
-            question_id = question_id.decode()
-        return question_id
+        return _text(self.redis.lpop(CALLBACK_QUEUE))
+
+    def is_live_legacy(self, question_id):
+        """Whether a call from before the event streams still holds the line."""
+        return bool(self.redis.exists(LIVE_KEY + question_id))
 
     def waiting_for(self, record):
         return time.time() - record["asked_at"]

@@ -8,24 +8,27 @@ import re
 import time
 import uuid
 from datetime import datetime
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode
 
 import redis
 import websockets
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, WebSocket
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.websockets import WebSocketDisconnect
 from twilio.rest import Client
 from twilio.twiml.voice_response import Connect, VoiceResponse
 
 load_dotenv()
 
-from celery_worker import tool_call_fn
 import mongo_tool
+import worker_client
+from call_events import finish_call, watch_call
+from callbacks import MISSED_STATUSES, CallbackStore
+from events import EventStream, channel_id, valid_channel
+from jobs import JobStore
 from live_bridge import LiveBridge
 from question_store import QuestionStore
-from question_watch import finish_questions, watch_questions
 from live_config import LIVE_URL, TOOLS, VOICEMAIL_TOOLS, LiveSettings, greeting, session_config
 
 logger = logging.getLogger(__name__)
@@ -94,45 +97,81 @@ class CallContextStore:
 
 contexts = CallContextStore()
 questions = QuestionStore(contexts.redis)
+events = EventStream(contexts.redis)
+# Looked up on each call, not bound here, so tests can swap the client.
+jobs = JobStore(contexts.redis, enqueue=lambda job_id: worker_client.enqueue_job(job_id))
+callbacks = CallbackStore.from_env(contexts.redis, os.environ)
+SAMARTH_EMAIL = "samarth.mahendragowda@gmail.com"
+# Spoken to an answering machine on a scheduled call back.
+VOICEMAIL_VOICE = "Polly.Joanna-Neural"
 
 
 def generate_jitsi_meeting_url(user_name="samarth"):
     return f"https://meet.jit.si/{user_name}-{datetime.now():%Y%m%d%H%M%S}-{uuid.uuid4().hex[:6]}"
 
 
-def schedule_meeting(args):
+def readable_time(iso):
+    """An ISO 8601 time as a person would read it, e.g. "Thursday, October 1 at 2:00 PM (UTC-04:00)"."""
+    try:
+        moment = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return iso
+    hour = moment.hour % 12 or 12
+    zone = moment.strftime("%z")
+    zone = f" (UTC{zone[:3]}:{zone[3:]})" if zone else ""
+    return f"{moment:%A, %B} {moment.day} at {hour}:{moment:%M} {'AM' if moment.hour < 12 else 'PM'}{zone}"
+
+
+def start_job(kind, args, channel=None, announce="failure", label=""):
+    """Start a background job (jobs.py); the task id, or None if it couldn't be queued."""
+    try:
+        return jobs.start(kind, args, origin=channel, announce=announce, label=label)
+    except Exception as exc:
+        logger.warning("Could not queue %s job (%s: %s)", kind, type(exc).__name__, exc)
+        return None
+
+
+def schedule_meeting(args, channel=None):
     meeting_url = generate_jitsi_meeting_url()
     meeting_id = mongo_tool.insert_meeting(args["name"], args["agenda"], args["timing"], meeting_url)
-    try:
-        for email in (args["user_email"], "samarth.mahendragowda@gmail.com"):
-            tool_call_fn.delay("send_meeting_email", None, {"email": email, "meeting_url": meeting_url})
-        tool_call_fn.delay("talk_to_samarth_discord", None, {
-            "action": "send", "message": {"content": (
-                f"Meeting scheduled with {args['name']}, {args['user_email']} on "
-                f"{args['timing']} for {args['agenda']}. Meeting link: {meeting_url}"
-            )},
-        })
-    except Exception:
+    when = readable_time(args["timing"])
+    invite = start_job("email.send", {
+        "to": args["user_email"], "subject": "Your meeting with Samarth Mahendra",
+        "body": (f"Hello {args['name']},\n\nYour meeting with Samarth Mahendra is booked.\n\n"
+                 f"What: {args['agenda']}\nWhen: {when}\nJoin: {meeting_url}\n\n"
+                 "See you there!\n\nLuma, Samarth's AI assistant"),
+    }, channel, announce="always", label=f"emailing the meeting invite to {args['user_email']}")
+    # Samarth's own copies: bookkeeping the caller needn't hear about.
+    copies = [
+        start_job("email.send", {
+            "to": SAMARTH_EMAIL, "subject": f"Meeting booked with {args['name']}",
+            "body": (f"{args['name']} ({args['user_email']}) booked a meeting by phone.\n\n"
+                     f"What: {args['agenda']}\nWhen: {when}\nJoin: {meeting_url}"),
+        }, announce="never", label="emailing Samarth his copy of the meeting"),
+        start_job("discord.send", {"content": (
+            f"Meeting scheduled with {args['name']}, {args['user_email']} on "
+            f"{args['timing']} for {args['agenda']}. Meeting link: {meeting_url}")},
+            announce="never", label="telling Samarth about the meeting on Discord"),
+    ]
+    if invite is None or None in copies:
         # Saving succeeded: don't tell the model to retry and create a duplicate.
         logger.warning("Meeting saved but notification enqueue was incomplete")
         return {"status": "saved", "meeting_id": meeting_id, "meeting_url": meeting_url,
                 "notifications": "incomplete; delivery must be checked"}
     return {"status": "saved", "meeting_id": meeting_id, "meeting_url": meeting_url,
-            "notifications": "queued"}
+            "notifications": "queued", "task_id": invite,
+            "message": "The invite email is on its way; you will be told once it has been sent."}
 
 
-def queue_discord_message(content):
-    """Queue a Discord post; False, with the reason logged, if it can't be queued.
+def queue_discord_message(content, channel=None):
+    """Post to Samarth's Discord in the background; False if it can't be queued.
 
     Only the enqueue is guarded. Building the message stays outside the try so
-    a bug there fails loudly instead of being reported as a broker problem.
+    a bug there fails loudly instead of being reported as a broker problem. A
+    failed post is announced on `channel`, so the caller hears it didn't go.
     """
-    try:
-        tool_call_fn.delay("send_discord_message", None, {"content": content})
-        return True
-    except Exception as exc:
-        logger.warning("Discord relay enqueue failed (%s: %s)", type(exc).__name__, exc)
-        return False
+    return start_job("discord.send", {"content": content}, channel, announce="failure",
+                     label="passing the message on to Samarth on Discord") is not None
 
 
 def relay_status(message_id, relayed):
@@ -141,10 +180,10 @@ def relay_status(message_id, relayed):
             "relay": "queued" if relayed else "incomplete; delivery must be checked"}
 
 
-def relay_message_to_samarth(call_id, args):
+def relay_message_to_samarth(call_id, args, channel=None):
     message_id = mongo_tool.save_relayed_message(call_id, args)
     content = f"Phone message from {args['caller_name']}: {args['message']}"
-    return relay_status(message_id, queue_discord_message(content))
+    return relay_status(message_id, queue_discord_message(content, channel))
 
 
 def relay_caller_response(context, response):
@@ -152,13 +191,32 @@ def relay_caller_response(context, response):
     who = context.get("name") or "A caller"
     asked = context.get("message")
     about = f' to "{asked}"' if asked else ""
-    return queue_discord_message(f"Reply from {who}{about}: {response}")
+    return queue_discord_message(f"Reply from {who}{about}: {response}", context.get("channel"))
 
 
-def describe_reply(question_id):
-    """Report only what the store actually holds; never guess Samarth's answer."""
+def report_to_origin(context, kind, **data):
+    """Tell the conversation that started an outbound call how it went.
+
+    A chat that asked for the call hears the answer in the chat; best effort,
+    since the answer has already been saved and relayed to Samarth.
+    """
+    origin = context.get("origin")
+    if not valid_channel(origin):
+        return
+    try:
+        events.publish(origin, kind, name=context.get("name", ""),
+                       message=context.get("message", ""), call_sid=context.get("call_sid", ""), **data)
+        if origin.startswith("chat:"):
+            worker_client.enqueue_chat_followup(channel_id(origin))
+    except Exception as exc:
+        logger.warning("Could not report %s to %s (%s: %s)", kind, origin, type(exc).__name__, exc)
+
+
+def describe_reply(question_id, channel=None):
+    """Report only what the store actually holds; never guess Samarth's answer.
+    Another conversation's question is treated as unknown."""
     record = questions.get(question_id)
-    if record is None:
+    if record is None or (record.get("origin") and record["origin"] != channel):
         return {"status": "unknown", "message": "That question is no longer tracked."}
     waited = round(questions.waiting_for(record))
     if record["status"] == "answered":
@@ -168,10 +226,40 @@ def describe_reply(question_id):
                         "been going on for more than about fifteen seconds.")}
 
 
+def describe_task(task_id, channel=None):
+    try:
+        record = jobs.get(task_id)
+    except ValueError:
+        record = None
+    if record is None or record.get("origin") != channel:
+        return {"status": "unknown", "message": "That task is not recognised or no longer tracked."}
+    return jobs.describe(record)
+
+
+def book_callback(args, channel=None):
+    """schedule_callback: a call at the caller's chosen time."""
+    when = datetime.fromisoformat(args["when"].replace("Z", "+00:00"))
+    if when.utcoffset() is None:
+        raise ValueError("The time needs a timezone")
+    name, reason = args["caller_name"], args["reason"]
+    record = callbacks.schedule(
+        args["phone_number"], name,
+        purpose=f"They asked to be called back at this time about: {reason}",
+        voicemail=(f"Hi {name}, this is Luma, Samarth Mahendra's AI assistant, calling you back "
+                   f"as you asked, about {reason}. Please call this number back when it suits you. Goodbye."),
+        when=when.timestamp(), source="request", origin=channel)
+    spoken = readable_time(args["when"])
+    queue_discord_message(f"Luma will call {name} ({args['phone_number']}) back on {spoken} about: {reason}")
+    return {"status": "scheduled", "callback_id": record["id"], "when": spoken,
+            "message": "Booked. If they miss it, it is tried again later."}
+
+
 def make_tool_executor(context, voicemail=False, asked=None):
     """asked, when given, collects the ids of questions this call puts to
-    Samarth, so the call can speak his reply the moment it lands."""
+    Samarth, so the call can speak his reply the moment it lands. The call's
+    event channel is context["channel"]: background results are told there."""
     schemas = {tool["name"]: tool["parameters"] for tool in (VOICEMAIL_TOOLS if voicemail else TOOLS)}
+    channel = context.get("channel")
 
     async def execute(name, call_id, args):
         schema = schemas.get(name)
@@ -187,13 +275,10 @@ def make_tool_executor(context, voicemail=False, asked=None):
             timing = datetime.fromisoformat(args["timing"].replace("Z", "+00:00"))
             if timing.utcoffset() is None or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", args["user_email"]):
                 raise ValueError("Meeting needs a timezone and valid email")
-            return await asyncio.to_thread(schedule_meeting, args)
+            return await asyncio.to_thread(schedule_meeting, args, channel)
         if name == "ask_samarth":
             question_id = await asyncio.to_thread(
-                questions.ask, args["question"], args["caller_name"], context.get("call_sid", ""))
-            # Live from the moment it's asked, so a reply that lands before the
-            # call's watch first ticks is still spoken rather than called back.
-            await asyncio.to_thread(questions.mark_live, question_id)
+                questions.ask, args["question"], args["caller_name"], channel)
             if asked is not None:
                 asked.append(question_id)
             logger.info("Asked Samarth question=%s", question_id)
@@ -201,10 +286,14 @@ def make_tool_executor(context, voicemail=False, asked=None):
                     "message": ("Posted to Samarth. You will be told as soon as he replies; "
                                 "keep the conversation going meanwhile.")}
         if name == "check_samarth_reply":
-            return await asyncio.to_thread(describe_reply, args["question_id"])
+            return await asyncio.to_thread(describe_reply, args["question_id"], channel)
+        if name == "check_task":
+            return await asyncio.to_thread(describe_task, args["task_id"], channel)
         if name == "request_callback":
-            if not re.fullmatch(r"\+[1-9]\d{7,14}", args["phone_number"]):
-                raise ValueError("Callback needs an E.164 number, e.g. +16175550123")
+            try:
+                callbacks.check_number(args["phone_number"])
+            except ValueError as exc:
+                return {"status": "refused", "message": str(exc)}
             record = await asyncio.to_thread(
                 questions.request_callback, args["question_id"],
                 args["caller_name"], args["phone_number"])
@@ -216,8 +305,13 @@ def make_tool_executor(context, voicemail=False, asked=None):
             logger.info("Callback requested question=%s", args["question_id"])
             return {"status": "callback_requested",
                     "message": "They will be called back when Samarth answers."}
+        if name == "schedule_callback":
+            try:
+                return await asyncio.to_thread(book_callback, args, channel)
+            except ValueError as exc:
+                return {"status": "refused", "message": str(exc)}
         if name == "send_messages_to_samarth":
-            return await asyncio.to_thread(relay_message_to_samarth, call_id, args)
+            return await asyncio.to_thread(relay_message_to_samarth, call_id, args, channel)
         if name == "save_reponse_from_caller":
             message_id = await asyncio.to_thread(
                 mongo_tool.mongo_save_message, context.get("name", ""),
@@ -226,6 +320,8 @@ def make_tool_executor(context, voicemail=False, asked=None):
             # Not relay_message_to_samarth: that expects caller_name/message
             # and would store a second, empty copy of this response.
             relayed = await asyncio.to_thread(relay_caller_response, context, args["response"])
+            await asyncio.to_thread(report_to_origin, context, "call.response",
+                                    response=args["response"])
             return relay_status(message_id, relayed)
         else:
             # mongo_tool expects (call_id, args), not three positional strings.
@@ -246,6 +342,14 @@ async def call_twiml(request, voicemail=False):
         "name": request.query_params.get("name", ""),
         "message": request.query_params.get("message", ""),
     }
+    # An outbound call a chat asked for reports its answer back there.
+    origin = request.query_params.get("origin", "")
+    if valid_channel(origin):
+        context["origin"] = origin
+    return await stream_twiml(request, context, voicemail)
+
+
+async def stream_twiml(request, context, voicemail=False):
     token = await asyncio.to_thread(contexts.put, context)
     response = VoiceResponse()
     connect = Connect()
@@ -296,6 +400,11 @@ async def handle_stream(websocket, voicemail=False):
         stage = "call_context"
         token = start.get("customParameters", {}).get("context_id", "")
         context = await asyncio.to_thread(contexts.take, token)
+        # The model sees only what the call is about; the rest is plumbing.
+        prompt_context = {key: context[key] for key in ("script", "name", "message") if key in context}
+        call_sid = start.get("callSid") or stream_sid
+        channel = "call:" + call_sid if valid_channel("call:" + call_sid) else None
+        call = dict(context, call_sid=call_sid, channel=channel)
         stage = "live_connect"
         async with websockets.connect(
             LIVE_URL, extra_headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
@@ -309,16 +418,17 @@ async def handle_stream(websocket, voicemail=False):
             stage = "bridge"
             asked = []
             bridge = LiveBridge(
-                websocket, live, start["streamSid"], session_config(SETTINGS, context, voicemail),
-                greeting(context, voicemail), make_tool_executor(context, voicemail, asked),
+                websocket, live, start["streamSid"], session_config(SETTINGS, prompt_context, voicemail),
+                greeting(prompt_context, voicemail), make_tool_executor(call, voicemail, asked),
             )
-            watch = asyncio.create_task(watch_questions(bridge, asked, questions))
+            watch = asyncio.create_task(watch_call(bridge, channel, events, questions)) if channel else None
             try:
                 await bridge.run()
             finally:
-                watch.cancel()
-                await asyncio.gather(watch, return_exceptions=True)
-                await finish_questions(asked, questions)
+                if watch:
+                    watch.cancel()
+                    await asyncio.gather(watch, return_exceptions=True)
+                    await finish_call(channel, asked, events, questions)
         stage = "done"
     except WebSocketDisconnect:
         logger.info("Twilio disconnected stream=%s stage=%s after=%.1fs",
@@ -361,8 +471,18 @@ async def start_calls(request: Request):
     if isinstance(numbers, str):
         # One number sent as a string would otherwise be dialled per character.
         numbers = [numbers]
-    query = urlencode({"script": "2", "name": body.get("name", ""), "message": body.get("message", "")})
-    url = f"{PUBLIC_BASE_URL}/incoming-call?{query}"
+    params = {"script": "2", "name": body.get("name", ""), "message": body.get("message", "")}
+    # A chat that asks for calls names itself so each answer is told back there.
+    origin = body.get("origin")
+    status_callback = {}
+    if valid_channel(origin):
+        params["origin"] = origin
+        status_callback = {
+            "status_callback": f"{PUBLIC_BASE_URL}/call-status?"
+                               + urlencode({"origin": origin, "name": params["name"]}),
+            "status_callback_event": ["completed"], "status_callback_method": "POST",
+        }
+    url = f"{PUBLIC_BASE_URL}/incoming-call?{urlencode(params)}"
     results = []
     for index, raw in enumerate(numbers):
         number = to_e164(raw)
@@ -373,7 +493,7 @@ async def start_calls(request: Request):
             continue
         try:
             call = await asyncio.to_thread(twilio_client.calls.create, to=number,
-                                           from_=TWILIO_FROM_NUMBER, url=url)
+                                           from_=TWILIO_FROM_NUMBER, url=url, **status_callback)
             results.append({"to": number, "sid": call.sid})
             if index < len(numbers) - 1:
                 await asyncio.sleep(15)
@@ -384,6 +504,83 @@ async def start_calls(request: Request):
             results.append({"to": number, "error": f"Call could not be started: {msg}",
                             "twilio_code": code})
     return {"status": "done", "calls": results}
+
+
+async def twilio_fields(request):
+    """A Twilio webhook's parameters: its form body, then the query string.
+
+    Parsed by hand so the service needs no multipart library for them.
+    """
+    fields = {key: values[0] for key, values in
+              parse_qs((await request.body()).decode("utf-8", "replace")).items()}
+    return {**dict(request.query_params), **fields}
+
+
+@app.post("/call-status")
+async def outbound_call_status(request: Request):
+    """How an outbound call a chat asked for ended, when nobody answered it."""
+    fields = await twilio_fields(request)
+    if fields.get("CallStatus") in MISSED_STATUSES:
+        context = {"origin": fields.get("origin", ""), "name": fields.get("name", ""),
+                   "call_sid": fields.get("CallSid", "")}
+        await asyncio.to_thread(report_to_origin, context, "call.status",
+                                status=fields["CallStatus"])
+    return Response(status_code=204)
+
+
+# ---- scheduled call backs (callbacks.py; placed by the worker's scheduler) ----
+
+def callback_notice(record, outcome):
+    who = f"{record['name'] or 'the caller'} ({record['to']})"
+    if outcome == "answered":
+        return f"Called {who} back; they picked up."
+    if outcome == "voicemail":
+        return f"Called {who} back and left a voicemail."
+    if outcome == "retrying":
+        return f"Couldn't reach {who}. Trying again {callbacks.when_text(record['due_at'])}."
+    return f"Couldn't reach {who} after {record['attempts']} tries, so I've stopped trying."
+
+
+@app.api_route("/callback-call", methods=["GET", "POST"])
+async def callback_call(request: Request):
+    """TwiML for a scheduled call back, once Twilio knows who answered."""
+    fields = await twilio_fields(request)
+    callback_id = fields.get("cb", "")
+    try:
+        record = await asyncio.to_thread(callbacks.get, callback_id)
+    except ValueError:
+        record = None
+    response = VoiceResponse()
+    if record is None or record["state"] not in ("dialing", "ringing"):
+        response.hangup()
+        return HTMLResponse(content=str(response), media_type="application/xml")
+    answered_by = fields.get("AnsweredBy", "")
+    if answered_by.startswith("machine") or answered_by == "fax":
+        # Machine detection waited for the greeting to end, so this lands
+        # after the beep.
+        await asyncio.to_thread(callbacks.note_answered_by, callback_id, answered_by)
+        if answered_by != "fax":
+            response.say(record["voicemail"], voice=VOICEMAIL_VOICE)
+        response.hangup()
+        return HTMLResponse(content=str(response), media_type="application/xml")
+    return await stream_twiml(request, {"script": "3", "name": record["name"],
+                                        "message": record["purpose"], "callback_id": callback_id})
+
+
+@app.post("/callback-status")
+async def callback_status(request: Request):
+    """Twilio's report on how a call back ended; a missed one is retried."""
+    fields = await twilio_fields(request)
+    try:
+        record, outcome = await asyncio.to_thread(
+            callbacks.finished, fields.get("cb", ""), fields.get("CallSid", ""),
+            fields.get("CallStatus", ""), fields.get("AnsweredBy"))
+    except ValueError:
+        return Response(status_code=204)
+    if outcome:
+        logger.info("Callback %s outcome=%s", record["id"], outcome)
+        queue_discord_message(callback_notice(record, outcome))
+    return Response(status_code=204)
 
 
 if __name__ == "__main__":

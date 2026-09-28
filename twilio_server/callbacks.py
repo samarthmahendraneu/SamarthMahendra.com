@@ -1,0 +1,234 @@
+"""Scheduled call backs: ring a caller at a set time, and retry if they miss it.
+
+Two things schedule one: a caller who asked to be rung back once Samarth
+answers (see question_store), and a caller who asked for a call at a time
+of their choosing (the schedule_callback tool). The Discord listener's
+scheduler places calls as they fall due (pythonserver/callback_scheduler.py);
+Twilio's status webhook on the voice service reports how each went, and a
+missed call is tried again later, up to MAX_ATTEMPTS times.
+
+What a call is about stays here, under an unguessable id, rather than riding
+in the call's URL where Twilio logs it.
+
+Automatic calls -- a reply that lands late in the evening, a retry -- wait for
+calling hours in CALLBACK_TIMEZONE. A time the caller chose is kept as given.
+
+Kept byte-identical in twilio_server/ and pythonserver/; the tests fail if the
+copies drift.
+"""
+
+import json
+import re
+import time
+import uuid
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+CALLBACK_KEY = "callback:"
+DUE_KEY = "callbacks:due"
+COUNT_KEY = "callbacks:count:"
+TTL = 7 * 86400
+MAX_ATTEMPTS = 3
+# Wait before the second and third tries.
+RETRY_DELAYS = (10 * 60, 30 * 60)
+# Enough for a real caller; not enough to turn the line into a way to pester
+# someone else's phone.
+MAX_PER_NUMBER_PER_DAY = 3
+# How far ahead a caller can book a call.
+MAX_AHEAD = 14 * 86400
+ID_PATTERN = re.compile(r"[0-9a-f]{32}")
+E164 = re.compile(r"\+[1-9]\d{7,14}")
+# +1 numbers that are not the US or Canada: Caribbean and Atlantic islands
+# billed as international calls, a favourite of toll fraud.
+NANP_ELSEWHERE = frozenset((
+    "242", "246", "264", "268", "284", "345", "441", "473", "649", "658",
+    "664", "721", "758", "767", "784", "809", "829", "849", "868", "869", "876",
+))
+FINAL_STATUSES = ("completed", "busy", "no-answer", "failed", "canceled")
+MISSED_STATUSES = ("busy", "no-answer", "failed", "canceled")
+
+
+def speakable_time(timestamp, tz):
+    """A time as a caller would say it, e.g. "Tuesday 10:00 AM EDT"."""
+    moment = datetime.fromtimestamp(timestamp, tz)
+    hour = moment.hour % 12 or 12
+    return f"{moment:%A} {hour}:{moment:%M} {'AM' if moment.hour < 12 else 'PM'} {moment:%Z}"
+
+
+class CallbackStore:
+    def __init__(self, redis, timezone="America/New_York", hours=(10, 20),
+                 country_codes=("1",)):
+        self.redis = redis
+        self.tz = ZoneInfo(timezone)
+        self.hours = hours
+        self.country_codes = tuple(country_codes)
+
+    @classmethod
+    def from_env(cls, redis, env):
+        start, _, end = (env.get("CALLBACK_HOURS") or "10-20").partition("-")
+        codes = [code.strip().lstrip("+") for code in
+                 (env.get("CALLBACK_COUNTRY_CODES") or "1").split(",")]
+        return cls(redis, timezone=env.get("CALLBACK_TIMEZONE") or "America/New_York",
+                   hours=(int(start), int(end)), country_codes=[c for c in codes if c])
+
+    def key(self, callback_id):
+        if not ID_PATTERN.fullmatch(callback_id or ""):
+            raise ValueError("Invalid callback id")
+        return CALLBACK_KEY + callback_id
+
+    # ---- who may be called, and when ----
+
+    def check_number(self, number):
+        """Raise ValueError, with a reason fit to pass on, for a number we won't ring."""
+        if not isinstance(number, str) or not E164.fullmatch(number):
+            raise ValueError("Callback needs an E.164 number, e.g. +16175550123")
+        if not any(number.startswith("+" + code) for code in self.country_codes):
+            raise ValueError("Call backs can only go to numbers in: "
+                             + ", ".join("+" + c for c in self.country_codes))
+        if number.startswith("+1") and number[2:5] in NANP_ELSEWHERE:
+            raise ValueError("Call backs can only go to US and Canadian +1 numbers")
+
+    def calling_time(self, timestamp):
+        """The first moment at or after `timestamp` inside calling hours."""
+        start, end = self.hours
+        moment = datetime.fromtimestamp(timestamp, self.tz)
+        if moment.hour < start:
+            moment = moment.replace(hour=start, minute=0, second=0, microsecond=0)
+        elif moment.hour >= end:
+            moment = (moment + timedelta(days=1)).replace(hour=start, minute=0, second=0,
+                                                          microsecond=0)
+        return moment.timestamp()
+
+    def when_text(self, timestamp):
+        return speakable_time(timestamp, self.tz)
+
+    # ---- scheduling ----
+
+    def schedule(self, to, name, purpose, voicemail, when=None, source="request",
+                 question_id=None, origin=None, now=None):
+        """Book a call back and return its record.
+
+        `when` is the time the caller asked for, as a timestamp, or None to
+        call as soon as calling hours allow. Raises ValueError, with a reason
+        fit to pass on, if the number or time can't be used.
+        """
+        now = time.time() if now is None else now
+        self.check_number(to)
+        if when is not None:
+            if when < now - 60:
+                raise ValueError("That time has already passed")
+            if when > now + MAX_AHEAD:
+                raise ValueError("Call backs can be booked up to 14 days ahead")
+            due = max(when, now)
+        else:
+            due = self.calling_time(now)
+        day = datetime.fromtimestamp(due, self.tz).strftime("%Y%m%d")
+        count_key = COUNT_KEY + to + ":" + day
+        if self.redis.incr(count_key) > MAX_PER_NUMBER_PER_DAY:
+            raise ValueError("That number already has the most call backs allowed for the day")
+        self.redis.expire(count_key, 2 * 86400)
+        record = {
+            "id": uuid.uuid4().hex, "to": to, "name": name, "purpose": purpose,
+            "voicemail": voicemail, "source": source, "question_id": question_id,
+            "origin": origin, "requested_for": when, "due_at": due,
+            "state": "scheduled", "outcome": None, "attempts": 0,
+            "max_attempts": MAX_ATTEMPTS, "calls": {}, "answered_by": None,
+            "created_at": now, "updated_at": now,
+        }
+        self.save(record)
+        self.redis.zadd(DUE_KEY, {record["id"]: due})
+        return record
+
+    def get(self, callback_id):
+        raw = self.redis.get(self.key(callback_id))
+        return json.loads(raw) if raw else None
+
+    def save(self, record):
+        record["updated_at"] = time.time()
+        self.redis.setex(self.key(record["id"]), TTL, json.dumps(record))
+
+    def cancel(self, callback_id):
+        record = self.get(callback_id)
+        if record is None:
+            return None
+        self.redis.zrem(DUE_KEY, callback_id)
+        record["state"] = "cancelled"
+        self.save(record)
+        return record
+
+    # ---- placing and following up ----
+
+    def claim_due(self, now=None, limit=10):
+        """Take the call backs now due. Each is handed to exactly one caller:
+        removing it from the due set is the claim, and only one ZREM wins."""
+        now = time.time() if now is None else now
+        claimed = []
+        for callback_id in self.redis.zrangebyscore(DUE_KEY, "-inf", now, start=0, num=limit):
+            callback_id = callback_id.decode() if isinstance(callback_id, bytes) else callback_id
+            if not self.redis.zrem(DUE_KEY, callback_id):
+                continue
+            record = self.get(callback_id)
+            if record is None or record["state"] != "scheduled":
+                continue
+            record["state"] = "dialing"
+            record["attempts"] += 1
+            self.save(record)
+            claimed.append(record)
+        return claimed
+
+    def dialed(self, callback_id, call_sid):
+        record = self.get(callback_id)
+        if record is not None:
+            record["state"] = "ringing"
+            record["calls"][call_sid] = "ringing"
+            self.save(record)
+        return record
+
+    def note_answered_by(self, callback_id, answered_by):
+        """Twilio's machine detection verdict, given when the call connects."""
+        record = self.get(callback_id)
+        if record is not None:
+            record["answered_by"] = answered_by
+            self.save(record)
+        return record
+
+    def dial_failed(self, callback_id, now=None):
+        """Twilio refused to place the call at all: treat it as a missed try."""
+        record = self.get(callback_id)
+        if record is None:
+            return None, None
+        return record, self._retry_or_give_up(record, now)
+
+    def finished(self, callback_id, call_sid, status, answered_by=None, now=None):
+        """Record how a call ended. Returns (record, outcome), where outcome is
+        "answered", "voicemail", "retrying", "gave_up", or None if nothing
+        changed (an interim status, or Twilio repeating itself)."""
+        record = self.get(callback_id)
+        if record is None or status not in FINAL_STATUSES:
+            return record, None
+        if record["calls"].get(call_sid) in FINAL_STATUSES:
+            return record, None
+        record["calls"][call_sid] = status
+        answered_by = answered_by or record.get("answered_by") or ""
+        if status == "completed":
+            machine = answered_by.startswith("machine") or answered_by == "fax"
+            record["state"] = "done"
+            record["outcome"] = "voicemail" if machine else "answered"
+            self.save(record)
+            return record, record["outcome"]
+        return record, self._retry_or_give_up(record, now)
+
+    def _retry_or_give_up(self, record, now=None):
+        now = time.time() if now is None else now
+        if record["attempts"] < record["max_attempts"]:
+            delay = RETRY_DELAYS[min(record["attempts"], len(RETRY_DELAYS)) - 1]
+            record["due_at"] = self.calling_time(now + delay)
+            record["state"] = "scheduled"
+            record["outcome"] = "retrying"
+            self.save(record)
+            self.redis.zadd(DUE_KEY, {record["id"]: record["due_at"]})
+        else:
+            record["state"] = "failed"
+            record["outcome"] = "gave_up"
+            self.save(record)
+        return record["outcome"]

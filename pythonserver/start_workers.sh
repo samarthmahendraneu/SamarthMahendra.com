@@ -8,8 +8,12 @@
 # live with half of it dead, and a deploy's SIGTERM would never reach the
 # backgrounded process. Here SIGTERM is passed to both, so Celery still gets
 # its warm shutdown.
+#
+# Background jobs (emails, Discord posts, placing calls, chat follow-ups)
+# spend their time waiting on the network, so a pool of threads runs several
+# at once; with one process, one slow email held up every other job.
 
-celery -A celery_worker worker --loglevel=info --concurrency=1 &
+celery -A celery_worker worker --loglevel=info --pool=threads --concurrency=8 &
 celery_pid=$!
 python discord_listener.py &
 listener_pid=$!

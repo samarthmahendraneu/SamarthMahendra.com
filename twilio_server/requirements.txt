@@ -31,5 +31,6 @@ yarl==1.12.1
 pymongo
 redis
 celery
-discord.py
 httpx
+# Time zones for call back hours, where the OS has no zoneinfo
+tzdata

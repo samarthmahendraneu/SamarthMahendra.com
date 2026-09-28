@@ -71,7 +71,10 @@ class ConfigTests(unittest.TestCase):
         normal = session_config(settings, {"name": "Alice"})
         voicemail = session_config(settings, {"name": "Bob"}, True)
         self.assertEqual(normal["audio"]["format"], {"type": "audio/pcmu", "rate": 8000})
-        self.assertFalse(normal["delegation"]["responses"]["parallel_tool_calls"])
+        self.assertTrue(normal["delegation"]["responses"]["parallel_tool_calls"])
+        names = [t["name"] for t in normal["delegation"]["responses"]["tools"]]
+        for name in ("ask_samarth", "request_callback", "schedule_callback", "check_task"):
+            self.assertIn(name, names)
         vm_backend = voicemail["delegation"]["responses"]
         self.assertEqual([t["name"] for t in vm_backend["tools"]], ["save_voice_mail_message", "end_call"])
         self.assertIn("Bob", vm_backend["instructions"])
@@ -228,6 +231,60 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([e["type"] for e in tool_events], ["response.item.create", "response.item.create", "response.create"])
         self.assertEqual([e["item"]["call_id"] for e in tool_events[:2]], ["c1", "c2"])
         self.assertEqual(self.execute.await_count, 2)
+        await self.stop()
+
+    async def test_a_batch_runs_its_tools_at_once(self):
+        started, release = [], asyncio.Event()
+
+        async def tool(name, call_id, args):
+            started.append(call_id)
+            await release.wait()
+            return {"status": "saved"}
+
+        self.execute.side_effect = tool
+        await self.start()
+        for event in response_events([("c1", "ask_samarth", {"question": "Free?", "caller_name": "A"}),
+                                      ("c2", "send_messages_to_samarth", {"caller_name": "A", "message": "Hi"})]):
+            self.live.feed(event)
+        # Both are under way before either finishes: they don't queue.
+        await until(lambda: len(started) == 2)
+        self.assertNotIn("response.item.create", self.types())
+        release.set()
+        await until(lambda: "response.create" in self.types())
+        tool_events = [e for e in self.live.sent if e["type"].startswith("response.")]
+        self.assertEqual([e.get("item", {}).get("call_id") for e in tool_events], ["c1", "c2", None])
+        await self.stop()
+
+    async def test_batches_finishing_together_do_not_interleave(self):
+        release = asyncio.Event()
+
+        async def tool(name, call_id, args):
+            await release.wait()
+            return {"status": "saved"}
+
+        # A real socket yields while sending, which is when another batch
+        # could slip its results in between.
+        plain_send = self.live.send
+
+        async def yielding_send(raw):
+            await asyncio.sleep(0)
+            await plain_send(raw)
+
+        self.live.send = yielding_send
+        self.execute.side_effect = tool
+        await self.start()
+        for event in response_events([("c1", "check_task", {"task_id": "a"}),
+                                      ("c2", "check_task", {"task_id": "b"})], "d1", "r1"):
+            self.live.feed(event)
+        for event in response_events([("c3", "check_task", {"task_id": "c"})], "d2", "r2"):
+            self.live.feed(event)
+        await until(lambda: self.execute.await_count == 3)
+        release.set()           # both batches finish at the same moment
+        await until(lambda: self.types().count("response.create") == 2)
+        order = [e.get("item", {}).get("call_id") or e["type"] for e in self.live.sent
+                 if e["type"].startswith("response.")]
+        self.assertIn(order, (["c1", "c2", "response.create", "c3", "response.create"],
+                              ["c3", "response.create", "c1", "c2", "response.create"]))
         await self.stop()
 
     async def simulate_backlog(self, count, duration=0.02):

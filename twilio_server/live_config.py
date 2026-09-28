@@ -59,7 +59,8 @@ guarantee of current availability. Don't infer current employment from old dates
 For meetings collect name, agenda, email, and an unambiguous date/time including
 timezone. Read back details and clarify/spell the email when needed before saving.
 You can schedule without approval from Samarth. A saved meeting is not a verified
-calendar availability check. Notifications are queued, not confirmed delivered.
+calendar availability check. Emails and notifications are sent in the background:
+say they are on their way, and confirm delivery only once you are told it finished.
 Recording rule, in this order: record, save, then acknowledge. Anything the
 caller wants Samarth to know - their answer to why you called, a message, a
 decision, a time, a callback number - must be saved with one of this session's
@@ -75,7 +76,10 @@ For script "2", this is an outbound call on Samarth's behalf: use the supplied
 message as its professional purpose, or ask whether the team is hiring software
 engineers when it is empty. The point of the call is to bring an answer back, so
 save whatever they say in reply before closing, even a brief yes or no. Use the supplied name when appropriate. For script
-"1", help the inbound caller. Do not disclose another caller's information.
+"3", this is a call back the caller asked for: the supplied message says why you
+are calling, such as Samarth's answer to their question, so deliver it first, then
+offer help with anything else. For script "1", help the inbound caller. Do not
+disclose another caller's information.
 """
 
 CALL_INSTRUCTIONS = """Use save_reponse_from_caller for the caller's reply to the
@@ -96,6 +100,18 @@ replies while they are still on the line, they hear it then and the call back
 is dropped. If they decline, carry on and let them know you will pass the
 answer along.
 Never invent Samarth's answer, and never imply he has seen the question.
+
+Background tasks:
+Some actions finish in the background, such as emailing a meeting invite. Their
+result includes a task_id and says the task is under way. Tell the caller it is
+on its way and carry on; you will be told when it finishes, or if it fails, and
+can let them know then. Use check_task only if the caller asks for an update.
+
+Calling back at a set time:
+If the caller wants a call at a particular time, agree the day, time and
+timezone, take and read back their number, then use schedule_callback. Promise
+the call only once it returns "scheduled", and give the time it reports. If it
+is refused, explain the reason it gives.
 """
 
 VOICEMAIL_INSTRUCTIONS = """Take a voicemail for Samarth. Collect the caller's
@@ -145,6 +161,15 @@ TOOLS = [
         "question_id": "The question_id returned by ask_samarth",
         "caller_name": "Caller's name",
         "phone_number": "Confirmed callback number in E.164 form, e.g. +16175550123",
+    }),
+    function("schedule_callback", "Book a call back at a time the caller chooses.", {
+        "caller_name": "Caller's name",
+        "phone_number": "Confirmed callback number in E.164 form, e.g. +16175550123",
+        "when": "The agreed time in ISO 8601 with a timezone offset, e.g. 2026-10-01T15:00:00-04:00",
+        "reason": "What the call back is about, in a few words",
+    }),
+    function("check_task", "Check on a background task, such as an invite email.", {
+        "task_id": "The task_id a tool returned",
     }),
     END_CALL,
 ]
@@ -198,7 +223,7 @@ def session_config(settings, context, voicemail=False):
         "delegation": {"type": "responses", "responses": {
             "model": settings.backend_model, "instructions": instructions,
             "tools": VOICEMAIL_TOOLS if voicemail else TOOLS,
-            "tool_choice": "auto", "parallel_tool_calls": False,
+            "tool_choice": "auto", "parallel_tool_calls": True,
         }},
     }
 
@@ -206,6 +231,9 @@ def session_config(settings, context, voicemail=False):
 def greeting(context, voicemail=False):
     if voicemail:
         return "Greet the caller now as Samarth's AI assistant. He is unavailable; offer to take a message. Then listen."
+    if context.get("script") == "3":
+        return ("Greet the caller now as Samarth's AI assistant, calling them back as they asked. "
+                "Ask if it's a good time. Delegate the call's purpose to the backend, then listen.")
     if context.get("script") == "2" or context.get("message"):
         return ("Greet the caller now as Samarth's AI assistant calling on his behalf. "
                 "Ask if this is a good time. Delegate the call's purpose to the backend, then listen.")

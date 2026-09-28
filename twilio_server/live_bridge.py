@@ -76,6 +76,7 @@ class LiveBridge:
         self.current_responses = {}
         self.completed_responses = set()
         self.tool_results = {}
+        self.tool_runs = {}
         self.workers = set()
         self.end_task = None
         self.closing = False
@@ -256,35 +257,19 @@ class LiveBridge:
             self.hangup.set()
 
     async def run_tools(self, batch):
-        # Keep a batch's results together; audio continues on the other tasks.
+        # A batch's tools run at once: asking Samarth, saving a message and
+        # booking a meeting shouldn't queue behind each other. Audio continues
+        # on the other tasks meanwhile.
+        calls = list(batch.calls.items())
+        if self.closing:
+            return
+        results = await asyncio.gather(*(self.tool_result(call_id, item) for call_id, item in calls))
+        # Send a batch's results together, then its one continuation, so
+        # another batch finishing at the same moment can't interleave with it.
         async with self.tool_lock:
-            for call_id, item in batch.calls.items():
-                if self.closing:
-                    return
-                if call_id not in self.tool_results:
-                    try:
-                        args = json.loads(item["arguments"])
-                        if not isinstance(args, dict):
-                            raise ValueError("Function arguments must be an object")
-                        logger.info("Tool start stream=%s name=%s call_id=%s",
-                                    self.stream_sid, item["name"], call_id)
-                        result = await self.execute_tool(item["name"], call_id, args)
-                        logger.info("Tool ok stream=%s name=%s status=%s",
-                                    self.stream_sid, item["name"],
-                                    result.get("status") if isinstance(result, dict) else "?")
-                    except Exception as exc:
-                        # Message, not just the type: "RuntimeError" alone has
-                        # repeatedly been too little to diagnose a failed call.
-                        logger.warning("Tool failed name=%s (%s: %s)",
-                                       item["name"], type(exc).__name__, exc)
-                        result = {"status": "error", "message": (
-                            "The operation could not be confirmed. Do not claim success or retry "
-                            "automatically; explain that it needs to be checked."
-                        )}
-                    self.tool_results[call_id] = result
-                result = self.tool_results[call_id]
-                if self.closing:
-                    return
+            if self.closing:
+                return
+            for (call_id, item), result in zip(calls, results):
                 await self.send({
                     "type": "response.item.create", "event_id": event_id(),
                     "item": {"type": "function_call_output", "call_id": call_id,
@@ -293,10 +278,39 @@ class LiveBridge:
                 if (self.accept_tools and item["name"] == "end_call"
                         and result.get("status") == "ending" and self.end_task is None):
                     self.end_task = asyncio.create_task(self.finish_goodbye())
-            if not self.closing:
-                # These commands deliberately have no invented delegation/response
-                # fields: Live correlates function results by their original call_id.
-                await self.send({"type": "response.create", "event_id": event_id()})
+            # These commands deliberately have no invented delegation/response
+            # fields: Live correlates function results by their original call_id.
+            await self.send({"type": "response.create", "event_id": event_id()})
+
+    async def tool_result(self, call_id, item):
+        """Run a tool call once, however many batches repeat it."""
+        running = self.tool_runs.get(call_id)
+        if running is None:
+            running = self.tool_runs[call_id] = asyncio.ensure_future(self.run_tool(call_id, item))
+        return await running
+
+    async def run_tool(self, call_id, item):
+        try:
+            args = json.loads(item["arguments"])
+            if not isinstance(args, dict):
+                raise ValueError("Function arguments must be an object")
+            logger.info("Tool start stream=%s name=%s call_id=%s",
+                        self.stream_sid, item["name"], call_id)
+            result = await self.execute_tool(item["name"], call_id, args)
+            logger.info("Tool ok stream=%s name=%s status=%s",
+                        self.stream_sid, item["name"],
+                        result.get("status") if isinstance(result, dict) else "?")
+        except Exception as exc:
+            # Message, not just the type: "RuntimeError" alone has
+            # repeatedly been too little to diagnose a failed call.
+            logger.warning("Tool failed name=%s (%s: %s)",
+                           item["name"], type(exc).__name__, exc)
+            result = {"status": "error", "message": (
+                "The operation could not be confirmed. Do not claim success or retry "
+                "automatically; explain that it needs to be checked."
+            )}
+        self.tool_results[call_id] = result
+        return result
 
     async def finish_goodbye(self):
         started = time.monotonic()
@@ -370,7 +384,8 @@ class LiveBridge:
                     logger.warning("Live finalization incomplete (%s)", type(exc).__name__)
             if reader:
                 reader.cancel()
-            cleanup = tasks + list(self.workers) + ([self.end_task] if self.end_task else [])
+            cleanup = (tasks + list(self.workers) + list(self.tool_runs.values())
+                       + ([self.end_task] if self.end_task else []))
             await asyncio.gather(*cleanup, return_exceptions=True)
             if self.dropped_audio_frames:
                 logger.warning("Twilio input audio dropped stream=%s frames=%d",

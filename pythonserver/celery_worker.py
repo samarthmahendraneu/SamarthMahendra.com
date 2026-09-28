@@ -99,3 +99,40 @@ def tool_call_fn(self, tool_name, call_id, args):
     except Exception as e:
         logger.error(f"[Celery Worker] Error in tool_call_fn: {e}", exc_info=True)
         raise
+
+
+# ---- background jobs and chat news (jobs.py, job_handlers.py, chat_agent.py) ----
+# tool_call_fn above stays for work queued by services not yet redeployed.
+
+import redis as _redis
+
+import job_handlers
+from events import EventStream
+from jobs import JobStore
+
+_store = _redis.from_url(CELERY_BROKER_URL or "redis://localhost:6379/0",
+                         socket_connect_timeout=5, socket_timeout=10)
+events = EventStream(_store)
+jobs = JobStore(_store, enqueue=lambda job_id: run_job.delay(job_id))
+
+
+@celery_app.task(name="celery_worker.run_job")
+def run_job(job_id):
+    """Run a background job and tell the conversation that started it."""
+    record = job_handlers.run(
+        job_id, jobs, events,
+        on_chat_news=lambda session_id: chat_followup.delay(session_id),
+        notify_discord=lambda text: job_handlers.send_discord({"content": text}))
+    return record and record["status"]
+
+
+@celery_app.task(name="celery_worker.chat_followup", bind=True, max_retries=3)
+def chat_followup(self, session_id):
+    """News landed on a website chat's stream: have the assistant say so."""
+    import chat_agent
+    try:
+        return chat_agent.agent().follow_up(session_id)
+    except chat_agent.Busy as exc:
+        # A long turn of the visitor's still holds the session; try again
+        # once it has finished.
+        raise self.retry(exc=exc, countdown=5)

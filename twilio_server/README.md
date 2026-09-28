@@ -23,10 +23,10 @@ LIVE_BACKEND_MODEL=gpt-5.6-luna
 | `LIVE_BACKEND_MODEL` | New optional setting, default `gpt-5.6-luna`. Used by Responses for reasoning and tools, not the speaking voice. |
 | `PUBLIC_BASE_URL` | New optional setting for outbound Twilio callbacks. Defaults to the existing `https://twillio-ai-assistant.onrender.com` host. Set only if your web service uses a different public hostname. |
 
-Keep `OPENAI_API_KEY`, Twilio credentials/number, Redis, MongoDB, SMTP, Discord,
-and `PORT` settings. The same project key must have access to both configured
+Keep `OPENAI_API_KEY`, Twilio credentials/number, Redis, MongoDB, and `PORT`
+settings. Email and Discord settings belong to the worker, not this service. The same project key must have access to both configured
 OpenAI models. Voice sessions and delegated backend usage are billed separately.
-The Celery worker's environment and launch command do not need migration changes.
+The worker's launch command changes; see [Background work](#background-work-updates-and-call-backs).
 See [.env.example](.env.example); it contains settings only, no credentials.
 
 ## Conversational voice style
@@ -57,7 +57,7 @@ new calls receive the updated style. See [the design and research notes](VOICE_P
    `live_config.py`, and `profile_context.txt`, with the settings above.
 2. Keep the existing build command (`pip install -r requirements.txt`) and web
    command (`uvicorn main:app --host 0.0.0.0 --port "$PORT"`, from this directory).
-   Use Python 3.11 or newer. Keep Redis, MongoDB, and the Celery worker available.
+   Use Python 3.11 or newer. Keep Redis, MongoDB, and the worker available.
 3. Restart/redeploy the web service after editing environment values. Allow
    existing calls to finish first: a deployment does not migrate active sockets.
 4. Keep Twilio's incoming voice webhook at `/incoming-call` and voicemail webhook
@@ -106,9 +106,68 @@ and its Realtime model environment value; changing `MODEL` alone is insufficient
 - Close with `session.close` and keep listening for `session.closed`, logging
   final usage. Missing terminal events are reported as unconfirmed usage.
 
+## Background work, updates and call backs
+
+Slow work no longer holds up a conversation. A tool that would make someone
+wait starts it in the background and returns at once; when it finishes, the
+conversation is told, and the assistant passes it on without being asked.
+
+- **Event streams** (`events.py`): every call (`call:<CallSid>`) and website chat
+  (`chat:<session>`) has a Redis stream. Samarth's Discord replies, finished
+  jobs and outbound-call answers are appended to the stream of the
+  conversation that asked. A live call speaks them through
+  `session.commentary.append` (`call_events.py`); a chat gets a new message,
+  which the browser receives from `/chat/events`.
+- **Jobs** (`jobs.py`, run by `pythonserver/job_handlers.py`): meeting invite
+  emails, Discord posts and chat-requested phone calls. The caller hears when
+  their invite has been sent, and hears if it or a relay failed. Discord posts
+  use the REST API and cannot @mention anyone.
+- **Tools run in parallel.** The backend may call several tools in one turn,
+  and a batch's tools run at the same time; each batch's results still go back
+  together.
+- **Discord replies are matched by reply-to**, not arrival order. Reply to the
+  question's message (or to the bot's note about it). With a single question
+  open, a plain message still answers it; with several open, the bot asks you
+  to reply to the right one. A second reply to an answered question is passed
+  on as a follow-up.
+- **Call backs** (`callbacks.py`, placed by `pythonserver/callback_scheduler.py`
+  in the Discord listener): `request_callback` rings the caller when Samarth
+  answers after they hang up; `schedule_callback` books a call at a time the
+  caller chooses. Twilio's machine detection leaves a voicemail if nobody
+  answers in person; missed calls are retried after 10 and 30 minutes, three
+  tries in all. Automatic calls wait for calling hours. What each call is about
+  stays in Redis; the call URL carries only an id.
+
+New settings, all optional:
+
+| Variable | Where | Default |
+| --- | --- | --- |
+| `CALLBACK_TIMEZONE` | voice service and worker | `America/New_York` |
+| `CALLBACK_HOURS` | voice service and worker | `10-20` (local hours for automatic call backs and retries) |
+| `CALLBACK_COUNTRY_CODES` | voice service and worker | `1` (US and Canada; Caribbean +1 numbers are always refused) |
+| `TWILIO_SERVICE_URL` | worker | `https://twillio-ai-assistant.onrender.com` (where chat-requested calls are placed) |
+| `SAMARTH_EMAIL` | chat service | `samarth.mahendragowda@gmail.com` (copy of chat-booked meetings) |
+
+New voice-service routes, called by Twilio only: `/callback-call` and
+`/callback-status` for call backs, `/call-status` for outbound calls a chat
+asked for. No Twilio dashboard change is needed. Machine detection is billed
+per call back.
+
+There is one Celery worker, deployed from `pythonserver/`. This service runs
+none: `worker_client.py` sends its tasks by name through the shared Redis, and
+a test checks the worker defines every task this service sends.
+
+Deploy the worker first: it still runs work queued by older services, while
+new services queue work only it knows. Change its start command to
+`bash start_workers.sh`, which runs Celery on a thread pool
+(`--pool=threads --concurrency=8`) beside the Discord listener, then deploy
+the voice and chat services. Calls already in progress keep working: the new
+listener still recognises questions asked by the old code.
+
 ## Offline tests
 
-With the existing server requirements installed, run from the repository root:
+With both folders' requirements installed (the tests also cover the worker in
+`pythonserver/`), run from the repository root:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=twilio_server python -m unittest discover -s twilio_server/tests -v
@@ -117,9 +176,12 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=twilio_server python -m unittest discover -
 The tests use fake audio sockets and replace MongoDB, Redis, Celery, and Twilio
 call creation. They do not contact OpenAI, dial phone numbers, or send messages.
 They cover startup gating, audio passthrough, sustained audio pacing, buffer
-overflow recovery, function result ordering,
+overflow recovery, function result ordering, parallel tool batches,
 duplicate tool calls, failures, graceful shutdown, playback acknowledgment,
-per-call context isolation, voicemail saving, and the existing HTTP routes.
+per-call context isolation, voicemail saving, and the existing HTTP routes;
+and, for the worker and chat in `pythonserver/`, Discord reply matching, the
+event streams, jobs, call back scheduling and retries, and the chat's tool
+loop and follow-ups. The shared modules are kept identical in both folders.
 
 ## Protocol references
 

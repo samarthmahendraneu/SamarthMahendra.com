@@ -18,3 +18,5 @@ requests
 fastapi[all]
 openai
 bcrypt
+# Time zones for call back hours, where the OS has no zoneinfo
+tzdata
