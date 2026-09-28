@@ -152,10 +152,35 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         execute = main.make_tool_executor({}, True)
         with self.assertRaises(ValueError):
             await execute("schedule_meeting_on_jitsi", "call-1", {})
-        with self.assertRaises(ValueError):
-            await execute("save_voice_mail_message", "call-1", {"message": "Only text"})
+        result = await execute("save_voice_mail_message", "call-1", {"message": "Only text"})
+        self.assertEqual(result["status"], "invalid")
         mongo.save_voice_mail_message.assert_not_called()
         mongo.insert_meeting.assert_not_called()
+
+    async def test_a_caller_who_gave_no_name_can_still_be_helped(self):
+        # The tool tells the model to send "" when no name was given; that
+        # used to be rejected, failing every ask, message and call back.
+        question = await self.executor()("ask_samarth", "q1", {"question": "Free Friday?",
+                                                               "caller_name": ""})
+        self.assertEqual(question["status"], "asked")
+        relay = await self.executor()("send_messages_to_samarth", "r1",
+                                      {"caller_name": " ", "message": "Running late"})
+        self.assertEqual(relay["status"], "saved")
+        self.assertIn("Phone message from a caller: Running late",
+                      started_jobs("discord.send")[0]["args"]["content"])
+        when = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+        booked = await self.executor()("schedule_callback", "s1", {
+            "caller_name": "", "phone_number": "+16175550123", "when": when, "reason": ""})
+        self.assertEqual(booked["status"], "scheduled")
+        self.assertTrue(main.callbacks.get(booked["callback_id"])["voicemail"].startswith("Hi, this is Luma"))
+
+    async def test_a_missing_argument_is_named_so_the_model_can_ask_for_it(self):
+        result = await self.executor()("send_messages_to_samarth", "r1",
+                                       {"caller_name": "Alice", "message": "  "})
+        self.assertEqual(result["status"], "invalid")
+        self.assertIn("message", result["message"])
+        self.assertIn("Ask the caller", result["message"])
+        mongo.save_relayed_message.assert_not_called()
 
     async def test_question_remembers_which_call_asked(self):
         asked = []

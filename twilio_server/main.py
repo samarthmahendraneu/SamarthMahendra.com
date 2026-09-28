@@ -182,7 +182,7 @@ def relay_status(message_id, relayed):
 
 def relay_message_to_samarth(call_id, args, channel=None):
     message_id = mongo_tool.save_relayed_message(call_id, args)
-    content = f"Phone message from {args['caller_name']}: {args['message']}"
+    content = f"Phone message from {args['caller_name'] or 'a caller'}: {args['message']}"
     return relay_status(message_id, queue_discord_message(content, channel))
 
 
@@ -241,17 +241,28 @@ def book_callback(args, channel=None):
     when = datetime.fromisoformat(args["when"].replace("Z", "+00:00"))
     if when.utcoffset() is None:
         raise ValueError("The time needs a timezone")
-    name, reason = args["caller_name"], args["reason"]
+    name, reason = args["caller_name"], args["reason"] or "their earlier call"
     record = callbacks.schedule(
         args["phone_number"], name,
         purpose=f"They asked to be called back at this time about: {reason}",
-        voicemail=(f"Hi {name}, this is Luma, Samarth Mahendra's AI assistant, calling you back "
-                   f"as you asked, about {reason}. Please call this number back when it suits you. Goodbye."),
+        voicemail=(f"{greeting_to(name)} this is Luma, Samarth Mahendra's AI assistant, calling you "
+                   f"back as you asked, about {reason}. Please call this number back when it suits "
+                   "you. Goodbye."),
         when=when.timestamp(), source="request", origin=channel)
     spoken = readable_time(args["when"])
-    queue_discord_message(f"Luma will call {name} ({args['phone_number']}) back on {spoken} about: {reason}")
+    queue_discord_message(f"Luma will call {name or 'a caller'} ({args['phone_number']}) back "
+                          f"on {spoken} about: {reason}")
     return {"status": "scheduled", "callback_id": record["id"], "when": spoken,
             "message": "Booked. If they miss it, it is tried again later."}
+
+
+def greeting_to(name):
+    return f"Hi {name}," if name else "Hi,"
+
+
+# A caller needn't give their name, or a number for a voicemail, and a call
+# back can be about nothing in particular; every other argument is needed.
+MAY_BE_EMPTY = {"caller_name", "phone_no", "reason"}
 
 
 def make_tool_executor(context, voicemail=False, asked=None):
@@ -265,10 +276,16 @@ def make_tool_executor(context, voicemail=False, asked=None):
         schema = schemas.get(name)
         if schema is None:
             raise ValueError("Tool is not available for this call")
-        if set(args) != set(schema["required"]) or any(
-            not isinstance(value, str) or not value.strip() for value in args.values()
-        ):
-            raise ValueError("Missing or invalid tool arguments")
+        missing = [field for field in schema["required"] if not isinstance(args.get(field), str)
+                   or (not args[field].strip() and field not in MAY_BE_EMPTY)]
+        if missing or set(args) - set(schema["required"]):
+            # Say which: a bare "invalid arguments" left the model unable to
+            # fix its call, and nothing has happened yet, so retrying is safe.
+            logger.warning("Tool refused name=%s missing=%s", name, ",".join(missing) or "-")
+            return {"status": "invalid", "message": (
+                f"Nothing was done: {', '.join(missing) or 'unexpected fields'} missing or empty. "
+                "Ask the caller for it, then call the tool again.")}
+        args = {key: value.strip() for key, value in args.items()}
         if name == "end_call":
             return {"status": "ending"}
         if name == "schedule_meeting_on_jitsi":

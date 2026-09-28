@@ -219,7 +219,7 @@ class Listener(discord.Client):
             booked = await asyncio.to_thread(
                 self.callbacks.schedule, record["callback_number"], name,
                 purpose=f"You asked: {question} Samarth's answer is: {reply}",
-                voicemail=(f"Hi {name}, this is Luma, Samarth Mahendra's AI assistant, calling back "
+                voicemail=(f"{'Hi ' + name if name else 'Hi'}, this is Luma, Samarth Mahendra's AI assistant, calling back "
                            f"with his answer to your question. You asked: {question}. "
                            f"He says: {reply}. To talk it through, call this number back. Goodbye."),
                 source="question", question_id=record["id"], origin=origin_of(record))
