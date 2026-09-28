@@ -561,7 +561,44 @@ document.addEventListener('DOMContentLoaded', function () {
             chatEvents.close();
             chatEvents = null;
         }
+        updatePresence();
     }
+
+    // While the page waits on news, it tells the server it's open and in
+    // view, so Samarth's answer is shown here rather than ringing a visitor
+    // who asked for a call back. The event stream can't tell: a proxy can
+    // hold it open for minutes after the tab has closed.
+    const PRESENCE_EVERY_MS = 5000;
+    let presenceTimer = null;
+
+    function sendPresence(here) {
+        const url = `${SERVER_URL}/chat/presence?session_id=${chatSessionId}&here=${here ? 1 : 0}`;
+        // A beacon still goes out while the page is closing.
+        if (!here && navigator.sendBeacon && navigator.sendBeacon(url)) return;
+        fetch(url, { method: 'POST', keepalive: true }).catch(() => {});
+    }
+
+    function updatePresence() {
+        const here = chatEvents !== null && document.visibilityState === 'visible';
+        if (here && !presenceTimer) {
+            sendPresence(true);
+            presenceTimer = setInterval(() => sendPresence(true), PRESENCE_EVERY_MS);
+        } else if (!here && presenceTimer) {
+            clearInterval(presenceTimer);
+            presenceTimer = null;
+            sendPresence(false);
+        }
+    }
+
+    document.addEventListener('visibilitychange', updatePresence);
+    window.addEventListener('pageshow', updatePresence);
+    window.addEventListener('pagehide', () => {
+        if (presenceTimer) {
+            clearInterval(presenceTimer);
+            presenceTimer = null;
+            sendPresence(false);
+        }
+    });
 
     // Listen only while something is pending, so an idle tab holds no connection.
     function watchBackgroundWork(pending) {
@@ -580,6 +617,7 @@ document.addEventListener('DOMContentLoaded', function () {
         chatEvents.addEventListener('status', event => {
             if (JSON.parse(event.data).pending === 0) stopWatching();
         });
+        updatePresence();
     }
 
     // Toggle Chatbot

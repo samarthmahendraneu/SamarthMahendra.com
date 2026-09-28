@@ -544,11 +544,17 @@ class StreamTests(unittest.IsolatedAsyncioTestCase):
         # Nothing was lost: the next attempt still has the news to tell.
         self.assertTrue(agent.has_news(SESSION))
 
-    async def test_an_open_chat_counts_as_live(self):
+    async def test_only_the_page_itself_says_the_visitor_is_here(self):
+        # A proxy can hold the stream open for minutes after the tab closes, and
+        # a visitor who had left went unrung because the stream still ran.
         agent, _ = self.asked()
-        self.assertFalse(agent.events.is_live(CHAT))
         await self.frames(agent, lifetime=0.1)
+        self.assertFalse(agent.events.is_live(CHAT))
+        agent.set_presence(SESSION, True)
         self.assertTrue(agent.events.is_live(CHAT))
+        self.assertEqual(self.redis.expirations["events-live:" + CHAT], chat_agent.PRESENCE_TTL)
+        agent.set_presence(SESSION, False)              # the page closed or was hidden
+        self.assertFalse(agent.events.is_live(CHAT))
 
     async def test_a_turn_in_progress_is_left_to_tell_it(self):
         agent, question_id = self.asked(reply("He prefers Zoom."))

@@ -421,6 +421,19 @@ async def chat_events(request: Request, session_id: str = "", after: str = "0-0"
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+@app.post("/chat/presence")
+async def chat_presence(session_id: str = "", here: int = 1):
+    """The chat page is open and in view (here=1), or has gone (here=0).
+
+    Query parameters and no body, so the browser can send it with
+    sendBeacon as the page closes, and without a CORS preflight.
+    """
+    if not chat_agent.SESSION_PATTERN.fullmatch(session_id):
+        return JSONResponse({"error": "Unknown session"}, status_code=404)
+    await asyncio.to_thread(chat_agent.agent().set_presence, session_id, bool(here))
+    return JSONResponse({"ok": True})
+
+
 import requests
 from fastapi import HTTPException
 

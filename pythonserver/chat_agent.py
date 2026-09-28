@@ -43,6 +43,9 @@ MAX_STEPS = 6
 MAX_ITEMS = 120
 # How long the browser keeps listening for a background task's news.
 PENDING_TTL = 30 * 60
+# The page says it's open and in view every five seconds while it waits on
+# news; after three missed, the visitor counts as gone.
+PRESENCE_TTL = 15
 SESSION_PATTERN = re.compile(r"[0-9a-f]{32}")
 EMAIL_PATTERN = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
 # Only when numbers are checked by text (see PhoneVerifier).
@@ -570,9 +573,6 @@ class ChatAgent:
         while time.monotonic() - opened < lifetime:
             if await is_disconnected():
                 return
-            # While this page is open the visitor counts as here: an answer
-            # is shown in the chat instead of ringing their phone.
-            await asyncio.to_thread(self.events.mark_live, self.channel(session_id))
             if time.monotonic() >= retry_at and await asyncio.to_thread(self.has_news, session_id):
                 try:
                     await asyncio.to_thread(self.follow_up, session_id, 2)
@@ -589,6 +589,18 @@ class ChatAgent:
                 yield ": keep-alive\n\n"
                 quiet = time.monotonic()
             await asyncio.sleep(tick)
+
+    def set_presence(self, session_id, here):
+        """The page is open and in view, or has gone. A visitor who's here sees
+        Samarth's answer in the chat instead of being rung.
+
+        The page says so itself: the event stream can't, because a proxy
+        can hold it open for minutes after the tab has closed.
+        """
+        if here:
+            self.events.mark_live(self.channel(session_id), ttl=PRESENCE_TTL)
+        else:
+            self.events.clear_live(self.channel(session_id))
 
     def messages_after(self, session_id, after=START):
         """Messages the browser should show since `after`, for its display and
