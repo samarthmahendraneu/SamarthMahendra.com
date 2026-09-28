@@ -143,7 +143,7 @@ class CallbackStore:
             due = max(when, now)
         else:
             due = self.calling_time(now, zone_name)
-        if True:
+        if to not in UNLIMITED_NUMBERS:
             day = self.local(due, zone_name).strftime("%Y%m%d")
             count_key = COUNT_KEY + to + ":" + day
             if self.redis.incr(count_key) > MAX_PER_NUMBER_PER_DAY:

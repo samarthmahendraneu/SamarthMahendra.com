@@ -126,13 +126,16 @@ conversation is told, and the assistant passes it on without being asked.
   and a batch's tools run at the same time; each batch's results still go back
   together.
 - **Discord replies are matched by reply-to**, not arrival order. Reply to the
-  question's message (or to the bot's note about it). With a single question
-  open, a plain message still answers it; with several open, the bot asks you
-  to reply to the right one. A second reply to an answered question is passed
-  on as a follow-up.
+  question's message (or to the bot's note about it). When everything open is
+  from one caller or chat, a plain message answers its latest question; with
+  two people waiting, the bot asks you to reply to the right one. A second
+  reply to an answered question is passed on as a follow-up.
 - **Call backs** (`callbacks.py`, placed by `pythonserver/callback_scheduler.py`
   in the Discord listener): `request_callback` rings the caller when Samarth
-  answers after they hang up; `schedule_callback` books a call at a time the
+  answers after they hang up. It holds for the whole call or chat, so a
+  question asked again in other words is covered, and in the chat it can be
+  asked for before the question or, once he has answered, rings straight away
+  if the visitor has left. `schedule_callback` books a call at a time the
   caller chooses. Twilio's machine detection leaves a voicemail if nobody
   answers in person; missed calls are retried after 10 and 30 minutes, three
   tries in all. Automatic calls wait for calling hours on the caller's own
@@ -140,7 +143,8 @@ conversation is told, and the assistant passes it on without being asked.
 - **The website chat books call backs too**, with the same scheduler: a call when
   Samarth answers a question (only if the visitor has left the chat by then;
   otherwise they see the answer there), or at a time they choose. Limits are the
-  phone line's plus three per chat. Set `TWILIO_VERIFY_SERVICE_SID` on the chat
+  phone line's plus three per chat; Samarth's own number (`UNLIMITED_NUMBERS` in
+  `callbacks.py`) has none. Set `TWILIO_VERIFY_SERVICE_SID` on the chat
   service to also require a code texted to the number before it can be rung.
 - **Times are timezone-aware** (`timezones.py`). Both assistants have a
   `get_current_time` tool, so they never guess the date. Tools take the
