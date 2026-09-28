@@ -514,3 +514,59 @@ body[data-theme="dark"] .announcement-action {
 .showcase-kicker-upcoming {
     color: var(--dr-terracotta);
 }
+
+
+/* ---------- Short laptop screens: keep the call to action above the fold ---------- */
+/* Most Windows laptops give the page 580-730px of height at 100% zoom
+   (1536x864, 1366x768, 1280x720 -- StatCounter's #3-#5 US resolutions), and
+   the hero's buttons ended at 740-760px, so visitors saw a name and no way
+   in. On short screens the buttons move above the skill tags and the
+   spacing tightens. Only the specialties label is dropped; the skill tags
+   say the same thing. The name is capped by height, never enlarged: it is
+   the smaller of its usual size and 10.5% of the viewport's height. */
+@media (min-width: 769px) and (max-height: 800px) {
+    .hero-section { padding-top: 86px; }
+    .home-announcement-banner { margin-bottom: 16px; }
+    .hero-main-top { margin-bottom: 14px; }
+    .hero-availability-note { display: none; }
+    .hero-main-card { display: flex; flex-direction: column; }
+    body[data-font-preset] .hero-display-name {
+        font-size: min(clamp(3rem, 5.55vw, 4.72rem), 10.5vh);
+        margin-bottom: 16px;
+    }
+    .hero-lead { margin-bottom: 12px; }
+    .hero-bio { margin-bottom: 18px; }
+    .hero-focus-pills { order: 1; margin: 18px 0 0; }
+}
+
+/* Very short: 110-125% zoom on the smallest laptops leaves 470-535px. The
+   second intro sentence goes too; the tagline above it makes the point. */
+@media (min-width: 769px) and (max-height: 560px) {
+    .hero-bio { display: none; }
+}
+
+
+/* ---------- Phones: readable text and tappable chips ---------- */
+/* Tags and the GitHub account chips dropped to 10-11px on phones. Body-ish
+   text gets a 12px floor; all-caps labels 11px, the smallest size Apple's
+   guidelines allow, since capitals read larger than lower case. */
+@media (max-width: 768px) {
+    body[data-font-preset] .about-quick-pills span,
+    body[data-font-preset] .skill-tags span,
+    body[data-font-preset] .showcase-pill-list span,
+    body[data-font-preset] .writing-topic-pills span,
+    body[data-font-preset] .writing-tag,
+    body[data-font-preset] .writing-read-time,
+    body[data-font-preset] .prose-gh-link { font-size: 0.75rem; }
+    body[data-font-preset] .hero-availability-note,
+    body[data-font-preset] .hero-intro-line,
+    body[data-font-preset] .announcement-kicker,
+    body[data-font-preset] .hero-journey-card .hero-panel-label,
+    body[data-font-preset] .live-indicator { font-size: 0.6875rem; }
+}
+
+/* The GitHub chips are standalone pills rather than links inside a sentence,
+   so WCAG 2.5.8's 24px minimum applies; they were 23px tall. */
+.prose-gh-link {
+    min-height: 26px;
+}
