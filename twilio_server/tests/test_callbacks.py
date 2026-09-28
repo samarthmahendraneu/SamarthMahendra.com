@@ -18,6 +18,14 @@ def eastern(day, hour, minute=0):
     return datetime(2026, 10, day, hour, minute, tzinfo=EASTERN).timestamp()
 
 
+def pacific(day, hour, minute=0):
+    return datetime(2026, 10, day, hour, minute, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp()
+
+
+def central(day, hour, minute=0):
+    return datetime(2026, 10, day, hour, minute, tzinfo=ZoneInfo("America/Chicago")).timestamp()
+
+
 class CallbackStoreTests(unittest.TestCase):
     def setUp(self):
         self.store = CallbackStore(MemoryRedis())
@@ -30,6 +38,38 @@ class CallbackStoreTests(unittest.TestCase):
         self.assertEqual(self.book(now=eastern(1, 14))["due_at"], eastern(1, 14))
         self.assertEqual(self.book(now=eastern(1, 6))["due_at"], eastern(1, 10))
         self.assertEqual(self.book(now=eastern(1, 22))["due_at"], eastern(2, 10))
+
+    def test_calling_hours_are_on_the_callers_clock(self):
+        # Noon in Boston is 9am in San Francisco: the Boston number is called
+        # now, the San Francisco one waits until 10am there.
+        boston = self.book(now=eastern(1, 12))
+        san_francisco = self.book(now=eastern(1, 12), to="+14155550123")
+        self.assertEqual(boston["due_at"], eastern(1, 12))
+        self.assertEqual(san_francisco["due_at"], pacific(1, 10))
+        self.assertEqual((san_francisco["timezone"], san_francisco["timezone_source"]),
+                         ("America/Los_Angeles", "number"))
+
+    def test_a_zone_the_caller_gave_beats_their_numbers(self):
+        record = self.store.schedule(NUMBER, "Alice", "why", "vm", now=central(1, 8), tz="Central")
+        self.assertEqual((record["due_at"], record["timezone_source"]), (central(1, 10), "given"))
+        with self.assertRaises(ValueError):
+            self.store.schedule(NUMBER, "Alice", "why", "vm", tz="Mars/Olympus")
+
+    def test_an_unknown_zone_falls_back_to_the_default(self):
+        record = self.book(now=eastern(1, 6), to="+18005550123")      # toll-free
+        self.assertEqual((record["timezone"], record["timezone_source"], record["due_at"]),
+                         ("America/New_York", "default", eastern(1, 10)))
+
+    def test_a_retry_waits_for_morning_where_the_caller_is(self):
+        record = self.book(now=pacific(1, 14), to="+14155550123")
+        self.store.claim_due(now=pacific(1, 15))
+        record, _ = self.store.finished(record["id"], "CA1", "no-answer", now=pacific(1, 19, 55))
+        self.assertEqual(record["due_at"], pacific(2, 10))
+
+    def test_samarth_sees_the_callers_time_and_his(self):
+        record = self.book(now=pacific(1, 14), to="+14155550123")
+        self.assertEqual(self.store.when_for_samarth(record), "Thursday 2:00 PM PDT (5:00 PM EDT)")
+        self.assertEqual(self.store.when_text(record["due_at"], record["timezone"]), "Thursday 2:00 PM PDT")
 
     def test_a_time_the_caller_chose_is_kept_even_outside_calling_hours(self):
         record = self.book(now=eastern(1, 14), when=eastern(2, 8, 30))

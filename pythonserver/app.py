@@ -393,8 +393,10 @@ async def chat(request: Request):
     cursor = data.get("cursor") or chat_agent.START
     if not isinstance(cursor, str) or not STREAM_ID.fullmatch(cursor):
         cursor = chat_agent.START
+    timezone = data.get("timezone") if isinstance(data.get("timezone"), str) else None
     try:
-        result = await asyncio.to_thread(chat_agent.agent().respond, session_id, message, cursor)
+        result = await asyncio.to_thread(chat_agent.agent().respond, session_id, message, cursor,
+                                         timezone)
     except chat_agent.Busy:
         return JSONResponse({"error": "Still working on the last message", "session_id": session_id},
                             status_code=409)

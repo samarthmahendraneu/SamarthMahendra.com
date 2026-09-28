@@ -11,7 +11,9 @@ What a call is about stays here, under an unguessable id, rather than riding
 in the call's URL where Twilio logs it.
 
 Automatic calls -- a reply that lands late in the evening, a retry -- wait for
-calling hours in CALLBACK_TIMEZONE. A time the caller chose is kept as given.
+calling hours in the caller's own timezone: the one they gave, else the one
+their number belongs to, else CALLBACK_TIMEZONE. A time the caller chose is
+kept as given.
 
 Kept byte-identical in twilio_server/ and pythonserver/; the tests fail if the
 copies drift.
@@ -22,7 +24,8 @@ import re
 import time
 import uuid
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+
+import timezones
 
 CALLBACK_KEY = "callback:"
 DUE_KEY = "callbacks:due"
@@ -48,18 +51,12 @@ FINAL_STATUSES = ("completed", "busy", "no-answer", "failed", "canceled")
 MISSED_STATUSES = ("busy", "no-answer", "failed", "canceled")
 
 
-def speakable_time(timestamp, tz):
-    """A time as a caller would say it, e.g. "Tuesday 10:00 AM EDT"."""
-    moment = datetime.fromtimestamp(timestamp, tz)
-    hour = moment.hour % 12 or 12
-    return f"{moment:%A} {hour}:{moment:%M} {'AM' if moment.hour < 12 else 'PM'} {moment:%Z}"
-
-
 class CallbackStore:
     def __init__(self, redis, timezone="America/New_York", hours=(10, 20),
                  country_codes=("1",)):
         self.redis = redis
-        self.tz = ZoneInfo(timezone)
+        # For callers whose timezone can't be told any other way.
+        self.default_zone = timezones.zone(timezone).key
         self.hours = hours
         self.country_codes = tuple(country_codes)
 
@@ -88,10 +85,19 @@ class CallbackStore:
         if number.startswith("+1") and number[2:5] in NANP_ELSEWHERE:
             raise ValueError("Call backs can only go to US and Canadian +1 numbers")
 
-    def calling_time(self, timestamp):
-        """The first moment at or after `timestamp` inside calling hours."""
+    def callee_zone(self, number, given=None):
+        """(zone, where it came from): the one the caller gave, else their
+        number's, else the default. A zone given but not recognised raises."""
+        if given:
+            return timezones.zone(given).key, "given"
+        found = timezones.zone_for_number(number)
+        return (found, "number") if found else (self.default_zone, "default")
+
+    def calling_time(self, timestamp, zone_name=None):
+        """The first moment at or after `timestamp` inside calling hours,
+        on the callee's clock."""
         start, end = self.hours
-        moment = datetime.fromtimestamp(timestamp, self.tz)
+        moment = datetime.fromtimestamp(timestamp, timezones.zone(zone_name or self.default_zone))
         if moment.hour < start:
             moment = moment.replace(hour=start, minute=0, second=0, microsecond=0)
         elif moment.hour >= end:
@@ -99,21 +105,32 @@ class CallbackStore:
                                                           microsecond=0)
         return moment.timestamp()
 
-    def when_text(self, timestamp):
-        return speakable_time(timestamp, self.tz)
+    def local(self, timestamp, zone_name=None):
+        return datetime.fromtimestamp(timestamp, timezones.zone(zone_name or self.default_zone))
+
+    def when_text(self, timestamp, zone_name=None):
+        """For the caller: "Tuesday 10:00 AM PDT"."""
+        return timezones.short(self.local(timestamp, zone_name))
+
+    def when_for_samarth(self, record):
+        """For Samarth: the caller's time, and his own when it differs."""
+        return timezones.also_in(self.local(record["due_at"], record.get("timezone")),
+                                 timezones.SAMARTH_ZONE)
 
     # ---- scheduling ----
 
     def schedule(self, to, name, purpose, voicemail, when=None, source="request",
-                 question_id=None, origin=None, now=None):
+                 question_id=None, origin=None, now=None, tz=None):
         """Book a call back and return its record.
 
         `when` is the time the caller asked for, as a timestamp, or None to
-        call as soon as calling hours allow. Raises ValueError, with a reason
-        fit to pass on, if the number or time can't be used.
+        call as soon as calling hours allow; `tz` is the caller's timezone if
+        they gave it. Raises ValueError, with a reason fit to pass on, if the
+        number, time or timezone can't be used.
         """
         now = time.time() if now is None else now
         self.check_number(to)
+        zone_name, zone_source = self.callee_zone(to, tz)
         if when is not None:
             if when < now - 60:
                 raise ValueError("That time has already passed")
@@ -121,8 +138,8 @@ class CallbackStore:
                 raise ValueError("Call backs can be booked up to 14 days ahead")
             due = max(when, now)
         else:
-            due = self.calling_time(now)
-        day = datetime.fromtimestamp(due, self.tz).strftime("%Y%m%d")
+            due = self.calling_time(now, zone_name)
+        day = self.local(due, zone_name).strftime("%Y%m%d")
         count_key = COUNT_KEY + to + ":" + day
         if self.redis.incr(count_key) > MAX_PER_NUMBER_PER_DAY:
             raise ValueError("That number already has the most call backs allowed for the day")
@@ -131,6 +148,7 @@ class CallbackStore:
             "id": uuid.uuid4().hex, "to": to, "name": name, "purpose": purpose,
             "voicemail": voicemail, "source": source, "question_id": question_id,
             "origin": origin, "requested_for": when, "due_at": due,
+            "timezone": zone_name, "timezone_source": zone_source,
             "state": "scheduled", "outcome": None, "attempts": 0,
             "max_attempts": MAX_ATTEMPTS, "calls": {}, "answered_by": None,
             "created_at": now, "updated_at": now,
@@ -222,7 +240,7 @@ class CallbackStore:
         now = time.time() if now is None else now
         if record["attempts"] < record["max_attempts"]:
             delay = RETRY_DELAYS[min(record["attempts"], len(RETRY_DELAYS)) - 1]
-            record["due_at"] = self.calling_time(now + delay)
+            record["due_at"] = self.calling_time(now + delay, record.get("timezone"))
             record["state"] = "scheduled"
             record["outcome"] = "retrying"
             self.save(record)

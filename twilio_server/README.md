@@ -135,17 +135,33 @@ conversation is told, and the assistant passes it on without being asked.
   answers after they hang up; `schedule_callback` books a call at a time the
   caller chooses. Twilio's machine detection leaves a voicemail if nobody
   answers in person; missed calls are retried after 10 and 30 minutes, three
-  tries in all. Automatic calls wait for calling hours. What each call is about
-  stays in Redis; the call URL carries only an id.
+  tries in all. Automatic calls wait for calling hours on the caller's own
+  clock. What each call is about stays in Redis; the call URL carries only an id.
+- **The website chat books call backs too**, with the same scheduler: a call when
+  Samarth answers a question (only if the visitor has left the chat by then;
+  otherwise they see the answer there), or at a time they choose. Limits are the
+  phone line's plus three per chat. Set `TWILIO_VERIFY_SERVICE_SID` on the chat
+  service to also require a code texted to the number before it can be rung.
+- **Times are timezone-aware** (`timezones.py`). Both assistants have a
+  `get_current_time` tool, so they never guess the date. Tools take the
+  person's local time as they said it plus their timezone, and the server
+  works out the offset for that date, so a November meeting booked in October
+  isn't an hour out; an offset that contradicts the zone is refused. A
+  caller's likely zone comes from their phone number (Twilio's `From`, or `To`
+  on outbound calls) and a chat visitor's from their browser; the assistant
+  confirms it. Emails and Discord notes give the time in the person's zone,
+  and in Samarth's when it differs.
 
 New settings, all optional:
 
 | Variable | Where | Default |
 | --- | --- | --- |
-| `CALLBACK_TIMEZONE` | voice service and worker | `America/New_York` |
+| `SAMARTH_TIMEZONE` | voice service, chat service and worker | `America/New_York` (Samarth's own clock, shown beside other people's times) |
+| `CALLBACK_TIMEZONE` | voice service and worker | `America/New_York` (for callers whose timezone can't be told from what they said or their number) |
 | `CALLBACK_HOURS` | voice service and worker | `10-20` (local hours for automatic call backs and retries) |
 | `CALLBACK_COUNTRY_CODES` | voice service and worker | `1` (US and Canada; Caribbean +1 numbers are always refused) |
 | `TWILIO_SERVICE_URL` | worker | `https://twillio-ai-assistant.onrender.com` (where chat-requested calls are placed) |
+| `TWILIO_VERIFY_SERVICE_SID` | chat service | unset (a Twilio Verify service; when set with `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`, chat call backs need a texted code) |
 | `SAMARTH_EMAIL` | chat service | `samarth.mahendragowda@gmail.com` (copy of chat-booked meetings) |
 
 New voice-service routes, called by Twilio only: `/callback-call` and

@@ -607,7 +607,9 @@ document.addEventListener('DOMContentLoaded', function () {
             body: JSON.stringify({
                 message: message,
                 session_id: chatSessionId,
-                cursor: chatCursor
+                cursor: chatCursor,
+                // Lets the assistant say times in the visitor's own zone.
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
             })
         })
             .then(response => response.json())

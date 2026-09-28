@@ -21,6 +21,10 @@ def eastern(hour):
     return datetime(2026, 10, 1, hour, 0, tzinfo=EASTERN).timestamp()
 
 
+def pacific(hour):
+    return datetime(2026, 10, 1, hour, 0, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp()
+
+
 def posted_question(store, question="Is he free Thursday?", origin=CALL, callback=False,
                     reply=None, message_id=None):
     qid = store.ask(question, "Alice", origin)
@@ -307,6 +311,25 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(record["due_at"], eastern(10) + 86400)
         self.assertIn("outside calling hours", self.posted())
 
+    async def test_a_late_reply_waits_for_morning_where_the_caller_is(self):
+        qid = self.store.ask("Free?", "Bo", CALL)
+        self.store.pop_for_posting()
+        self.store.request_callback(qid, "Bo", "+14155550123")
+        with patch("time.time", return_value=pacific(22)):
+            await self.listener.on_reply("Yes")
+        (record,) = self.booked()
+        self.assertEqual(record["due_at"], pacific(10) + 86400)
+        self.assertIn("Friday 10:00 AM PDT (1:00 PM EDT)", self.posted())
+
+    async def test_the_zone_a_caller_gave_is_used_for_their_call_back(self):
+        qid = self.store.ask("Free?", "Bo", CALL)
+        self.store.pop_for_posting()
+        self.store.request_callback(qid, "Bo", "+16175550123", "America/Chicago")
+        with patch("time.time", return_value=eastern(9)):          # 8am in Chicago
+            await self.listener.on_reply("Yes")
+        (record,) = self.booked()
+        self.assertEqual((record["timezone"], record["due_at"]), ("America/Chicago", eastern(11)))
+
     async def test_reply_after_hang_up_without_callback_is_just_saved(self):
         posted_question(self.store)
         await self.listener.on_reply("Thursday works")
@@ -320,6 +343,22 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
         ((_, kind, data),) = self.events.read(CHAT)
         self.assertEqual((kind, data["question_id"]), ("question.answered", qid))
         self.assertIn("chat window", self.posted())
+
+    async def test_a_chat_visitor_who_left_is_rung_when_samarth_answers(self):
+        qid = posted_question(self.store, origin=CHAT, callback=True)
+        with patch("time.time", return_value=eastern(14)):
+            await self.listener.on_reply("Yes")
+        (record,) = self.booked()
+        self.assertEqual((record["question_id"], record["origin"]), (qid, CHAT))
+        self.chat_followup.assert_called_once_with("a" * 32)       # there if they come back
+        self.assertIn("back now", self.posted())
+
+    async def test_a_chat_visitor_still_there_just_sees_it(self):
+        posted_question(self.store, origin=CHAT, callback=True)
+        self.events.mark_live(CHAT)
+        await self.listener.on_reply("Yes")
+        self.assertEqual(self.booked(), [])
+        self.assertIn("still in the chat", self.posted())
 
     async def test_a_second_reply_is_passed_on_as_a_follow_up(self):
         qid = posted_question(self.store, reply="Yes", message_id=111)
@@ -382,7 +421,7 @@ class SharedModuleTests(unittest.TestCase):
         # The voice agent (twilio_server) and the worker, listener and chat
         # (pythonserver) deploy from separate folders, so each carries a copy.
         # Letting them drift is how one side stops understanding the other.
-        for name in ("question_store.py", "events.py", "jobs.py", "callbacks.py"):
+        for name in ("question_store.py", "events.py", "jobs.py", "callbacks.py", "timezones.py"):
             with self.subTest(name):
                 self.assertEqual((REPO / "twilio_server" / name).read_text(),
                                  (REPO / "pythonserver" / name).read_text(),

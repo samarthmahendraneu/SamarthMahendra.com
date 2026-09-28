@@ -56,7 +56,7 @@ Return concise facts and task status for Luma to say naturally, without markup.
 Help only with Samarth's professional profile, meetings, and messages, not coding
 solutions or unrelated advice. The profile below is a supplied record, not a
 guarantee of current availability. Don't infer current employment from old dates.
-For meetings collect name, agenda, email, and an unambiguous date/time including
+For meetings collect name, agenda, email, a date and time, and the caller's
 timezone. Read back details and clarify/spell the email when needed before saving.
 You can schedule without approval from Samarth. A saved meeting is not a verified
 calendar availability check. Emails and notifications are sent in the background:
@@ -101,6 +101,14 @@ is dropped. If they decline, carry on and let them know you will pass the
 answer along.
 Never invent Samarth's answer, and never imply he has seen the question.
 
+Dates and times:
+Never guess today's date or the time. Use get_current_time to work out "today",
+"tomorrow" or "next Tuesday", and to check the time where the caller is. The
+per-call context may give caller_timezone, from their phone number: confirm it
+("Is that Pacific time?") before relying on it. Give tools the caller's local
+date and time as they said it, with their timezone; the tools work out the rest.
+Read times back with their zone, and mention Samarth's time if it differs.
+
 Background tasks:
 Some actions finish in the background, such as emailing a meeting invite. Their
 result includes a task_id and says the task is under way. Tell the caller it is
@@ -109,7 +117,9 @@ can let them know then. Use check_task only if the caller asks for an update.
 
 Calling back at a set time:
 If the caller wants a call at a particular time, agree the day, time and
-timezone, take and read back their number, then use schedule_callback. Promise
+timezone, take and read back their number, then use schedule_callback. For a
+call back when Samarth answers, pass their timezone to request_callback too, so
+it isn't placed in the middle of their night. Promise
 the call only once it returns "scheduled", and give the time it reports. If it
 is refused, explain the reason it gives.
 """
@@ -137,10 +147,14 @@ def function(name, description, properties):
 
 END_CALL = function("end_call", "End the call after the caller is done and goodbye was spoken.", {})
 TOOLS = [
-    function("schedule_meeting_on_jitsi", "Save a meeting and queue email notifications.", {
+    function("schedule_meeting_on_jitsi", "Save a meeting and email the caller the invite.", {
         "name": "Caller's name", "agenda": "Meeting agenda",
-        "timing": "ISO 8601 date and time including timezone offset",
+        "timing": "Local date and time as the caller said it, e.g. 2026-10-01T14:00, no offset",
+        "timezone": "The caller's timezone for that time, e.g. America/Los_Angeles",
         "user_email": "Confirmed caller email address",
+    }),
+    function("get_current_time", "The current date and time in a timezone.", {
+        "timezone": "Timezone name, e.g. America/Los_Angeles, or an empty string for the caller's",
     }),
     # Retain the existing function name for compatibility with saved call records.
     function("save_reponse_from_caller", "Save the caller's message or response.", {
@@ -161,11 +175,13 @@ TOOLS = [
         "question_id": "The question_id returned by ask_samarth",
         "caller_name": "Caller's name",
         "phone_number": "Confirmed callback number in E.164 form, e.g. +16175550123",
+        "timezone": "The caller's timezone, e.g. America/Chicago, or an empty string if unknown",
     }),
     function("schedule_callback", "Book a call back at a time the caller chooses.", {
         "caller_name": "Caller's name",
         "phone_number": "Confirmed callback number in E.164 form, e.g. +16175550123",
-        "when": "The agreed time in ISO 8601 with a timezone offset, e.g. 2026-10-01T15:00:00-04:00",
+        "when": "The agreed local date and time as the caller said it, e.g. 2026-10-01T15:00, no offset",
+        "timezone": "The caller's timezone, e.g. America/Chicago, or an empty string to use their number's",
         "reason": "What the call back is about, in a few words",
     }),
     function("check_task", "Check on a background task, such as an invite email.", {

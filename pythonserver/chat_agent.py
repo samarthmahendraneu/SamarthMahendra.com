@@ -17,6 +17,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import re
 import time
 import uuid
@@ -24,6 +25,8 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime
 
+import timezones
+from callbacks import CallbackStore
 from events import START, EventStream
 from jobs import JobStore
 from question_store import QuestionStore
@@ -42,10 +45,20 @@ MAX_ITEMS = 120
 PENDING_TTL = 30 * 60
 SESSION_PATTERN = re.compile(r"[0-9a-f]{32}")
 EMAIL_PATTERN = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
+# Only when numbers are checked by text (see PhoneVerifier).
+VERIFY_NOTE = ("\n\nBefore a call back is booked, the visitor's number is checked with a code "
+               "texted to it: if a call back tool says a code was sent, ask for it, check it with "
+               "verify_phone, then book the call back again.")
+
 # Event kinds that are news for the model; chat.message is its own output.
 NEWS = ("question.answered", "question.followup", "job.done", "job.failed",
         "call.response", "call.status")
 SAMARTH_ADDRESS = "samarth@samarthmahendra.com"
+# A chat is anonymous and easy to script: however many numbers it tries, it
+# can only book this many calls.
+MAX_CALLBACKS_PER_CHAT = 3
+# Don't text a second code to the same number sooner than this.
+CODE_RESEND_AFTER = 60
 
 SYSTEM_PROMPT = """You are Luna, Samarth Mahendra's AI personal assistant on his website. You
 usually talk to recruiters and others interested in his profile or in hiring him.
@@ -59,9 +72,19 @@ What you can do:
   update them here. Never invent his answer or say he has seen the question.
 - Pass a message on to him (send_message_to_samarth) when no answer is needed.
 - Schedule a meeting on Jitsi (schedule_meeting_on_jitsi). Collect the agenda,
-  the attendees' emails, the visitor's email and a date and time with its
+  the attendees' emails, the visitor's email, a date and time, and their
   timezone before calling it. Don't ask about Samarth's availability. The invite
   email goes out in the background; you are told when it has been sent.
+- Check the current date and time anywhere (get_current_time). Never guess
+  today's date: use it to work out "tomorrow" or "next Tuesday". Give tools
+  the visitor's local date and time as they said it, with their timezone; the
+  tools work out the rest. Say times with their zone, and Samarth's time too
+  when it differs.
+- Arrange a phone call to the visitor: when Samarth answers a question they
+  asked, if they can't wait here (request_callback), or at a time they choose
+  (schedule_callback). Take their number and read it back, and agree the time
+  and their timezone. If they're still in the chat when Samarth answers, they
+  see it here and no call is made.
 - Place phone calls for the visitor (make_calls), only with the password.
 - check_task says where a background task has got to, if the visitor asks.
 
@@ -102,6 +125,10 @@ TOOLS = [
         "message": _text_field("The message for Samarth"),
         "visitor_name": _text_field("The visitor's name, or an empty string"),
     }),
+    _function("get_current_time", "The current date and time in a timezone.", {
+        "timezone": _text_field("Timezone name, e.g. America/Los_Angeles, or an empty string "
+                                "for the visitor's"),
+    }),
     _function("check_task", "Check on a background task or a question to Samarth by its id.", {
         "task_id": _text_field("The task_id or question_id a tool returned"),
     }),
@@ -110,9 +137,30 @@ TOOLS = [
                   "members": {"type": "array", "items": {"type": "string"},
                               "description": "Emails of everyone attending apart from Samarth"},
                   "agenda": _text_field("What the meeting is about"),
-                  "timing": _text_field("Date and time in ISO 8601 with a timezone offset"),
+                  "timing": _text_field("Local date and time as the visitor said it, "
+                                        "e.g. 2026-10-01T14:00, no offset"),
+                  "timezone": _text_field("The visitor's timezone for that time, "
+                                          "e.g. America/Los_Angeles"),
                   "user_email": _text_field("The visitor's email, for the invite"),
               }),
+    _function("request_callback",
+              "Call the visitor when Samarth answers a question they asked, if they can't wait here.", {
+                  "question_id": _text_field("The question_id ask_samarth returned"),
+                  "visitor_name": _text_field("The visitor's name, or an empty string"),
+                  "phone_number": _text_field("Their number in E.164 form, e.g. +16175550123"),
+                  "timezone": _text_field("Their timezone, or an empty string for their browser's"),
+              }),
+    _function("schedule_callback", "Book a phone call to the visitor at a time they choose.", {
+        "visitor_name": _text_field("The visitor's name, or an empty string"),
+        "phone_number": _text_field("Their number in E.164 form, e.g. +16175550123"),
+        "when": _text_field("Local date and time as the visitor said it, e.g. 2026-10-01T15:00, no offset"),
+        "timezone": _text_field("Their timezone for that time, or an empty string for their browser's"),
+        "reason": _text_field("What the call is about, in a few words"),
+    }),
+    _function("verify_phone", "Check the code texted to the visitor's number.", {
+        "phone_number": _text_field("The number the code was sent to"),
+        "code": _text_field("The code the visitor typed"),
+    }),
     _function("make_calls", "Place phone calls on the visitor's behalf. Needs the password.", {
         "numbers": {"type": "array", "items": {"type": "string"},
                     "description": "Numbers in E.164 form with the country code, e.g. +16175550123"},
@@ -209,7 +257,8 @@ def _text(value):
 
 class ChatAgent:
     def __init__(self, client, model, redis, *, profile, save_meeting, check_password,
-                 meeting_url, samarth_email, enqueue_job, reasoning_effort="low"):
+                 meeting_url, samarth_email, enqueue_job, reasoning_effort="low",
+                 verifier=None, callbacks=None):
         self.client = client
         self.model = model
         self.redis = redis
@@ -222,12 +271,19 @@ class ChatAgent:
         self.events = EventStream(redis)
         self.questions = QuestionStore(redis)
         self.jobs = JobStore(redis, enqueue=enqueue_job)
+        self.callbacks = callbacks or CallbackStore.from_env(redis, os.environ)
+        # Texts a code to prove a number is the visitor's; None to skip that.
+        self.verifier = verifier
         self.tools = {
             "query_profile_info": self.tool_profile,
+            "get_current_time": self.tool_time,
             "ask_samarth": self.tool_ask,
             "send_message_to_samarth": self.tool_message,
             "check_task": self.tool_check,
             "schedule_meeting_on_jitsi": self.tool_meeting,
+            "request_callback": self.tool_request_callback,
+            "schedule_callback": self.tool_schedule_callback,
+            "verify_phone": self.tool_verify,
             "make_calls": self.tool_calls,
         }
 
@@ -280,10 +336,16 @@ class ChatAgent:
 
     # ---- turns ----
 
-    def respond(self, session_id, message, cursor=START):
-        """A visitor's message: the answer, plus any news they haven't seen."""
+    def respond(self, session_id, message, cursor=START, timezone=None):
+        """A visitor's message: the answer, plus any news they haven't seen.
+        `timezone` is the one the visitor's browser reports, if any."""
         with self.locked(session_id):
             session = self.load(session_id)
+            try:
+                if timezone:
+                    session["timezone"] = timezones.zone(timezone).key
+            except ValueError:
+                pass            # a browser sending nonsense keeps what it had
             updates = [item for item in self.messages_after(session_id, cursor)[0]
                        if item["type"] == "message"]
             items = self.take_news(session) + [
@@ -327,7 +389,8 @@ class ChatAgent:
         output_text = ""
         for step in range(MAX_STEPS):
             # The last round may not call tools, so the loop always ends in words.
-            response = self.create(conversation, tools=step < MAX_STEPS - 1)
+            response = self.create(conversation, tools=step < MAX_STEPS - 1,
+                                   zone_name=session.get("timezone"))
             output = [plain(item) for item in response.output]
             conversation = conversation + output
             calls = [item for item in output if item.get("type") == "function_call"]
@@ -338,15 +401,26 @@ class ChatAgent:
         session["items"] = trim(conversation)
         return output_text
 
-    def create(self, conversation, tools=True):
-        kwargs = dict(model=self.model, instructions=SYSTEM_PROMPT,
-                      input=api_input(conversation), tools=TOOLS, parallel_tool_calls=True,
+    def create(self, conversation, tools=True, zone_name=None):
+        instructions = SYSTEM_PROMPT + (VERIFY_NOTE if self.verifier else "")
+        if zone_name:
+            instructions += (f"\n\nThe visitor's browser is set to {zone_name}; assume that is "
+                             "their timezone unless they say otherwise.")
+        kwargs = dict(model=self.model, instructions=instructions,
+                      input=api_input(conversation), tools=self.offered_tools(),
+                      parallel_tool_calls=True,
                       text={"format": {"type": "text"}},
                       reasoning={"effort": self.reasoning_effort},
                       max_output_tokens=4096, store=True)
         if not tools:
             kwargs["tool_choice"] = "none"
         return self.client.responses.create(**kwargs)
+
+    def offered_tools(self):
+        """verify_phone only means something when numbers are checked by text."""
+        if self.verifier:
+            return TOOLS
+        return [tool for tool in TOOLS if tool["name"] != "verify_phone"]
 
     def call_tools(self, calls, session):
         """Run one round's tool calls at once; results in the order asked."""
@@ -487,6 +561,9 @@ class ChatAgent:
         while time.monotonic() - opened < lifetime:
             if await is_disconnected():
                 return
+            # While this page is open the visitor counts as here: an answer
+            # is shown in the chat instead of ringing their phone.
+            await asyncio.to_thread(self.events.mark_live, self.channel(session_id))
             if time.monotonic() >= retry_at and await asyncio.to_thread(self.has_news, session_id):
                 try:
                     await asyncio.to_thread(self.follow_up, session_id, 2)
@@ -529,6 +606,12 @@ class ChatAgent:
 
     def tool_profile(self, args, session):
         return self.profile()
+
+    def tool_time(self, args, session):
+        try:
+            return timezones.now_in((args.get("timezone") or "").strip() or session.get("timezone") or "")
+        except ValueError as exc:
+            raise ToolRefused(str(exc)) from None
 
     def tool_ask(self, args, session):
         question = (args.get("question") or "").strip()
@@ -576,18 +659,21 @@ class ChatAgent:
         email = (args.get("user_email") or "").strip()
         if not EMAIL_PATTERN.fullmatch(email):
             raise ToolRefused("That email address doesn't look right; check it with the visitor.")
+        zone_name = (args.get("timezone") or "").strip() or session.get("timezone")
+        if not zone_name:
+            raise ToolRefused("Ask the visitor which timezone the time is in.")
         try:
-            when = datetime.fromisoformat((args.get("timing") or "").replace("Z", "+00:00"))
-        except ValueError:
-            raise ToolRefused("The time needs to be a date and time in ISO 8601.") from None
-        if when.utcoffset() is None:
-            raise ToolRefused("The time needs a timezone; ask the visitor which one.")
+            moment = timezones.resolve(args.get("timing"), zone_name)
+        except ValueError as exc:
+            raise ToolRefused(str(exc)) from None
         members = [m.strip() for m in args.get("members") or [] if isinstance(m, str) and m.strip()]
         agenda = (args.get("agenda") or "").strip() or "A meeting with Samarth"
         url = self.meeting_url()
-        meeting_id = self.save_meeting(members + [SAMARTH_ADDRESS], agenda, args["timing"], url)
+        meeting_id = self.save_meeting(members + [SAMARTH_ADDRESS], agenda, moment.isoformat(), url)
         channel = self.channel(session["id"])
-        details = f"What: {agenda}\nWhen: {args['timing']}\nJoin: {url}"
+        when = f"{timezones.readable(moment)} ({timezones.offset_text(moment)})"
+        details = f"What: {agenda}\nWhen: {when}\nJoin: {url}"
+        for_samarth = f"{timezones.also_in(moment, timezones.SAMARTH_ZONE)}, {moment:%B} {moment.day}"
         invite = self.start_job("email.send", {
             "to": email, "subject": "Your meeting with Samarth Mahendra",
             "body": f"Hello,\n\nYour meeting with Samarth Mahendra is booked.\n\n{details}\n\nSee you there!\n\nLuna, Samarth's AI assistant",
@@ -596,10 +682,11 @@ class ChatAgent:
         copies = [
             self.start_job("email.send", {
                 "to": self.samarth_email, "subject": "Meeting booked from the website chat",
-                "body": f"{email} booked a meeting with {', '.join(members) or 'no one else'}.\n\n{details}",
+                "body": (f"{email} booked a meeting with {', '.join(members) or 'no one else'}.\n\n"
+                         f"What: {agenda}\nWhen: {for_samarth}\nJoin: {url}"),
             }, announce="never", label="emailing Samarth his copy of the meeting"),
             self.start_job("discord.send", {"content": (
-                f"Meeting scheduled with {', '.join(members + [email])} on {args['timing']} for {agenda}. "
+                f"Meeting scheduled with {', '.join(members + [email])} on {for_samarth} for {agenda}. "
                 f"Meeting link: {url}")}, announce="never", label="telling Samarth about the meeting"),
         ]
         if invite is None or None in copies:
@@ -608,6 +695,7 @@ class ChatAgent:
                     "notifications": "incomplete; the invite may not have been sent"}
         self.expect(session, invite)
         return {"status": "saved", "meeting_id": meeting_id, "meeting_url": url, "task_id": invite,
+                "when": timezones.readable(moment), "samarth_time": for_samarth,
                 "message": "Booked. The invite email is on its way; you'll be told here once it's sent."}
 
     def start_job(self, kind, args, origin=None, announce="failure", label=""):
@@ -617,6 +705,108 @@ class ChatAgent:
         except Exception as exc:
             logger.warning("Could not queue %s job (%s: %s)", kind, type(exc).__name__, exc)
             return None
+
+    # ---- call backs ----
+
+    def visitor_zone(self, args, session):
+        """The zone they named, else their browser's; None if neither."""
+        given = (args.get("timezone") or "").strip() or session.get("timezone")
+        if not given:
+            return None
+        try:
+            return timezones.zone(given).key
+        except ValueError as exc:
+            raise ToolRefused(str(exc)) from None
+
+    def callback_number(self, args, session):
+        """The visitor's number, if the chat may ring it. Returns (number, None),
+        or (None, result) when a code must be checked first."""
+        number = (args.get("phone_number") or "").strip()
+        try:
+            self.callbacks.check_number(number)
+        except ValueError as exc:
+            raise ToolRefused(str(exc)) from None
+        if len(session.setdefault("callbacks", [])) >= MAX_CALLBACKS_PER_CHAT:
+            raise ToolRefused("This chat has already booked as many call backs as it can.")
+        if self.verifier is None or number in session.setdefault("verified", []):
+            return number, None
+        sent = session.setdefault("codes_sent", {}).get(number, 0)
+        if time.time() - sent > CODE_RESEND_AFTER:
+            try:
+                self.verifier.send(number)
+            except Exception as exc:
+                reason = getattr(exc, "msg", None) or "the text couldn't be sent"
+                raise ToolRefused(f"A code couldn't be texted to {number}: {reason}.") from None
+            session["codes_sent"][number] = time.time()
+        return None, {"status": "code_needed", "message": (
+            f"A code has been texted to {number} to check it's theirs. Ask the visitor for it, "
+            "check it with verify_phone, then book the call back again.")}
+
+    def tool_verify(self, args, session):
+        if self.verifier is None:
+            return {"status": "not_needed", "message": "Numbers don't need checking here; go ahead."}
+        number = (args.get("phone_number") or "").strip()
+        code = "".join((args.get("code") or "").split())
+        if not code.isdigit():
+            raise ToolRefused("The code is the digits in the text message.")
+        try:
+            approved = self.verifier.check(number, code)
+        except Exception:
+            raise ToolRefused("That code couldn't be checked; it may have expired. "
+                              "Book the call back again to send a new one.") from None
+        if not approved:
+            return {"status": "wrong_code", "message": "That code didn't match; ask them to check it."}
+        session.setdefault("verified", []).append(number)
+        return {"status": "verified", "message": "Number confirmed; now book the call back."}
+
+    def tool_request_callback(self, args, session):
+        question_id = (args.get("question_id") or "").strip()
+        try:
+            record = self.questions.get(question_id)
+        except ValueError:
+            record = None
+        if record is None or record.get("origin") != self.channel(session["id"]):
+            raise ToolRefused("That isn't a question this chat asked Samarth.")
+        if record["status"] == "answered":
+            return {"status": "already_answered", "reply": record["reply"]}
+        zone_name = self.visitor_zone(args, session)
+        number, needed = self.callback_number(args, session)
+        if needed:
+            return needed
+        name = (args.get("visitor_name") or "").strip()
+        self.questions.request_callback(question_id, name, number, zone_name)
+        session["callbacks"].append(question_id)
+        return {"status": "callback_requested", "message": (
+            "They'll be called when Samarth answers, unless they're still in this chat then: "
+            "in that case they see it here and no call is made.")}
+
+    def tool_schedule_callback(self, args, session):
+        number, needed = self.callback_number(args, session)
+        if needed:
+            return needed
+        try:
+            zone_name, source = self.callbacks.callee_zone(number, self.visitor_zone(args, session))
+            if source == "default":
+                raise ToolRefused("Ask the visitor which timezone they're in.")
+            moment = timezones.resolve(args.get("when"), zone_name)
+            name = (args.get("visitor_name") or "").strip()
+            reason = (args.get("reason") or "").strip() or "their chat on Samarth's website"
+            record = self.callbacks.schedule(
+                number, name,
+                purpose=f"On Samarth's website chat they asked to be called at this time about: {reason}",
+                voicemail=(f"{'Hi ' + name if name else 'Hi'}, this is Luma, Samarth Mahendra's AI "
+                           f"assistant, calling as you asked on his website, about {reason}. "
+                           "You can call this number back any time. Goodbye."),
+                when=moment.timestamp(), source="chat", origin=self.channel(session["id"]), tz=zone_name)
+        except ValueError as exc:
+            raise ToolRefused(str(exc)) from None
+        session["callbacks"].append(record["id"])
+        self.start_job("discord.send", {"content": (
+            f"Luma will call {name or 'a website visitor'} ({number}) on "
+            f"{self.callbacks.when_for_samarth(record)}, {moment:%B} {moment.day} about: {reason}. "
+            "Booked from the website chat.")}, announce="never", label="telling Samarth about the call back")
+        return {"status": "scheduled", "callback_id": record["id"], "when": timezones.readable(moment),
+                "timezone": zone_name, "message": "Booked. If they miss it, it is tried again later."}
 
     def tool_calls(self, args, session):
         if not self.check_password(args.get("password") or ""):
@@ -634,10 +824,22 @@ class ChatAgent:
             "The calls are being placed. You'll be told here once they are, and again with each answer.")}
 
 
+class PhoneVerifier:
+    """Texts a one-time code with Twilio Verify, so a chat can only book calls
+    to a number the visitor can show is theirs."""
+
+    def __init__(self, twilio_client, service_sid):
+        self.service = twilio_client.verify.v2.services(service_sid)
+
+    def send(self, number):
+        self.service.verifications.create(to=number, channel="sms")
+
+    def check(self, number, code):
+        return self.service.verification_checks.create(to=number, code=code).status == "approved"
+
+
 def default_agent():
     """The agent wired to the real services; imported lazily so tests need none."""
-    import os
-
     import bcrypt
     import redis
     from openai import OpenAI
@@ -653,6 +855,14 @@ def default_agent():
     def meeting_url():
         return f"https://meet.jit.si/samarth-{datetime.now():%Y%m%d%H%M%S}-{uuid.uuid4().hex[:6]}"
 
+    verifier = None
+    if os.getenv("TWILIO_VERIFY_SERVICE_SID") and os.getenv("TWILIO_ACCOUNT_SID"):
+        from twilio.rest import Client
+        verifier = PhoneVerifier(Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN")),
+                                 os.getenv("TWILIO_VERIFY_SERVICE_SID"))
+    else:
+        logger.warning("TWILIO_VERIFY_SERVICE_SID not set: chat call backs won't check numbers")
+
     return ChatAgent(
         OpenAI(api_key=os.getenv("OPENAI_API_KEY", "")),
         os.getenv("OPENAI_MODEL_NAME", "gpt-6-luna"),
@@ -664,6 +874,7 @@ def default_agent():
         meeting_url=meeting_url,
         samarth_email=os.getenv("SAMARTH_EMAIL", "samarth.mahendragowda@gmail.com"),
         enqueue_job=lambda job_id: run_job.delay(job_id),
+        verifier=verifier,
     )
 
 

@@ -8,6 +8,7 @@ import sys
 import time
 import unittest
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 from urllib.parse import parse_qs, urlsplit
@@ -36,6 +37,12 @@ with patch.dict(sys.modules, {"mongo_tool": mongo, "worker_client": worker}), \
     main = importlib.import_module("main")
 
 CHANNEL = "call:CA" + "1" * 32
+
+
+def local_time(zone_name, **delta):
+    """A wall-clock time in a zone, as a caller would give it: no offset."""
+    return (datetime.now(ZoneInfo(zone_name)) + timedelta(**delta)).replace(
+        tzinfo=None, second=0, microsecond=0).isoformat(timespec="minutes")
 
 
 def started_jobs(kind=None):
@@ -77,18 +84,19 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         mongo.mongo_save_message.assert_any_call("Bob", "Interview", "Tomorrow")
 
     async def test_meeting_is_saved_and_the_invite_reports_back_to_the_call(self):
-        args = {"name": "Alice", "agenda": "Interview", "timing": "2026-10-01T14:00:00-04:00",
-                "user_email": "alice@example.com"}
+        args = {"name": "Alice", "agenda": "Interview", "timing": "2026-10-01T14:00",
+                "timezone": "America/New_York", "user_email": "alice@example.com"}
         result = await self.executor()("schedule_meeting_on_jitsi", "m1", args)
         self.assertEqual(result["status"], "saved")
         self.assertEqual(result["notifications"], "queued")
-        mongo.insert_meeting.assert_called_once_with("Alice", "Interview", args["timing"], result["meeting_url"])
+        mongo.insert_meeting.assert_called_once_with(
+            "Alice", "Interview", "2026-10-01T14:00:00-04:00", result["meeting_url"])
         invite, copy, notice = started_jobs()
         self.assertEqual(result["task_id"], invite["id"])
         # The caller hears when their invite has gone; Samarth's copies are silent.
         self.assertEqual((invite["kind"], invite["args"]["to"], invite["origin"], invite["announce"]),
                          ("email.send", "alice@example.com", CHANNEL, "always"))
-        self.assertIn("Thursday, October 1 at 2:00 PM (UTC-04:00)", invite["args"]["body"])
+        self.assertIn("Thursday, October 1, 2026 at 2:00 PM EDT (UTC-04:00)", invite["args"]["body"])
         self.assertIn(result["meeting_url"], invite["args"]["body"])
         self.assertEqual((copy["announce"], notice["kind"], notice["announce"]),
                          ("never", "discord.send", "never"))
@@ -96,8 +104,8 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_partial_notification_failure_does_not_lose_saved_meeting(self):
         worker.enqueue_job.side_effect = RuntimeError("broker unavailable")
-        args = {"name": "Alice", "agenda": "Interview", "timing": "2026-10-01T14:00:00-04:00",
-                "user_email": "alice@example.com"}
+        args = {"name": "Alice", "agenda": "Interview", "timing": "2026-10-01T14:00",
+                "timezone": "America/New_York", "user_email": "alice@example.com"}
         result = await self.executor()("schedule_meeting_on_jitsi", "m1", args)
         self.assertEqual(result["status"], "saved")
         self.assertIn("incomplete", result["notifications"])
@@ -168,9 +176,9 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(relay["status"], "saved")
         self.assertIn("Phone message from a caller: Running late",
                       started_jobs("discord.send")[0]["args"]["content"])
-        when = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
         booked = await self.executor()("schedule_callback", "s1", {
-            "caller_name": "", "phone_number": "+16175550123", "when": when, "reason": ""})
+            "caller_name": "", "phone_number": "+16175550123",
+            "when": local_time("America/New_York", days=1), "timezone": "", "reason": ""})
         self.assertEqual(booked["status"], "scheduled")
         self.assertTrue(main.callbacks.get(booked["callback_id"])["voicemail"].startswith("Hi, this is Luma"))
 
@@ -215,31 +223,82 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         for number in ("+442079460958", "+18765550123"):
             with self.subTest(number=number):
                 result = await self.executor()("request_callback", "c1", {
-                    "question_id": question["question_id"], "caller_name": "A", "phone_number": number})
+                    "question_id": question["question_id"], "caller_name": "A", "phone_number": number,
+                    "timezone": ""})
                 self.assertEqual(result["status"], "refused")
         self.assertIsNone(main.questions.get(question["question_id"])["callback_state"])
 
     async def test_callback_is_booked_for_the_time_the_caller_chose(self):
-        when = (datetime.now(timezone.utc) + timedelta(days=1)).replace(microsecond=0)
+        when = local_time("America/Chicago", days=1)
         result = await self.executor()("schedule_callback", "s1", {
-            "caller_name": "Alice", "phone_number": "+16175550123",
-            "when": when.isoformat(), "reason": "the interview slot"})
+            "caller_name": "Alice", "phone_number": "+16175550123", "when": when,
+            "timezone": "America/Chicago", "reason": "the interview slot"})
         self.assertEqual(result["status"], "scheduled")
         record = main.callbacks.get(result["callback_id"])
-        self.assertEqual(record["due_at"], when.timestamp())
+        expected = datetime.fromisoformat(when).replace(tzinfo=ZoneInfo("America/Chicago"))
+        self.assertEqual(record["due_at"], expected.timestamp())
+        self.assertEqual((record["timezone"], result["timezone"]), ("America/Chicago", "America/Chicago"))
+        self.assertRegex(result["when"], r" C[DS]T$")
         self.assertIn("the interview slot", record["purpose"])
         self.assertIn("the interview slot", record["voicemail"])
         self.assertIn("Alice", started_jobs("discord.send")[0]["args"]["content"])
 
     async def test_callback_times_are_checked(self):
-        past = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
-        cases = {"past": past, "no timezone": "2030-01-01T10:00:00"}
-        for label, when in cases.items():
+        tomorrow = local_time("America/New_York", days=1)
+        cases = {
+            "past": ("+16175550123", local_time("America/New_York", hours=-2), ""),
+            "zone can't be told": ("+18005550123", tomorrow, ""),        # toll-free
+            "wrong offset": ("+16175550123", tomorrow + "+00:00", "America/New_York"),
+            "unknown zone": ("+16175550123", tomorrow, "Mars/Olympus"),
+        }
+        for label, (number, when, zone_name) in cases.items():
             with self.subTest(label):
                 result = await self.executor()("schedule_callback", "s1", {
-                    "caller_name": "A", "phone_number": "+16175550123", "when": when, "reason": "x"})
+                    "caller_name": "A", "phone_number": number, "when": when,
+                    "timezone": zone_name, "reason": "x"})
                 self.assertEqual(result["status"], "refused")
                 self.assertTrue(result["message"])
+
+    async def test_the_clock_tool_answers_for_the_callers_zone_by_default(self):
+        execute = self.executor({"caller_timezone": "America/Los_Angeles"})
+        here = await execute("get_current_time", "t1", {"timezone": ""})
+        self.assertEqual(here["timezone"], "America/Los_Angeles")
+        self.assertEqual(here["samarth_timezone"], "America/New_York")
+        there = await execute("get_current_time", "t2", {"timezone": "Europe/London"})
+        self.assertEqual(there["timezone"], "Europe/London")
+        bad = await execute("get_current_time", "t3", {"timezone": "Mars/Olympus"})
+        self.assertEqual(bad["status"], "invalid")
+
+    async def test_a_winter_meeting_gets_the_winter_offset(self):
+        # A model working in October would carry -07:00 into November.
+        args = {"name": "Bo", "agenda": "Intro", "timing": "2026-11-05T14:00",
+                "timezone": "America/Los_Angeles", "user_email": "bo@example.com"}
+        result = await self.executor()("schedule_meeting_on_jitsi", "m1", args)
+        self.assertEqual(mongo.insert_meeting.call_args.args[2], "2026-11-05T14:00:00-08:00")
+        self.assertEqual(result["when"], "Thursday, November 5, 2026 at 2:00 PM PST")
+        invite, copy, notice = started_jobs()
+        self.assertIn("2:00 PM PST (UTC-08:00)", invite["args"]["body"])
+        # Samarth sees his own time alongside the caller's.
+        for job in (copy, notice):
+            self.assertIn("2:00 PM PST (5:00 PM EST)", json.dumps(job["args"]))
+
+    async def test_a_meeting_needs_a_usable_time_and_zone(self):
+        base = {"name": "Bo", "agenda": "Intro", "user_email": "bo@example.com"}
+        cases = [("2026-11-05T14:00", ""), ("2026-11-05T14:00-07:00", "America/Los_Angeles"),
+                 ("next thursday", "America/Los_Angeles"), ("2027-03-14T02:30", "America/New_York")]
+        for timing, zone_name in cases:
+            with self.subTest(timing=timing, zone=zone_name):
+                result = await self.executor()("schedule_meeting_on_jitsi", "m1",
+                                               dict(base, timing=timing, timezone=zone_name))
+                self.assertEqual(result["status"], "invalid")
+        mongo.insert_meeting.assert_not_called()
+
+    async def test_a_call_back_after_an_answer_uses_the_zone_the_caller_gave(self):
+        question = await self.executor()("ask_samarth", "q1", {"question": "Free?", "caller_name": "A"})
+        await self.executor()("request_callback", "c1", {
+            "question_id": question["question_id"], "caller_name": "A",
+            "phone_number": "+16175550123", "timezone": "Central"})
+        self.assertEqual(main.questions.get(question["question_id"])["callback_timezone"], "America/Chicago")
 
     async def test_outbound_call_answer_is_told_to_the_chat_that_asked(self):
         chat = "chat:" + "a" * 32
@@ -289,6 +348,20 @@ class EndpointTests(unittest.TestCase):
         bad = self.client.post("/incoming-call", params={"script": "2", "origin": "events:../x"})
         self.assertEqual(self.context_of(good)["origin"], chat)
         self.assertNotIn("origin", self.context_of(bad))
+
+    def test_the_call_knows_the_other_partys_number_and_likely_zone(self):
+        inbound = self.client.post("/incoming-call", data={"From": "+14155550123", "To": "+18339703274",
+                                                           "Direction": "inbound"})
+        outbound = self.client.post("/incoming-call", params={"script": "2"},
+                                    data={"From": "+18339703274", "To": "+13125550123",
+                                          "Direction": "outbound-api"})
+        caller, callee = self.context_of(inbound), self.context_of(outbound)
+        self.assertEqual((caller["caller_number"], caller["caller_timezone"]),
+                         ("+14155550123", "America/Los_Angeles"))
+        self.assertEqual((callee["caller_number"], callee["caller_timezone"]),
+                         ("+13125550123", "America/Chicago"))
+        toll_free = self.context_of(self.client.post("/incoming-call", data={"From": "+18005550123"}))
+        self.assertNotIn("caller_timezone", toll_free)
 
     def test_voicemail_endpoint_preserves_route(self):
         response = self.client.get("/voice-mail")

@@ -182,12 +182,24 @@ class Listener(discord.Client):
             await asyncio.to_thread(self.events.publish, origin, kind,
                                     question_id=record["id"], text=text)
         if origin and channel_kind(origin) == "chat":
+            # The chat's open page keeps it live; a visitor who left and asked
+            # for a call is rung instead.
+            here = await asyncio.to_thread(self.events.is_live, origin)
             try:
                 await asyncio.to_thread(self.chat_followup, channel_id(origin))
-                await self.notify("Sent to their chat window.", about=record)
             except Exception:
                 logger.exception("Could not hand the reply to the chat for question %s", record["id"])
-                await self.notify("Saved, but I couldn't pass it to their chat just now.", about=record)
+                if here:
+                    await self.notify("Saved, but I couldn't pass it to their chat just now.", about=record)
+                    return
+            wants_call = kind == "question.answered" and record.get("callback_state") == "requested"
+            if wants_call and not here:
+                await self.maybe_call_back(record)
+            elif wants_call:
+                await self.notify("They're still in the chat, so they'll see it there; no call needed.",
+                                  about=record)
+            else:
+                await self.notify("Sent to their chat window.", about=record)
             return
         live = await asyncio.to_thread(self.caller_on_line, origin, record["id"])
         if live:
@@ -222,7 +234,8 @@ class Listener(discord.Client):
                 voicemail=(f"{'Hi ' + name if name else 'Hi'}, this is Luma, Samarth Mahendra's AI assistant, calling back "
                            f"with his answer to your question. You asked: {question}. "
                            f"He says: {reply}. To talk it through, call this number back. Goodbye."),
-                source="question", question_id=record["id"], origin=origin_of(record))
+                source="question", question_id=record["id"], origin=origin_of(record),
+                tz=record.get("callback_timezone"))
         except ValueError as exc:
             logger.warning("Callback for question %s refused: %s", record["id"], exc)
             await self.notify(f"I couldn't book the call back: {exc}. They have not been told.",
@@ -236,8 +249,9 @@ class Listener(discord.Client):
         if booked["due_at"] <= booked["created_at"] + 1:
             await self.notify(f"Calling {name or 'them'} back now.", about=record)
         else:
-            await self.notify(f"It's outside calling hours, so I'll call {name or 'them'} back "
-                              f"{self.callbacks.when_text(booked['due_at'])}.", about=record)
+            await self.notify(f"It's outside calling hours where they are, so I'll call "
+                              f"{name or 'them'} back {self.callbacks.when_for_samarth(booked)}.",
+                              about=record)
 
 
 def main():

@@ -42,7 +42,7 @@ async def tick(store, twilio_client, from_number, base_url, notify=None):
             logger.warning("Callback %s could not be placed (%s)", record["id"], reason)
             record, outcome = await asyncio.to_thread(store.dial_failed, record["id"])
             if notify and record:
-                later = (f" Trying again {store.when_text(record['due_at'])}."
+                later = (f" Trying again {store.when_for_samarth(record)}."
                          if outcome == "retrying" else " I've stopped trying.")
                 await notify(f"Couldn't place the call back to {record['name'] or 'the caller'} "
                              f"({record['to']}): {reason}.{later}")

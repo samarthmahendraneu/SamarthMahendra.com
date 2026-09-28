@@ -55,7 +55,8 @@ class QuestionStore:
             "id": question_id, "question": question, "caller_name": caller_name,
             "origin": origin, "asked_at": time.time(), "status": "pending",
             "reply": None, "replied_at": None, "followups": [],
-            "callback_name": None, "callback_number": None, "callback_state": None,
+            "callback_name": None, "callback_number": None, "callback_timezone": None,
+            "callback_state": None,
             "delivered_live": False, "discord_message_id": None,
         }
         self.redis.setex(QUESTION_KEY + question_id, TTL, json.dumps(record))
@@ -131,12 +132,13 @@ class QuestionStore:
 
     # ---- calling the caller back ----
 
-    def request_callback(self, question_id, name, number):
+    def request_callback(self, question_id, name, number, timezone=None):
         record = self.get(question_id)
         if record is None:
             return None
         record["callback_name"] = name
         record["callback_number"] = number
+        record["callback_timezone"] = timezone or None
         record["callback_state"] = "requested"
         self.save(record)
         return record

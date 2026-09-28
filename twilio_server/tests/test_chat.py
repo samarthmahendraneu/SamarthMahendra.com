@@ -1,9 +1,14 @@
 import json
 import threading
 import unittest
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock
+from zoneinfo import ZoneInfo
 
+import timezones
+
+from callbacks import CallbackStore
 from memory_redis import MemoryRedis
 from worker_modules import load
 
@@ -41,13 +46,26 @@ class FakeModel:
         return self.requests[index]["input"]
 
 
-def build_agent(model, redis, profile=None, save_meeting=None, enqueue_job=None):
+def build_agent(model, redis, profile=None, save_meeting=None, enqueue_job=None, verifier=None):
     return chat_agent.ChatAgent(
         SimpleNamespace(responses=model), "gpt-test", redis,
         profile=profile or Mock(return_value={}), save_meeting=save_meeting or Mock(),
         check_password=lambda password: password == "open sesame",
         meeting_url=lambda: "https://meet.jit.si/test", samarth_email="s@example.com",
-        enqueue_job=enqueue_job or Mock())
+        enqueue_job=enqueue_job or Mock(), verifier=verifier,
+        callbacks=CallbackStore(redis))
+
+
+class FakeVerifier:
+    def __init__(self, code="123456"):
+        self.code = code
+        self.sent = []
+
+    def send(self, number):
+        self.sent.append(number)
+
+    def check(self, number, code):
+        return code == self.code
 
 
 class ChatTests(unittest.TestCase):
@@ -174,7 +192,7 @@ class ChatTests(unittest.TestCase):
 
     def test_meeting_invite_is_sent_in_the_background_and_reported(self):
         args = {"members": ["bob@example.com"], "agenda": "Intro", "user_email": "ann@example.com",
-                "timing": "2026-10-02T15:00:00-04:00"}
+                "timing": "2026-10-02T15:00:00-04:00", "timezone": "America/New_York"}
         agent = self.agent(calls(("c1", "schedule_meeting_on_jitsi", args)), reply("Booked!"))
         result = agent.respond(SESSION, "Book it")
         self.assertEqual(self.outputs()["c1"]["status"], "saved")
@@ -246,6 +264,130 @@ class ChatTests(unittest.TestCase):
         self.assertIsNone(agent.follow_up(SESSION))
         self.assertFalse(agent.has_news(SESSION))
         self.assertEqual(len(self.model.requests), 3)
+
+    def test_times_default_to_the_visitors_browser_zone(self):
+        meeting = {"members": [], "agenda": "Intro", "timing": "2026-11-05T14:00", "timezone": "",
+                   "user_email": "ann@example.com"}
+        agent = self.agent(calls(("c1", "get_current_time", {"timezone": ""}),
+                                 ("c2", "schedule_meeting_on_jitsi", meeting)), reply("Booked."))
+        agent.respond(SESSION, "Book 2pm on November 5", timezone="America/Los_Angeles")
+        outputs = self.outputs()
+        self.assertEqual(outputs["c1"]["timezone"], "America/Los_Angeles")
+        self.assertEqual(self.save_meeting.call_args.args[2], "2026-11-05T14:00:00-08:00")
+        self.assertEqual(outputs["c2"]["samarth_time"], "Thursday 2:00 PM PST (5:00 PM EST), November 5")
+        self.assertIn("browser is set to America/Los_Angeles", self.model.requests[0]["instructions"])
+
+    def test_a_meeting_time_without_a_zone_is_refused_when_none_is_known(self):
+        meeting = {"members": [], "agenda": "Intro", "timing": "2026-11-05T14:00", "timezone": "",
+                   "user_email": "ann@example.com"}
+        agent = self.agent(calls(("c1", "schedule_meeting_on_jitsi", meeting)), reply("Which zone?"))
+        agent.respond(SESSION, "Book it", timezone="Nowhere/Land")     # nonsense is ignored
+        self.assertEqual(self.outputs()["c1"]["status"], "refused")
+        self.assertIn("timezone", self.outputs()["c1"]["message"])
+        self.assertNotIn("browser is set", self.model.requests[0]["instructions"])
+
+    @staticmethod
+    def tomorrow_at(hour, zone_name="America/Los_Angeles"):
+        day = datetime.now(ZoneInfo(zone_name)) + timedelta(days=1)
+        return day.replace(hour=hour, minute=0, second=0, microsecond=0,
+                           tzinfo=None).isoformat(timespec="minutes")
+
+    def callback_args(self, **fields):
+        return dict({"visitor_name": "Ann", "phone_number": "+14155550123",
+                     "when": self.tomorrow_at(15), "timezone": "", "reason": "the internship"}, **fields)
+
+    def test_a_visitor_can_book_a_call_at_a_time_on_their_clock(self):
+        args = self.callback_args()
+        agent = self.agent(calls(("c1", "schedule_callback", args)), reply("Booked."))
+        agent.respond(SESSION, "Call me tomorrow at 3pm", timezone="America/Los_Angeles")
+        result = self.outputs()["c1"]
+        self.assertEqual((result["status"], result["timezone"]), ("scheduled", "America/Los_Angeles"))
+        moment = timezones.resolve(args["when"], "America/Los_Angeles")
+        self.assertEqual(result["when"], timezones.readable(moment))
+        record = agent.callbacks.get(result["callback_id"])
+        self.assertEqual((record["origin"], record["source"], record["due_at"]),
+                         (CHAT, "chat", moment.timestamp()))
+        self.assertIn("the internship", record["purpose"])
+        (notice,) = self.jobs("discord.send")
+        # Samarth sees the visitor's time and his own.
+        self.assertIn(timezones.also_in(moment, "America/New_York"), notice["args"]["content"])
+        self.assertRegex(notice["args"]["content"], r"3:00 PM P[DS]T \(6:00 PM E[DS]T\)")
+
+    def test_a_call_back_when_samarth_answers_rides_on_the_question(self):
+        agent = self.agent(calls(("c1", "ask_samarth", {"question": "Free?", "visitor_name": "Ann"})),
+                           reply("Asked."))
+        agent.respond(SESSION, "Ask him", timezone="America/Chicago")
+        question_id = next(iter(agent.load(SESSION)["pending"]))
+        self.agent(calls(("c2", "request_callback", {
+            "question_id": question_id, "visitor_name": "Ann", "phone_number": "+16175550123",
+            "timezone": ""})), reply("Sure.")).respond(SESSION, "I have to go, call me")
+        self.assertEqual(self.outputs()["c2"]["status"], "callback_requested")
+        record = agent.questions.get(question_id)
+        self.assertEqual((record["callback_number"], record["callback_timezone"], record["callback_state"]),
+                         ("+16175550123", "America/Chicago", "requested"))
+
+    def test_call_backs_are_limited_to_this_chat_and_real_numbers(self):
+        other = self.agent().questions.ask("Private?", "Bob", "chat:" + "c" * 32)
+        cases = [("request_callback", {"question_id": other, "visitor_name": "", "phone_number": "+16175550123",
+                                       "timezone": ""}),
+                 ("schedule_callback", self.callback_args(phone_number="+442079460958")),
+                 ("schedule_callback", self.callback_args(phone_number="+18005550123"))]   # zone unknown
+        for name, args in cases:
+            with self.subTest(name=name, args=args):
+                self.agent(calls(("c1", name, args)), reply("No.")).respond(SESSION, "Call me")
+                self.assertEqual(self.outputs()["c1"]["status"], "refused")
+        self.assertEqual([k for k in self.redis.values if k.startswith("callback:")], [])
+
+    def test_a_chat_can_only_book_a_few_calls(self):
+        for hour in range(chat_agent.MAX_CALLBACKS_PER_CHAT + 1):
+            args = self.callback_args(when=self.tomorrow_at(10 + hour),
+                                      phone_number=f"+1415555012{hour}")
+            self.agent(calls(("c1", "schedule_callback", args)), reply("Ok.")).respond(
+                SESSION, "Call me", timezone="America/Los_Angeles")
+        self.assertEqual(self.outputs()["c1"]["status"], "refused")
+        self.assertIn("as many call backs", self.outputs()["c1"]["message"])
+
+    def test_a_number_is_checked_by_text_before_it_can_be_rung(self):
+        verifier = FakeVerifier()
+        args = self.callback_args()
+
+        def turn(*steps):
+            self.model = FakeModel(*steps)
+            build_agent(self.model, self.redis, verifier=verifier).respond(
+                SESSION, "Call me", timezone="America/Los_Angeles")
+            return self.outputs()
+
+        self.assertEqual(turn(calls(("c1", "schedule_callback", args)), reply("Code?"))["c1"]["status"],
+                         "code_needed")
+        turn(calls(("c1", "schedule_callback", args)), reply("Code?"))
+        self.assertEqual(verifier.sent, ["+14155550123"])           # not texted twice in a minute
+        wrong = {"phone_number": "+14155550123", "code": "000000"}
+        self.assertEqual(turn(calls(("c1", "verify_phone", wrong)), reply("Hm."))["c1"]["status"], "wrong_code")
+        right = {"phone_number": "+14155550123", "code": "123 456"}
+        self.assertEqual(turn(calls(("c1", "verify_phone", right)), reply("Ok."))["c1"]["status"], "verified")
+        self.assertEqual(turn(calls(("c1", "schedule_callback", args)), reply("Booked."))["c1"]["status"],
+                         "scheduled")
+
+    def test_without_verification_codes_never_come_up(self):
+        agent = self.agent(calls(("c1", "schedule_callback", self.callback_args())), reply("Booked."))
+        agent.respond(SESSION, "Call me tomorrow at 3pm", timezone="America/Los_Angeles")
+        self.assertEqual(self.outputs()["c1"]["status"], "scheduled")       # no code step
+        request = self.model.requests[0]
+        self.assertNotIn("verify_phone", [tool["name"] for tool in request["tools"]])
+        self.assertNotIn("texted", request["instructions"])
+        self.assertNotIn("verify_phone", request["instructions"])
+        # A stray call still gets a sensible answer.
+        stray = self.agent(calls(("c1", "verify_phone", {"phone_number": "+14155550123", "code": "1"})),
+                           reply("Ok."))
+        stray.respond(SESSION, "Here's my code")
+        self.assertEqual(self.outputs()["c1"]["status"], "not_needed")
+
+    def test_with_verification_the_code_step_is_explained_and_offered(self):
+        self.model = FakeModel(reply("Hi."))
+        build_agent(self.model, self.redis, verifier=FakeVerifier()).respond(SESSION, "Hi")
+        request = self.model.requests[0]
+        self.assertIn("verify_phone", [tool["name"] for tool in request["tools"]])
+        self.assertIn("check it with verify_phone", request["instructions"])
 
     def test_one_turn_at_a_time(self):
         agent = self.agent()
@@ -321,6 +463,12 @@ class StreamTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(frames[0].startswith("retry:"))
         # Nothing was lost: the next attempt still has the news to tell.
         self.assertTrue(agent.has_news(SESSION))
+
+    async def test_an_open_chat_counts_as_live(self):
+        agent, _ = self.asked()
+        self.assertFalse(agent.events.is_live(CHAT))
+        await self.frames(agent, lifetime=0.1)
+        self.assertTrue(agent.events.is_live(CHAT))
 
     async def test_a_turn_in_progress_is_left_to_tell_it(self):
         agent, question_id = self.asked(reply("He prefers Zoom."))

@@ -27,6 +27,7 @@ from call_events import finish_call, watch_call
 from callbacks import MISSED_STATUSES, CallbackStore
 from events import EventStream, channel_id, valid_channel
 from jobs import JobStore
+import timezones
 from live_bridge import LiveBridge
 from question_store import QuestionStore
 from live_config import LIVE_URL, TOOLS, VOICEMAIL_TOOLS, LiveSettings, greeting, session_config
@@ -110,18 +111,6 @@ def generate_jitsi_meeting_url(user_name="samarth"):
     return f"https://meet.jit.si/{user_name}-{datetime.now():%Y%m%d%H%M%S}-{uuid.uuid4().hex[:6]}"
 
 
-def readable_time(iso):
-    """An ISO 8601 time as a person would read it, e.g. "Thursday, October 1 at 2:00 PM (UTC-04:00)"."""
-    try:
-        moment = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-    except ValueError:
-        return iso
-    hour = moment.hour % 12 or 12
-    zone = moment.strftime("%z")
-    zone = f" (UTC{zone[:3]}:{zone[3:]})" if zone else ""
-    return f"{moment:%A, %B} {moment.day} at {hour}:{moment:%M} {'AM' if moment.hour < 12 else 'PM'}{zone}"
-
-
 def start_job(kind, args, channel=None, announce="failure", label=""):
     """Start a background job (jobs.py); the task id, or None if it couldn't be queued."""
     try:
@@ -131,26 +120,29 @@ def start_job(kind, args, channel=None, announce="failure", label=""):
         return None
 
 
-def schedule_meeting(args, channel=None):
+def schedule_meeting(args, moment, channel=None):
+    """Book a meeting at `moment`, an aware datetime in the caller's zone."""
     meeting_url = generate_jitsi_meeting_url()
-    meeting_id = mongo_tool.insert_meeting(args["name"], args["agenda"], args["timing"], meeting_url)
-    when = readable_time(args["timing"])
+    meeting_id = mongo_tool.insert_meeting(args["name"], args["agenda"], moment.isoformat(), meeting_url)
+    when = f"{timezones.readable(moment)} ({timezones.offset_text(moment)})"
+    for_samarth = timezones.also_in(moment, timezones.SAMARTH_ZONE)
     invite = start_job("email.send", {
         "to": args["user_email"], "subject": "Your meeting with Samarth Mahendra",
         "body": (f"Hello {args['name']},\n\nYour meeting with Samarth Mahendra is booked.\n\n"
                  f"What: {args['agenda']}\nWhen: {when}\nJoin: {meeting_url}\n\n"
                  "See you there!\n\nLuma, Samarth's AI assistant"),
     }, channel, announce="always", label=f"emailing the meeting invite to {args['user_email']}")
-    # Samarth's own copies: bookkeeping the caller needn't hear about.
+    # Samarth's own copies, in his time too: bookkeeping the caller needn't hear about.
     copies = [
         start_job("email.send", {
             "to": SAMARTH_EMAIL, "subject": f"Meeting booked with {args['name']}",
             "body": (f"{args['name']} ({args['user_email']}) booked a meeting by phone.\n\n"
-                     f"What: {args['agenda']}\nWhen: {when}\nJoin: {meeting_url}"),
+                     f"What: {args['agenda']}\nWhen: {for_samarth}, {moment:%B} {moment.day}\n"
+                     f"Join: {meeting_url}"),
         }, announce="never", label="emailing Samarth his copy of the meeting"),
         start_job("discord.send", {"content": (
-            f"Meeting scheduled with {args['name']}, {args['user_email']} on "
-            f"{args['timing']} for {args['agenda']}. Meeting link: {meeting_url}")},
+            f"Meeting scheduled with {args['name']}, {args['user_email']} on {for_samarth}, "
+            f"{moment:%B} {moment.day} for {args['agenda']}. Meeting link: {meeting_url}")},
             announce="never", label="telling Samarth about the meeting on Discord"),
     ]
     if invite is None or None in copies:
@@ -159,7 +151,7 @@ def schedule_meeting(args, channel=None):
         return {"status": "saved", "meeting_id": meeting_id, "meeting_url": meeting_url,
                 "notifications": "incomplete; delivery must be checked"}
     return {"status": "saved", "meeting_id": meeting_id, "meeting_url": meeting_url,
-            "notifications": "queued", "task_id": invite,
+            "when": timezones.readable(moment), "notifications": "queued", "task_id": invite,
             "message": "The invite email is on its way; you will be told once it has been sent."}
 
 
@@ -237,10 +229,11 @@ def describe_task(task_id, channel=None):
 
 
 def book_callback(args, channel=None):
-    """schedule_callback: a call at the caller's chosen time."""
-    when = datetime.fromisoformat(args["when"].replace("Z", "+00:00"))
-    if when.utcoffset() is None:
-        raise ValueError("The time needs a timezone")
+    """schedule_callback: a call at the caller's chosen time, on their clock."""
+    zone_name, source = callbacks.callee_zone(args["phone_number"], args["timezone"])
+    if source == "default":
+        raise ValueError("Their timezone isn't known; ask the caller which one they are in")
+    moment = timezones.resolve(args["when"], zone_name)
     name, reason = args["caller_name"], args["reason"] or "their earlier call"
     record = callbacks.schedule(
         args["phone_number"], name,
@@ -248,21 +241,30 @@ def book_callback(args, channel=None):
         voicemail=(f"{greeting_to(name)} this is Luma, Samarth Mahendra's AI assistant, calling you "
                    f"back as you asked, about {reason}. Please call this number back when it suits "
                    "you. Goodbye."),
-        when=when.timestamp(), source="request", origin=channel)
-    spoken = readable_time(args["when"])
+        when=moment.timestamp(), source="request", origin=channel, tz=zone_name)
     queue_discord_message(f"Luma will call {name or 'a caller'} ({args['phone_number']}) back "
-                          f"on {spoken} about: {reason}")
-    return {"status": "scheduled", "callback_id": record["id"], "when": spoken,
-            "message": "Booked. If they miss it, it is tried again later."}
+                          f"on {callbacks.when_for_samarth(record)}, {moment:%B} {moment.day} "
+                          f"about: {reason}")
+    booked = {"status": "scheduled", "callback_id": record["id"], "when": timezones.readable(moment),
+              "timezone": zone_name, "message": "Booked. If they miss it, it is tried again later."}
+    if source == "number":
+        booked["note"] = f"{zone_name} is the timezone of their phone number; confirm it with them."
+    return booked
+
+
+def current_time(zone_name, context):
+    """get_current_time: the time in a zone, by default the caller's best-known one."""
+    return timezones.now_in(zone_name or context.get("caller_timezone") or "")
 
 
 def greeting_to(name):
     return f"Hi {name}," if name else "Hi,"
 
 
-# A caller needn't give their name, or a number for a voicemail, and a call
-# back can be about nothing in particular; every other argument is needed.
-MAY_BE_EMPTY = {"caller_name", "phone_no", "reason"}
+# A caller needn't give their name, or a number for a voicemail, a call back
+# can be about nothing in particular, and a timezone can often be worked out
+# from their number; every other argument is needed.
+MAY_BE_EMPTY = {"caller_name", "phone_no", "reason", "timezone"}
 
 
 def make_tool_executor(context, voicemail=False, asked=None):
@@ -288,11 +290,21 @@ def make_tool_executor(context, voicemail=False, asked=None):
         args = {key: value.strip() for key, value in args.items()}
         if name == "end_call":
             return {"status": "ending"}
+        if name == "get_current_time":
+            try:
+                return current_time(args["timezone"], context)
+            except ValueError as exc:
+                return {"status": "invalid", "message": str(exc)}
         if name == "schedule_meeting_on_jitsi":
-            timing = datetime.fromisoformat(args["timing"].replace("Z", "+00:00"))
-            if timing.utcoffset() is None or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", args["user_email"]):
-                raise ValueError("Meeting needs a timezone and valid email")
-            return await asyncio.to_thread(schedule_meeting, args, channel)
+            if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", args["user_email"]):
+                return {"status": "invalid", "message": "That email address doesn't look right; check it."}
+            if not args["timezone"]:
+                return {"status": "invalid", "message": "Ask the caller which timezone the time is in."}
+            try:
+                moment = timezones.resolve(args["timing"], args["timezone"])
+            except ValueError as exc:
+                return {"status": "invalid", "message": str(exc)}
+            return await asyncio.to_thread(schedule_meeting, args, moment, channel)
         if name == "ask_samarth":
             question_id = await asyncio.to_thread(
                 questions.ask, args["question"], args["caller_name"], channel)
@@ -309,11 +321,12 @@ def make_tool_executor(context, voicemail=False, asked=None):
         if name == "request_callback":
             try:
                 callbacks.check_number(args["phone_number"])
+                zone_name = timezones.zone(args["timezone"]).key if args["timezone"] else None
             except ValueError as exc:
                 return {"status": "refused", "message": str(exc)}
             record = await asyncio.to_thread(
                 questions.request_callback, args["question_id"],
-                args["caller_name"], args["phone_number"])
+                args["caller_name"], args["phone_number"], zone_name)
             if record is None:
                 return {"status": "unknown", "message": "That question is no longer tracked."}
             if record["status"] == "answered":
@@ -363,7 +376,20 @@ async def call_twiml(request, voicemail=False):
     origin = request.query_params.get("origin", "")
     if valid_channel(origin):
         context["origin"] = origin
+    # Who is on the other end, and so which clock they are probably on.
+    fields = await twilio_fields(request)
+    outbound = fields.get("Direction", "").startswith("outbound")
+    add_caller(context, fields.get("To") if outbound else fields.get("From"))
     return await stream_twiml(request, context, voicemail)
+
+
+def add_caller(context, raw_number):
+    number = to_e164(raw_number or "")
+    if number:
+        context["caller_number"] = number
+        zone_name = timezones.zone_for_number(number)
+        if zone_name:
+            context["caller_timezone"] = zone_name
 
 
 async def stream_twiml(request, context, voicemail=False):
@@ -418,7 +444,9 @@ async def handle_stream(websocket, voicemail=False):
         token = start.get("customParameters", {}).get("context_id", "")
         context = await asyncio.to_thread(contexts.take, token)
         # The model sees only what the call is about; the rest is plumbing.
-        prompt_context = {key: context[key] for key in ("script", "name", "message") if key in context}
+        prompt_context = {key: context[key] for key in
+                          ("script", "name", "message", "caller_number", "caller_timezone")
+                          if key in context}
         call_sid = start.get("callSid") or stream_sid
         channel = "call:" + call_sid if valid_channel("call:" + call_sid) else None
         call = dict(context, call_sid=call_sid, channel=channel)
@@ -554,7 +582,7 @@ def callback_notice(record, outcome):
     if outcome == "voicemail":
         return f"Called {who} back and left a voicemail."
     if outcome == "retrying":
-        return f"Couldn't reach {who}. Trying again {callbacks.when_text(record['due_at'])}."
+        return f"Couldn't reach {who}. Trying again {callbacks.when_for_samarth(record)}."
     return f"Couldn't reach {who} after {record['attempts']} tries, so I've stopped trying."
 
 
@@ -580,8 +608,11 @@ async def callback_call(request: Request):
             response.say(record["voicemail"], voice=VOICEMAIL_VOICE)
         response.hangup()
         return HTMLResponse(content=str(response), media_type="application/xml")
-    return await stream_twiml(request, {"script": "3", "name": record["name"],
-                                        "message": record["purpose"], "callback_id": callback_id})
+    context = {"script": "3", "name": record["name"], "message": record["purpose"],
+               "callback_id": callback_id, "caller_number": record["to"]}
+    if record.get("timezone"):
+        context["caller_timezone"] = record["timezone"]
+    return await stream_twiml(request, context)
 
 
 @app.post("/callback-status")
