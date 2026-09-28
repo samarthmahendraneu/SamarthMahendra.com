@@ -432,7 +432,8 @@ class SharedModuleTests(unittest.TestCase):
         # The voice agent (twilio_server) and the worker, listener and chat
         # (pythonserver) deploy from separate folders, so each carries a copy.
         # Letting them drift is how one side stops understanding the other.
-        for name in ("question_store.py", "events.py", "jobs.py", "callbacks.py", "timezones.py"):
+        for name in ("question_store.py", "events.py", "jobs.py", "callbacks.py", "timezones.py",
+                     "redis_pool.py"):
             with self.subTest(name):
                 self.assertEqual((REPO / "twilio_server" / name).read_text(),
                                  (REPO / "pythonserver" / name).read_text(),

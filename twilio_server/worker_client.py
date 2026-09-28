@@ -11,6 +11,9 @@ from celery import Celery
 
 # Only the broker matters here; the task names belong to the worker.
 celery_app = Celery("celery_worker", broker=os.getenv("REDIS_URL"))
+# One connection for sending, not the default ten: every service shares the
+# Redis plan's connection limit (redis_pool.py), and a send is one round trip.
+celery_app.conf.broker_pool_limit = 1
 
 
 def enqueue_job(job_id):

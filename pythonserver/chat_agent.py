@@ -844,11 +844,10 @@ class PhoneVerifier:
 def default_agent():
     """The agent wired to the real services; imported lazily so tests need none."""
     import bcrypt
-    import redis
     from openai import OpenAI
 
     import mongo_tool
-    from celery_worker import run_job
+    from celery_worker import redis_client, run_job
 
     password_hash = b"$2b$12$v8KgvocjUlYSKOOm4/Ybiuiq7.j7CCfT.jypvNC8biDX/ZPUA0IyS"
 
@@ -869,8 +868,7 @@ def default_agent():
     return ChatAgent(
         OpenAI(api_key=os.getenv("OPENAI_API_KEY", "")),
         os.getenv("OPENAI_MODEL_NAME", "gpt-6-luna"),
-        redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"),
-                       socket_connect_timeout=5, socket_timeout=10),
+        redis_client,
         profile=mongo_tool.query_mongo_db_for_candidate_profile,
         save_meeting=mongo_tool.insert_meeting,
         check_password=check_password,

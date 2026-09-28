@@ -18,12 +18,12 @@ import logging
 import os
 
 import discord
-import redis
 from dotenv import load_dotenv
 
 load_dotenv()
 
 import callback_scheduler
+import redis_pool
 from callbacks import CallbackStore
 from events import EventStream, channel_id, channel_kind, valid_channel
 from question_store import QuestionStore
@@ -264,8 +264,9 @@ def main():
                         format="%(asctime)s %(levelname)s %(message)s")
     if not DISCORD_TOKEN or not DISCORD_CHANNEL_ID:
         raise ValueError("DISCORD_TOKEN and DISCORD_CHANNEL_ID must be set")
-    client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"),
-                            socket_connect_timeout=5, socket_timeout=5)
+    # Two is plenty: the question pump, the call back scheduler and message
+    # handlers each hold a connection only for the length of one command.
+    client = redis_pool.connect(max_connections=2)
     store = QuestionStore(client)
     twilio_client = None
     if os.getenv("TWILIO_ACCOUNT_SID") and os.getenv("TWILIO_AUTH_TOKEN"):

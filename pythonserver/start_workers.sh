@@ -12,8 +12,13 @@
 # Background jobs (emails, Discord posts, placing calls, chat follow-ups)
 # spend their time waiting on the network, so a pool of threads runs several
 # at once; with one process, one slow email held up every other job.
+#
+# Gossip, mingle and heartbeats keep several workers in step and each holds
+# a Redis connection. There is one worker, and every service shares the Redis
+# plan's connection limit (redis_pool.py), so they're off.
 
-celery -A celery_worker worker --loglevel=info --pool=threads --concurrency=8 &
+celery -A celery_worker worker --loglevel=info --pool=threads --concurrency=8 \
+    --without-gossip --without-mingle --without-heartbeat &
 celery_pid=$!
 python discord_listener.py &
 listener_pid=$!

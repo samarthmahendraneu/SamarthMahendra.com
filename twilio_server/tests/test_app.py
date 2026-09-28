@@ -33,7 +33,7 @@ with patch.dict(sys.modules, {"mongo_tool": mongo, "worker_client": worker}), \
         patch.dict(os.environ, {"OPENAI_API_KEY": "test-key", "MODEL": "gpt-live-1",
                                "TWILIO_ACCOUNT_SID": "AC" + "0" * 32,
                                "TWILIO_AUTH_TOKEN": "test-token"}, clear=True), \
-        patch("dotenv.load_dotenv"), patch("redis.from_url", return_value=memory):
+        patch("dotenv.load_dotenv"), patch("redis_pool.connect", return_value=memory):
     main = importlib.import_module("main")
 
 CHANNEL = "call:CA" + "1" * 32

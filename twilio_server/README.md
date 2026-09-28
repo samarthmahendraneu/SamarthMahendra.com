@@ -173,6 +173,14 @@ There is one Celery worker, deployed from `pythonserver/`. This service runs
 none: `worker_client.py` sends its tasks by name through the shared Redis, and
 a test checks the worker defines every task this service sends.
 
+Every service shares the Redis plan's connection limit, 30 on Redis Cloud's
+free plan. Each process caps its share (`redis_pool.py`, and the Celery
+settings in `celery_worker.py`, `worker_client.py` and `start_workers.sh`):
+the voice and chat services hold at most 5 connections each, the worker about
+8 and the Discord listener 3. That leaves room for a new copy of a service
+starting up during a deploy. Only one Celery worker should use this Redis:
+another would hold connections of its own and take tasks meant for this one.
+
 Deploy the worker first: it still runs work queued by older services, while
 new services queue work only it knows. Change its start command to
 `bash start_workers.sh`, which runs Celery on a thread pool

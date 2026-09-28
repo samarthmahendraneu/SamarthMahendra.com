@@ -10,7 +10,6 @@ import uuid
 from datetime import datetime
 from urllib.parse import parse_qs, urlencode
 
-import redis
 import websockets
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, WebSocket
@@ -30,6 +29,7 @@ from jobs import JobStore
 import timezones
 from live_bridge import LiveBridge
 from question_store import QuestionStore
+import redis_pool
 from live_config import LIVE_URL, TOOLS, VOICEMAIL_TOOLS, LiveSettings, greeting, session_config
 
 logger = logging.getLogger(__name__)
@@ -75,8 +75,7 @@ class CallContextStore:
     """Short-lived, single-use context tokens; no shared caller/name/script keys."""
 
     def __init__(self):
-        self.redis = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"),
-                                    socket_connect_timeout=5, socket_timeout=5)
+        self.redis = redis_pool.connect(max_connections=4)
 
     def put(self, context):
         token = uuid.uuid4().hex

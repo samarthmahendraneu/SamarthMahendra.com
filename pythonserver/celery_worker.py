@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mongo_tool
 import discord_tool
 import asyncio
+import redis_pool
 
 # Set up detailed logging
 logging.basicConfig(
@@ -32,11 +33,7 @@ CELERY_BROKER_URL = os.getenv("REDIS_URL")
 logger.info("[Celery Worker] Using broker at %s",
             (CELERY_BROKER_URL or "").rpartition("@")[2] or "(REDIS_URL not set)")
 
-celery_app = Celery(
-    "celery_worker",
-    broker=CELERY_BROKER_URL,
-    backend=CELERY_BROKER_URL  # optional, if you want to use Redis for result backend too
-)
+celery_app = Celery("celery_worker", broker=CELERY_BROKER_URL)
 
 celery_app.conf.update(
     task_serializer='json',
@@ -44,6 +41,15 @@ celery_app.conf.update(
     result_serializer='json',
     timezone='UTC',
     enable_utc=True,
+    # Every service shares the Redis plan's connection limit (redis_pool.py).
+    # Nothing reads a task's return value, so don't keep a result store.
+    task_ignore_result=True,
+    # Connections kept open for sending tasks; the default is ten per process,
+    # and sending takes one round trip, so senders can take turns.
+    broker_pool_limit=1,
+    # `celery inspect` and `celery control` go unused, and listening for them
+    # holds a connection.
+    worker_enable_remote_control=False,
 )
 
 from discord_tool import send_message_to_channel
@@ -114,16 +120,15 @@ def tool_call_fn(self, tool_name, call_id, args):
 # ---- background jobs and chat news (jobs.py, job_handlers.py, chat_agent.py) ----
 # tool_call_fn above stays for work queued by services not yet redeployed.
 
-import redis as _redis
-
 import job_handlers
 from events import EventStream
 from jobs import JobStore
 
-_store = _redis.from_url(CELERY_BROKER_URL or "redis://localhost:6379/0",
-                         socket_connect_timeout=5, socket_timeout=10)
-events = EventStream(_store)
-jobs = JobStore(_store, enqueue=lambda job_id: run_job.delay(job_id))
+# The one Redis client for this process: the tasks here, and chat_agent in
+# both the worker and the web app.
+redis_client = redis_pool.connect(max_connections=4)
+events = EventStream(redis_client)
+jobs = JobStore(redis_client, enqueue=lambda job_id: run_job.delay(job_id))
 
 
 @celery_app.task(name="celery_worker.run_job")
