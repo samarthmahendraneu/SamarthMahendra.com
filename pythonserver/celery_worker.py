@@ -1,8 +1,17 @@
 # celery_worker.py
 
 import os
+import sys
 import logging
 from celery import Celery
+
+# `celery -A celery_worker` puts the working directory on sys.path only while
+# it imports this module, then removes it, so a task importing one of this
+# folder's modules later (chat_agent) failed with ModuleNotFoundError. Add the
+# folder even though it is on the path right now: Celery removes one copy
+# when it is done, and this one stays for as long as the worker runs.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import mongo_tool
 import discord_tool
 import asyncio
