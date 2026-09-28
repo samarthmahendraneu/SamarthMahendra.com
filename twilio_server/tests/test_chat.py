@@ -41,6 +41,15 @@ class FakeModel:
         return self.requests[index]["input"]
 
 
+def build_agent(model, redis, profile=None, save_meeting=None, enqueue_job=None):
+    return chat_agent.ChatAgent(
+        SimpleNamespace(responses=model), "gpt-test", redis,
+        profile=profile or Mock(return_value={}), save_meeting=save_meeting or Mock(),
+        check_password=lambda password: password == "open sesame",
+        meeting_url=lambda: "https://meet.jit.si/test", samarth_email="s@example.com",
+        enqueue_job=enqueue_job or Mock())
+
+
 class ChatTests(unittest.TestCase):
     def setUp(self):
         self.redis = MemoryRedis()
@@ -50,12 +59,8 @@ class ChatTests(unittest.TestCase):
 
     def agent(self, *steps):
         self.model = FakeModel(*steps)
-        return chat_agent.ChatAgent(
-            SimpleNamespace(responses=self.model), "gpt-test", self.redis,
-            profile=self.profile, save_meeting=self.save_meeting,
-            check_password=lambda password: password == "open sesame",
-            meeting_url=lambda: "https://meet.jit.si/test", samarth_email="s@example.com",
-            enqueue_job=self.enqueue)
+        return build_agent(self.model, self.redis, profile=self.profile,
+                           save_meeting=self.save_meeting, enqueue_job=self.enqueue)
 
     def jobs(self, kind=None):
         records = [json.loads(v) for k, v in self.redis.values.items() if k.startswith("job:")]
@@ -227,6 +232,21 @@ class ChatTests(unittest.TestCase):
         for task_id in (other, theirs):
             self.assertEqual(agent.tool_check({"task_id": task_id}, session)["status"], "unknown")
 
+    def test_an_answer_whose_event_was_lost_is_still_told_once(self):
+        agent = self.agent(calls(("c1", "ask_samarth", {"question": "Free?", "visitor_name": ""})),
+                           reply("Asked."), reply("He says yes."))
+        question_id = self.ask(agent)
+        self.assertFalse(agent.has_news(SESSION))
+        agent.questions.answer(question_id, "Yes")          # no event published
+        self.assertTrue(agent.has_news(SESSION))
+        self.assertEqual(agent.follow_up(SESSION), "He says yes.")
+        self.assertEqual(agent.pending_for(SESSION), 0)
+        # The event turning up late doesn't tell it a second time.
+        agent.events.publish(CHAT, "question.answered", question_id=question_id)
+        self.assertIsNone(agent.follow_up(SESSION))
+        self.assertFalse(agent.has_news(SESSION))
+        self.assertEqual(len(self.model.requests), 3)
+
     def test_one_turn_at_a_time(self):
         agent = self.agent()
         with agent.locked(SESSION):
@@ -255,6 +275,61 @@ class ChatTests(unittest.TestCase):
         self.assertEqual(chat_agent.sse_frame("message", "1-2", {"text": "hi"}),
                          'event: message\nid: 1-2\ndata: {"text": "hi"}\n\n')
         self.assertNotIn("id:", chat_agent.sse_frame("status", None, {"pending": 0}))
+
+
+class StreamTests(unittest.IsolatedAsyncioTestCase):
+    """/chat/events: the visitor's own stream writes the follow-up message."""
+
+    def setUp(self):
+        self.redis = MemoryRedis()
+
+    async def connected(self):
+        return False
+
+    async def frames(self, agent, lifetime=0.3):
+        return [frame async for frame in agent.stream(SESSION, "0-0", self.connected,
+                                                       lifetime=lifetime, tick=0.02)]
+
+    def asked(self, *follow_ups):
+        self.model = FakeModel(calls(("c1", "ask_samarth", {"question": "Zoom or Meet?", "visitor_name": ""})),
+                               reply("I've asked him."), *follow_ups)
+        agent = build_agent(self.model, self.redis)
+        agent.respond(SESSION, "Ask which platform he prefers")
+        return agent, next(iter(agent.load(SESSION)["pending"]))
+
+    async def test_news_is_told_on_the_stream_without_the_worker(self):
+        agent, question_id = self.asked(reply("He prefers Zoom."))
+        agent.questions.answer(question_id, "Zoom")
+        agent.events.publish(CHAT, "question.answered", question_id=question_id)   # as the listener does
+        frames = await self.frames(agent)
+        self.assertTrue(frames[1].startswith("event: status"))
+        self.assertIn('"pending": 1', frames[1])
+        (message,) = [f for f in frames if f.startswith("event: message")]
+        self.assertIn('"text": "He prefers Zoom."', message)
+        self.assertIn('"pending": 0', message)
+        self.assertEqual(len(self.model.requests), 3)
+
+    async def test_a_failing_follow_up_does_not_end_the_stream_or_spin(self):
+        def fail(request):
+            raise RuntimeError("model unavailable")
+
+        agent, question_id = self.asked(fail, fail, fail)
+        agent.questions.answer(question_id, "Zoom")
+        with self.assertLogs("chat_agent", level="ERROR"):
+            frames = await self.frames(agent, lifetime=0.4)
+        self.assertEqual(len(self.model.requests), 3)       # tried once, then backed off
+        self.assertTrue(frames[0].startswith("retry:"))
+        # Nothing was lost: the next attempt still has the news to tell.
+        self.assertTrue(agent.has_news(SESSION))
+
+    async def test_a_turn_in_progress_is_left_to_tell_it(self):
+        agent, question_id = self.asked(reply("He prefers Zoom."))
+        agent.questions.answer(question_id, "Zoom")
+        with agent.locked(SESSION):
+            during = await self.frames(agent, lifetime=0.2)
+        self.assertFalse(any(f.startswith("event: message") for f in during))
+        after = await self.frames(agent)                    # the turn has finished
+        self.assertTrue(any("He prefers Zoom." in f for f in after))
 
 
 if __name__ == "__main__":

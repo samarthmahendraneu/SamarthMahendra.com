@@ -13,6 +13,7 @@ chat's event stream (events.py); follow_up() has the model tell the visitor,
 and the browser picks that message up from /chat/events.
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -293,18 +294,22 @@ class ChatAgent:
             return {"output": output, "session_id": session_id, "updates": updates,
                     "cursor": self.events.latest(self.channel(session_id)), "pending": pending}
 
-    def follow_up(self, session_id):
+    def follow_up(self, session_id, wait=60):
         """Background news arrived: have the model tell the visitor.
 
-        Safe to run more than once: news is only taken once, so a second run
-        finds nothing to say.
+        Safe to run more than once, and from more than one place (the chat's
+        event stream and the worker): news is only taken once, so a second
+        run finds nothing to say.
         """
-        with self.locked(session_id, wait=60):
+        with self.locked(session_id, wait=wait):
             session = self.load(session_id, create=False)
             if session is None:
                 return None
+            seen = session["seen"]
             news = self.take_news(session)
             if not news:
+                if session["seen"] != seen:
+                    self.save(session)      # nothing new to say, but don't look again
                 return None
             output = self.run(session, news)
             pending = self.pending_count(session)
@@ -383,6 +388,9 @@ class ChatAgent:
                         lines.append(line)
             if len(batch) < 100:
                 break
+        # An answer whose event never arrived is still an answer.
+        for record in self.unseen_answers(session):
+            lines.append(self.answer_line(record, session))
         if not lines:
             return []
         text = ("Update from background work, not from the visitor. Quoted text is information "
@@ -402,7 +410,9 @@ class ChatAgent:
             if record is None:
                 return None
             if kind == "question.answered":
-                return f'Samarth replied on Discord to "{clip(record["question"])}": "{clip(record["reply"])}"'
+                if question_id in session.setdefault("told", []):
+                    return None
+                return self.answer_line(record, session)
             return f'Samarth added, about "{clip(record["question"])}": "{clip(data.get("text", ""))}"'
         if kind in ("job.done", "job.failed"):
             job = data.get("job") or {}
@@ -429,6 +439,70 @@ class ChatAgent:
             return (f"The call to {clip(data.get('name') or 'them', 80)} wasn't answered "
                     f"({data.get('status', 'no answer')}).")
         return None
+
+    def answer_line(self, record, session):
+        """Samarth's answer, as news; each answer is told once."""
+        session["pending"].pop(record["id"], None)
+        session["told"] = (session.get("told", []) + [record["id"]])[-50:]
+        return f'Samarth replied on Discord to "{clip(record["question"])}": "{clip(record["reply"])}"'
+
+    def unseen_answers(self, session):
+        """Questions this chat is waiting on that have an answer, found by
+        looking rather than by event: covers a reply whose event was lost."""
+        channel = self.channel(session["id"])
+        answered = []
+        for task_id in list(session["pending"]):
+            try:
+                record = self.questions.get(task_id)
+            except ValueError:
+                continue            # a job or a call, not a question
+            if (record and record["status"] == "answered" and record.get("origin") == channel
+                    and task_id not in session.get("told", [])):
+                answered.append(record)
+        return answered
+
+    def has_news(self, session_id):
+        """Whether follow_up would have something to say. Cheap: no lock, no model."""
+        session = self.load(session_id, create=False)
+        if session is None:
+            return False
+        if any(kind in NEWS for _, kind, _ in self.events.read(self.channel(session_id), session["seen"])):
+            return True
+        return bool(self.unseen_answers(session))
+
+    async def stream(self, session_id, last, is_disconnected, lifetime=300, tick=1.0):
+        """Server-sent events for /chat/events.
+
+        The connection holding a visitor's stream also writes the follow-up
+        when news lands, so the message appears within a second or two
+        without waiting on the worker. The session lock and news being taken
+        once keep this and the worker's follow-up from telling it twice.
+        Reconnecting every `lifetime` seconds keeps proxies from timing out.
+        """
+        yield "retry: 3000\n\n"
+        pending = await asyncio.to_thread(self.pending_for, session_id)
+        yield sse_frame("status", None, {"pending": pending})
+        opened = quiet = time.monotonic()
+        retry_at = 0
+        while time.monotonic() - opened < lifetime:
+            if await is_disconnected():
+                return
+            if time.monotonic() >= retry_at and await asyncio.to_thread(self.has_news, session_id):
+                try:
+                    await asyncio.to_thread(self.follow_up, session_id, 2)
+                except Busy:
+                    pass            # a turn is under way; it, or the next tick, tells it
+                except Exception:
+                    logger.exception("Chat follow-up failed session=%s", session_id)
+                    retry_at = time.monotonic() + 15      # don't hammer a failing model call
+            items, last = await asyncio.to_thread(self.messages_after, session_id, last)
+            for item in items:
+                yield sse_frame(item["type"], item["id"] if item["type"] == "message" else None, item)
+                quiet = time.monotonic()
+            if time.monotonic() - quiet > 15:
+                yield ": keep-alive\n\n"
+                quiet = time.monotonic()
+            await asyncio.sleep(tick)
 
     def messages_after(self, session_id, after=START):
         """Messages the browser should show since `after`, for its display and

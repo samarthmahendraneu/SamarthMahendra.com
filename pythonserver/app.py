@@ -1,7 +1,6 @@
 import os
 from fastapi import FastAPI, Request
 import re
-import time
 
 from fastapi.responses import JSONResponse, StreamingResponse
 from celery import Celery
@@ -415,27 +414,8 @@ async def chat_events(request: Request, session_id: str = "", after: str = "0-0"
     if not STREAM_ID.fullmatch(last):
         last = chat_agent.START
     agent = chat_agent.agent()
-
-    async def stream():
-        nonlocal last
-        yield "retry: 3000\n\n"
-        pending = await asyncio.to_thread(agent.pending_for, session_id)
-        yield chat_agent.sse_frame("status", None, {"pending": pending})
-        opened = quiet = time.monotonic()
-        # Reconnecting every few minutes keeps proxies from timing the stream out.
-        while time.monotonic() - opened < 300:
-            if await request.is_disconnected():
-                return
-            items, last = await asyncio.to_thread(agent.messages_after, session_id, last)
-            for item in items:
-                yield chat_agent.sse_frame(item["type"], item["id"] if item["type"] == "message" else None, item)
-                quiet = time.monotonic()
-            if time.monotonic() - quiet > 15:
-                yield ": keep-alive\n\n"
-                quiet = time.monotonic()
-            await asyncio.sleep(1)
-
-    return StreamingResponse(stream(), media_type="text/event-stream",
+    return StreamingResponse(agent.stream(session_id, last, request.is_disconnected),
+                             media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
