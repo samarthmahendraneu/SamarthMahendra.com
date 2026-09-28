@@ -228,6 +228,36 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(result["status"], "refused")
         self.assertIsNone(main.questions.get(question["question_id"])["callback_state"])
 
+    async def test_a_call_back_covers_the_questions_the_call_asks_after_it(self):
+        first = await self.executor()("ask_samarth", "q1", {"question": "Java role?", "caller_name": ""})
+        result = await self.executor()("request_callback", "c1", {
+            "question_id": first["question_id"], "caller_name": "", "phone_number": "+16175550123",
+            "timezone": ""})
+        self.assertEqual(result["status"], "callback_requested")
+        again = await self.executor()("ask_samarth", "q2", {"question": "About a Java role", "caller_name": ""})
+        record = main.questions.get(again["question_id"])
+        self.assertEqual(main.questions.callback_request(record)["number"], "+16175550123")
+
+    async def test_an_answer_the_caller_has_heard_is_not_rung_back(self):
+        for tool in ("check_samarth_reply", "request_callback"):
+            with self.subTest(tool):
+                question = await self.executor()("ask_samarth", "q1", {"question": "Free?", "caller_name": "A"})
+                main.questions.answer(question["question_id"], "Yes")
+                args = {"question_id": question["question_id"]}
+                if tool == "request_callback":
+                    args.update(caller_name="A", phone_number="+16175550123", timezone="")
+                result = await self.executor()(tool, "c1", args)
+                self.assertEqual(result["reply"], "Yes")
+                # Marked heard, so the call's end doesn't ring them with it.
+                self.assertTrue(main.questions.get(question["question_id"])["delivered_live"])
+
+    async def test_a_call_back_cant_ride_on_another_calls_question(self):
+        other = main.questions.ask("Private?", "Bob", "call:CAother")
+        result = await self.executor()("request_callback", "c1", {
+            "question_id": other, "caller_name": "A", "phone_number": "+16175550123", "timezone": ""})
+        self.assertEqual(result["status"], "unknown")
+        self.assertIsNone(main.questions.callback_request(main.questions.get(other)))
+
     async def test_callback_is_booked_for_the_time_the_caller_chose(self):
         when = local_time("America/Chicago", days=1)
         result = await self.executor()("schedule_callback", "s1", {

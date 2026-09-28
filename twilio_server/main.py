@@ -211,6 +211,8 @@ def describe_reply(question_id, channel=None):
         return {"status": "unknown", "message": "That question is no longer tracked."}
     waited = round(questions.waiting_for(record))
     if record["status"] == "answered":
+        # The caller hears it now; the call's end mustn't ring them back with it.
+        questions.mark_delivered(question_id)
         return {"status": "answered", "reply": record["reply"], "waited_seconds": waited}
     return {"status": "waiting", "waited_seconds": waited,
             "message": ("Samarth has not answered yet. Offer a call back if this has "
@@ -323,17 +325,23 @@ def make_tool_executor(context, voicemail=False, asked=None):
                 zone_name = timezones.zone(args["timezone"]).key if args["timezone"] else None
             except ValueError as exc:
                 return {"status": "refused", "message": str(exc)}
-            record = await asyncio.to_thread(
-                questions.request_callback, args["question_id"],
-                args["caller_name"], args["phone_number"], zone_name)
-            if record is None:
+            try:
+                record = await asyncio.to_thread(questions.get, args["question_id"])
+            except ValueError:
+                record = None
+            if record is None or (record.get("origin") and record["origin"] != channel):
                 return {"status": "unknown", "message": "That question is no longer tracked."}
+            # For every question this call asks, not just this one.
+            await asyncio.to_thread(questions.request_callback, args["question_id"],
+                                    args["caller_name"], args["phone_number"], zone_name)
             if record["status"] == "answered":
                 # Already answered: say it now rather than promising a call.
+                await asyncio.to_thread(questions.mark_delivered, args["question_id"])
                 return {"status": "already_answered", "reply": record["reply"]}
             logger.info("Callback requested question=%s", args["question_id"])
-            return {"status": "callback_requested",
-                    "message": "They will be called back when Samarth answers."}
+            return {"status": "callback_requested", "message": (
+                "They will be called back with Samarth's answer to anything this call asked him, "
+                "unless they are still on the line when he replies.")}
         if name == "schedule_callback":
             try:
                 return await asyncio.to_thread(book_callback, args, channel)

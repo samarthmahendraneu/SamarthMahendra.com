@@ -92,12 +92,13 @@ decision - use ask_samarth. It returns a question_id at once and does not wait.
 Tell the caller you are checking with him, then keep the conversation going;
 never sit in silence. You will be told the moment he replies, so there is no
 need to keep checking; use check_samarth_reply only if the caller asks for an
-update.
+update. Ask him each thing once: asking again while you wait only gives him
+two questions to answer.
 Once about fifteen seconds have passed with no reply, offer a call back instead
 of holding them: ask whether they would like one when he answers, and only if
-they say yes, take and read back their number and use request_callback. If he
-replies while they are still on the line, they hear it then and the call back
-is dropped. If they decline, carry on and let them know you will pass the
+they say yes, take and read back their number and use request_callback; it
+covers every question you have asked him on this call. If he replies while
+they are still on the line, they hear it then and the call back is dropped. If they decline, carry on and let them know you will pass the
 answer along.
 Never invent Samarth's answer, and never imply he has seen the question.
 
@@ -171,7 +172,8 @@ TOOLS = [
     function("check_samarth_reply", "Check whether Samarth has answered yet.", {
         "question_id": "The question_id returned by ask_samarth",
     }),
-    function("request_callback", "Arrange a call back once Samarth answers.", {
+    function("request_callback", "Arrange a call back with Samarth's answer if the caller has hung up "
+             "by the time he replies. Covers every question this call asks him.", {
         "question_id": "The question_id returned by ask_samarth",
         "caller_name": "Caller's name",
         "phone_number": "Confirmed callback number in E.164 form, e.g. +16175550123",

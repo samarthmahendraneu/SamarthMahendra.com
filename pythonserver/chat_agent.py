@@ -26,7 +26,7 @@ from contextlib import contextmanager
 from datetime import datetime
 
 import timezones
-from callbacks import CallbackStore
+from callbacks import UNLIMITED_NUMBERS, CallbackStore
 from events import START, EventStream
 from jobs import JobStore
 from question_store import QuestionStore
@@ -80,11 +80,12 @@ What you can do:
   the visitor's local date and time as they said it, with their timezone; the
   tools work out the rest. Say times with their zone, and Samarth's time too
   when it differs.
-- Arrange a phone call to the visitor: when Samarth answers a question they
-  asked, if they can't wait here (request_callback), or at a time they choose
-  (schedule_callback). Take their number and read it back, and agree the time
-  and their timezone. If they're still in the chat when Samarth answers, they
-  see it here and no call is made.
+- Arrange a phone call to the visitor: with Samarth's answer, if they can't
+  wait here (request_callback), or at a time they choose (schedule_callback).
+  Use request_callback as soon as they ask for it, without waiting for his
+  reply; it covers everything this chat asks him. Take their number and read
+  it back, and agree the time and their timezone. If they're still in the chat
+  when Samarth answers, they see it here and no call is made.
 - Place phone calls for the visitor (make_calls), only with the password.
 - check_task says where a background task has got to, if the visitor asks.
 
@@ -144,8 +145,11 @@ TOOLS = [
                   "user_email": _text_field("The visitor's email, for the invite"),
               }),
     _function("request_callback",
-              "Call the visitor when Samarth answers a question they asked, if they can't wait here.", {
-                  "question_id": _text_field("The question_id ask_samarth returned"),
+              "Have the visitor rung with Samarth's answer if they've left the chat by the time he "
+              "replies. Use it as soon as they ask, not once he has answered; it covers every "
+              "question this chat asks him.", {
+                  "question_id": _text_field("The question_id ask_samarth returned, or an empty "
+                                             "string if you haven't asked him yet"),
                   "visitor_name": _text_field("The visitor's name, or an empty string"),
                   "phone_number": _text_field("Their number in E.164 form, e.g. +16175550123"),
                   "timezone": _text_field("Their timezone, or an empty string for their browser's"),
@@ -521,6 +525,8 @@ class ChatAgent:
         line = f'Samarth replied on Discord to "{clip(record["question"])}": "{clip(record["reply"])}"'
         if record.get("callback_state") == "placed":
             line += " They had left the chat, so a call back with his answer has been booked."
+        elif record.get("callback_state") == "failed":
+            line += " They had left the chat, but the call back with his answer couldn't be booked."
         return line
 
     def unseen_answers(self, session):
@@ -729,7 +735,8 @@ class ChatAgent:
             self.callbacks.check_number(number)
         except ValueError as exc:
             raise ToolRefused(str(exc)) from None
-        if len(session.setdefault("callbacks", [])) >= MAX_CALLBACKS_PER_CHAT:
+        booked = session.setdefault("callbacks", [])
+        if number not in UNLIMITED_NUMBERS and len(booked) >= MAX_CALLBACKS_PER_CHAT:
             raise ToolRefused("This chat has already booked as many call backs as it can.")
         if self.verifier is None or number in session.setdefault("verified", []):
             return number, None
@@ -763,25 +770,60 @@ class ChatAgent:
         return {"status": "verified", "message": "Number confirmed; now book the call back."}
 
     def tool_request_callback(self, args, session):
+        """A call with Samarth's answers for whatever this chat asks him
+        (QuestionStore.want_callback). Asked for once he has already answered,
+        it rings now if they've left, where it used to do nothing."""
+        channel = self.channel(session["id"])
         question_id = (args.get("question_id") or "").strip()
-        try:
-            record = self.questions.get(question_id)
-        except ValueError:
-            record = None
-        if record is None or record.get("origin") != self.channel(session["id"]):
-            raise ToolRefused("That isn't a question this chat asked Samarth.")
-        if record["status"] == "answered":
-            return {"status": "already_answered", "reply": record["reply"]}
+        record = None
+        if question_id:
+            try:
+                record = self.questions.get(question_id)
+            except ValueError:
+                record = None
+            if record is None or record.get("origin") != channel:
+                raise ToolRefused("That isn't a question this chat asked Samarth.")
         zone_name = self.visitor_zone(args, session)
         number, needed = self.callback_number(args, session)
         if needed:
             return needed
         name = (args.get("visitor_name") or "").strip()
-        self.questions.request_callback(question_id, name, number, zone_name)
-        session["callbacks"].append(question_id)
-        return {"status": "callback_requested", "message": (
-            "They'll be called when Samarth answers, unless they're still in this chat then: "
-            "in that case they see it here and no call is made.")}
+        if record is not None:
+            self.questions.request_callback(question_id, name, number, zone_name)
+        else:
+            self.questions.want_callback(channel, name, number, zone_name)
+        if number not in session["callbacks"]:
+            session["callbacks"].append(number)
+        if record is None or record["status"] != "answered":
+            return {"status": "callback_requested", "message": (
+                "They'll be called with Samarth's answer to anything this chat asks him, unless "
+                "they're still in this chat when he replies: then they see it here instead.")}
+        return self.call_back_now(record, channel)
+
+    def call_back_now(self, record, channel):
+        """He answered before they asked for the call: ring now, unless they're
+        reading this chat or a call is already on its way."""
+        if record.get("callback_state") == "placed":
+            return {"status": "already_booked", "message": "A call back with his answer is already booked."}
+        if self.events.is_live(channel):
+            return {"status": "answered", "reply": record["reply"], "message": (
+                "He has already answered and they're in this chat, so give them his answer here; "
+                "no call is needed.")}
+        try:
+            booking = self.questions.book_answer_call(record["id"], self.callbacks)
+        except ValueError as exc:
+            raise ToolRefused(f"The call back couldn't be booked: {exc}.") from None
+        if booking is None:
+            return {"status": "already_booked", "message": "A call back with his answer is already booked."}
+        record, booked = booking
+        name, number = record["callback_name"], record["callback_number"]
+        self.start_job("discord.send", {"content": (
+            f"Luma will call {name or 'a website visitor'} ({number}) "
+            f"{self.callbacks.when_for_samarth(booked)} with your answer to: {clip(record['question'])}. "
+            "Booked from the website chat.")}, announce="never", label="telling Samarth about the call back")
+        when = self.callbacks.when_text(booked["due_at"], booked["timezone"])
+        return {"status": "calling", "when": when,
+                "message": f"They've left the chat, so a call with his answer is booked for {when}."}
 
     def tool_schedule_callback(self, args, session):
         number, needed = self.callback_number(args, session)

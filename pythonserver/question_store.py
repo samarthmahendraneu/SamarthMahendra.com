@@ -26,6 +26,8 @@ OPEN_QUEUE = "discord:open"
 POST_KEY = "discord:post:"
 CALLBACK_QUEUE = "discord:callback_queue"
 CLAIM_KEY = "discord:callback-claim:"
+# Who to ring with Samarth's answers, per conversation (an events.py channel).
+CALLBACK_FOR_KEY = "discord:callback-for:"
 # Calls from before the event streams marked each question live instead of
 # the call; read so a listener deployed mid-call still sees those callers.
 LIVE_KEY = "discord:live:"
@@ -37,6 +39,11 @@ ID_PATTERN = re.compile(r"[0-9a-f]{32}")
 
 def _text(value):
     return value.decode() if isinstance(value, bytes) else value
+
+
+def clip(text, limit):
+    text = " ".join(str(text).split())
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
 
 
 class QuestionStore:
@@ -132,32 +139,96 @@ class QuestionStore:
 
     # ---- calling the caller back ----
 
+    def want_callback(self, origin, name, number, timezone=None):
+        """Ring this conversation's person with Samarth's answers if they've
+        gone by the time he replies.
+
+        Held for the conversation, not one question: people ask again in other
+        words, or ask for the call before the question is put, and the call is
+        for whatever he answers either way.
+        """
+        self.redis.setex(CALLBACK_FOR_KEY + origin, TTL,
+                         json.dumps({"name": name, "number": number, "timezone": timezone or None}))
+
     def request_callback(self, question_id, name, number, timezone=None):
+        """A call back with this question's answer, and its conversation's others."""
         record = self.get(question_id)
         if record is None:
             return None
-        record["callback_name"] = name
-        record["callback_number"] = number
-        record["callback_timezone"] = timezone or None
-        record["callback_state"] = "requested"
-        self.save(record)
+        if record.get("origin"):
+            self.want_callback(record["origin"], name, number, timezone)
+        if record["status"] != "answered":
+            # On the question too, for a listener from before want_callback.
+            record.update(callback_name=name, callback_number=number,
+                          callback_timezone=timezone or None, callback_state="requested")
+            self.save(record)
         return record
 
+    def callback_request(self, record):
+        """Who to ring with this question's answer ({name, number, timezone}),
+        or None if nobody asked or a call back was already arranged."""
+        if record.get("callback_state") in ("placed", "failed"):
+            return None
+        if record.get("origin"):
+            raw = self.redis.get(CALLBACK_FOR_KEY + record["origin"])
+            if raw:
+                return json.loads(raw)
+        if record.get("callback_state") == "requested":
+            return {"name": record.get("callback_name") or "", "number": record["callback_number"],
+                    "timezone": record.get("callback_timezone")}
+        return None
+
     def claim_callback(self, question_id):
-        """Claim the right to arrange a call back. Returns False if already claimed.
+        """Claim the right to ring back with this question's answer: the record,
+        with who to call filled in, or None if no call back is wanted or it
+        was already claimed.
 
         Atomic (SET NX): both the listener, when a reply lands, and the call,
         when it ends mid-reply, can decide a call back is due. A read-then-
         write claim would let both win and ring the caller twice.
         """
         record = self.get(question_id)
-        if record is None or record.get("callback_state") != "requested":
-            return False
+        wanted = record and self.callback_request(record)
+        if not wanted:
+            return None
         if not self.redis.set(CLAIM_KEY + question_id, "1", nx=True, ex=TTL):
-            return False
-        record["callback_state"] = "placed"
+            return None
+        record.update(callback_name=wanted["name"], callback_number=wanted["number"],
+                      callback_timezone=wanted.get("timezone"), callback_state="placed")
         self.save(record)
-        return True
+        return record
+
+    def book_answer_call(self, question_id, callbacks):
+        """Ring the person back with Samarth's answer (a callbacks.CallbackStore).
+
+        Returns (question, call back), or None if no call back is wanted, one
+        is already arranged, or there's no answer yet. Raises ValueError, with
+        a reason fit to pass on, if the call can't be booked.
+        """
+        record = self.get(question_id)
+        if record is None or record["status"] != "answered":
+            return None
+        record = self.claim_callback(question_id)
+        if record is None:
+            return None
+        name = record["callback_name"] or ""
+        question, reply = clip(record["question"], 300), clip(record["reply"], 900)
+        try:
+            booked = callbacks.schedule(
+                record["callback_number"], name,
+                purpose=f"You asked: {question} Samarth's answer is: {reply}",
+                voicemail=(f"{'Hi ' + name if name else 'Hi'}, this is Luma, Samarth Mahendra's AI "
+                           f"assistant, calling back with his answer to your question. You asked: "
+                           f"{question}. He says: {reply}. To talk it through, call this number "
+                           "back. Goodbye."),
+                source="question", question_id=record["id"], origin=record.get("origin"),
+                tz=record.get("callback_timezone"))
+        except Exception:
+            # So the chat doesn't tell them a call is coming.
+            record["callback_state"] = "failed"
+            self.save(record)
+            raise
+        return record, booked
 
     def mark_delivered(self, question_id):
         record = self.get(question_id)

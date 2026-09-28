@@ -26,7 +26,7 @@ import callback_scheduler
 import redis_pool
 from callbacks import CallbackStore
 from events import EventStream, channel_id, channel_kind, valid_channel
-from question_store import QuestionStore
+from question_store import QuestionStore, clip
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +37,6 @@ POLL_INTERVAL = 0.5
 NO_PINGS = discord.AllowedMentions.none()
 WHICH_QUESTION = ("More than one person is waiting on an answer. Reply to the question you're "
                   "answering (hover over it and choose Reply) so it reaches the right person.")
-
-
-def clip(text, limit):
-    text = " ".join(str(text).split())
-    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
 
 
 def origin_of(record):
@@ -160,11 +155,14 @@ class Listener(discord.Client):
             waiting = await asyncio.to_thread(self.store.open_questions)
             if not waiting:
                 return          # nothing was waiting; ordinary channel chatter
-            if reference is not None or len(waiting) > 1:
-                # A reply to some other message, or ambiguous: never guess.
+            people = {origin_of(record) or record["id"] for record in waiting}
+            if reference is not None or len(people) > 1:
+                # A reply to some other message, or two people waiting: never guess.
                 await self.notify(WHICH_QUESTION)
                 return
-            question_id = waiting[0]["id"]
+            # One conversation waiting, perhaps on the same thing asked twice:
+            # its latest question.
+            question_id = waiting[-1]["id"]
         record = await asyncio.to_thread(self.store.answer, question_id, content)
         if record is not None:
             logger.info("Recorded reply for question %s", record["id"])
@@ -177,15 +175,18 @@ class Listener(discord.Client):
 
     async def deliver(self, record, kind, text=None):
         """Get Samarth's words to whoever asked, and say in Discord how."""
-        who = record.get("caller_name") or "They"
         origin = origin_of(record)
-        if origin:
-            await asyncio.to_thread(self.events.publish, origin, kind,
-                                    question_id=record["id"], text=text)
+        wants_call = (kind == "question.answered"
+                      and await asyncio.to_thread(self.store.callback_request, record))
         if origin and channel_kind(origin) == "chat":
             # The chat's open page keeps it live; a visitor who left and asked
-            # for a call is rung instead.
+            # for a call is rung instead. Booked before the chat hears the
+            # answer, so what it tells them can say a call is coming.
             here = await asyncio.to_thread(self.events.is_live, origin)
+            if wants_call and not here:
+                await self.maybe_call_back(record)
+            await asyncio.to_thread(self.events.publish, origin, kind,
+                                    question_id=record["id"], text=text)
             try:
                 await asyncio.to_thread(self.chat_followup, channel_id(origin))
             except Exception:
@@ -193,20 +194,21 @@ class Listener(discord.Client):
                 if here:
                     await self.notify("Saved, but I couldn't pass it to their chat just now.", about=record)
                     return
-            wants_call = kind == "question.answered" and record.get("callback_state") == "requested"
-            if wants_call and not here:
-                await self.maybe_call_back(record)
-            elif wants_call:
+            if wants_call and here:
                 await self.notify("They're still in the chat, so they'll see it there; no call needed.",
                                   about=record)
-            else:
+            elif not wants_call:
                 await self.notify("Sent to their chat window.", about=record)
             return
+        if origin:
+            await asyncio.to_thread(self.events.publish, origin, kind,
+                                    question_id=record["id"], text=text)
+        who = record.get("caller_name") or "The caller"
         live = await asyncio.to_thread(self.caller_on_line, origin, record["id"])
         if live:
             # The call's own watch speaks it within a second.
             await self.notify(f"{who} is still on the call, so they'll hear that now.", about=record)
-        elif kind == "question.answered" and record.get("callback_state") == "requested":
+        elif wants_call:
             await self.maybe_call_back(record)
         elif kind == "question.followup":
             await self.notify(f"{who} already had your first answer and has hung up. This is saved.",
@@ -221,22 +223,10 @@ class Listener(discord.Client):
         return self.store.is_live_legacy(question_id)
 
     async def maybe_call_back(self, record):
-        if record.get("callback_state") != "requested" or not record.get("callback_number"):
-            return
-        # Claim before booking: a duplicate reply must not ring twice.
-        if not await asyncio.to_thread(self.store.claim_callback, record["id"]):
-            return
-        name = record.get("callback_name") or ""
-        question, reply = clip(record["question"], 300), clip(record["reply"], 900)
+        """Ring them back with the answer if they asked; once, however many
+        times it's decided (QuestionStore.claim_callback)."""
         try:
-            booked = await asyncio.to_thread(
-                self.callbacks.schedule, record["callback_number"], name,
-                purpose=f"You asked: {question} Samarth's answer is: {reply}",
-                voicemail=(f"{'Hi ' + name if name else 'Hi'}, this is Luma, Samarth Mahendra's AI assistant, calling back "
-                           f"with his answer to your question. You asked: {question}. "
-                           f"He says: {reply}. To talk it through, call this number back. Goodbye."),
-                source="question", question_id=record["id"], origin=origin_of(record),
-                tz=record.get("callback_timezone"))
+            booking = await asyncio.to_thread(self.store.book_answer_call, record["id"], self.callbacks)
         except ValueError as exc:
             logger.warning("Callback for question %s refused: %s", record["id"], exc)
             await self.notify(f"I couldn't book the call back: {exc}. They have not been told.",
@@ -246,6 +236,10 @@ class Listener(discord.Client):
             logger.exception("Callback booking failed for question %s", record["id"])
             await self.notify("I could not book the call back. They have not been told.", about=record)
             return
+        if booking is None:
+            return
+        record, booked = booking
+        name = record["callback_name"]
         logger.info("Callback %s booked for question %s", booked["id"], record["id"])
         if self.scheduler is None:
             # Booked, and placed once the worker can dial, but not by this one.

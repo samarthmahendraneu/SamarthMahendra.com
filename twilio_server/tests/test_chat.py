@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import timezones
 
 from callbacks import CallbackStore
+from events import EventStream
 from memory_redis import MemoryRedis
 from worker_modules import load
 
@@ -181,6 +182,18 @@ class ChatTests(unittest.TestCase):
         self.assertIn("a call back with his answer has been booked",
                       self.model.inputs()[-1]["content"][0]["text"])
 
+    def test_the_news_says_when_a_call_back_couldnt_be_booked(self):
+        agent = self.agent(calls(("c1", "ask_samarth", {"question": "Free?", "visitor_name": ""})),
+                           reply("Asked."), reply("He's free, but I couldn't book the call."))
+        question_id = self.ask(agent)
+        agent.questions.request_callback(question_id, "Ann", "+16175550123")
+        agent.questions.answer(question_id, "Yes")
+        with self.assertRaises(ValueError):          # as the listener tried to book it
+            agent.questions.book_answer_call(question_id, Mock(schedule=Mock(side_effect=ValueError("no"))))
+        agent.events.publish(CHAT, "question.answered", question_id=question_id)
+        agent.follow_up(SESSION)
+        self.assertIn("couldn't be booked", self.model.inputs()[-1]["content"][0]["text"])
+
     def test_news_not_yet_told_is_part_of_the_next_turn(self):
         agent = self.agent(calls(("c1", "ask_samarth", {"question": "Free?", "visitor_name": ""})),
                            reply("Asked."), reply("He says yes, and to your question: no."))
@@ -337,6 +350,61 @@ class ChatTests(unittest.TestCase):
         record = agent.questions.get(question_id)
         self.assertEqual((record["callback_number"], record["callback_timezone"], record["callback_state"]),
                          ("+16175550123", "America/Chicago", "requested"))
+
+    def answered_question(self):
+        agent = self.agent(calls(("c1", "ask_samarth", {"question": "Free for a call?", "visitor_name": "John"})),
+                           reply("Asked."))
+        question_id = self.ask(agent)
+        agent.questions.answer(question_id, "Yeah I am available")
+        agent.events.publish(CHAT, "question.answered", question_id=question_id)
+        return question_id
+
+    def late_request(self, question_id):
+        return self.agent(calls(("c2", "request_callback", {
+            "question_id": question_id, "visitor_name": "John", "phone_number": "+16175550123",
+            "timezone": "America/New_York"})), reply("Done."))
+
+    def test_a_call_back_asked_for_once_he_has_answered_rings_a_visitor_who_left(self):
+        # What happened: the model waited for his reply before asking for the
+        # call, and the tool used to refuse because the question was answered.
+        question_id = self.answered_question()
+        self.late_request(question_id).follow_up(SESSION)
+        self.assertEqual(self.outputs()["c2"]["status"], "calling")
+        (booked,) = [json.loads(v) for k, v in self.redis.values.items() if k.startswith("callback:")]
+        self.assertEqual((booked["to"], booked["question_id"], booked["origin"]),
+                         ("+16175550123", question_id, CHAT))
+        self.assertIn("Yeah I am available", booked["purpose"])
+        (notice,) = self.jobs("discord.send")
+        self.assertIn("Booked from the website chat", notice["args"]["content"])
+        # Asked again, it doesn't ring twice.
+        self.late_request(question_id).respond(SESSION, "Call me")
+        self.assertEqual(self.outputs()["c2"]["status"], "already_booked")
+
+    def test_a_late_call_back_request_for_a_visitor_still_reading_is_answered_here(self):
+        question_id = self.answered_question()
+        EventStream(self.redis).mark_live(CHAT)
+        self.late_request(question_id).follow_up(SESSION)
+        result = self.outputs()["c2"]
+        self.assertEqual((result["status"], result["reply"]), ("answered", "Yeah I am available"))
+        self.assertEqual([k for k in self.redis.values if k.startswith("callback:")], [])
+
+    def test_a_call_back_asked_for_before_the_question_covers_it(self):
+        agent = self.agent(calls(("c1", "request_callback", {
+            "question_id": "", "visitor_name": "John", "phone_number": "+16175550123", "timezone": ""})),
+            reply("I'll ask him."))
+        agent.respond(SESSION, "Call me when he replies")
+        self.assertEqual(self.outputs()["c1"]["status"], "callback_requested")
+        question_id = self.ask(self.agent(calls(("c2", "ask_samarth", {"question": "Free?", "visitor_name": "John"})),
+                                          reply("Asked.")))
+        wanted = agent.questions.callback_request(agent.questions.get(question_id))
+        self.assertEqual(wanted["number"], "+16175550123")
+
+    def test_samarths_own_number_has_no_chat_limit(self):
+        for hour in range(chat_agent.MAX_CALLBACKS_PER_CHAT + 2):
+            args = self.callback_args(when=self.tomorrow_at(10 + hour, "America/New_York"),
+                                      phone_number="+18577071671", timezone="America/New_York")
+            self.agent(calls(("c1", "schedule_callback", args)), reply("Ok.")).respond(SESSION, "Call me")
+            self.assertEqual(self.outputs()["c1"]["status"], "scheduled")
 
     def test_call_backs_are_limited_to_this_chat_and_real_numbers(self):
         other = self.agent().questions.ask("Private?", "Bob", "chat:" + "c" * 32)

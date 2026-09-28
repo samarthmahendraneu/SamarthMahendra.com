@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock
 from urllib.parse import parse_qs, urlsplit
 from zoneinfo import ZoneInfo
 
-from callbacks import DUE_KEY, MAX_PER_NUMBER_PER_DAY, CallbackStore
+from callbacks import DUE_KEY, MAX_PER_NUMBER_PER_DAY, UNLIMITED_NUMBERS, CallbackStore
 from memory_redis import MemoryRedis
 from worker_modules import load
 
@@ -99,6 +99,11 @@ class CallbackStoreTests(unittest.TestCase):
             self.book()
         with self.assertRaisesRegex(ValueError, "most call backs"):
             self.book()
+
+    def test_samarths_own_number_has_no_daily_limit(self):
+        self.assertEqual(UNLIMITED_NUMBERS, {"+18577071671"})
+        for _ in range(MAX_PER_NUMBER_PER_DAY + 2):
+            self.book(to="+18577071671")
 
     def test_due_calls_are_handed_out_exactly_once(self):
         now, later = self.book(), self.book(when=eastern(3, 12))

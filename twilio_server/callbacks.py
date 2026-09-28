@@ -37,6 +37,8 @@ RETRY_DELAYS = (10 * 60, 30 * 60)
 # Enough for a real caller; not enough to turn the line into a way to pester
 # someone else's phone.
 MAX_PER_NUMBER_PER_DAY = 3
+# Samarth's own phone, for testing: no limit on how often it's called back.
+UNLIMITED_NUMBERS = frozenset(("+18577071671",))
 # How far ahead a caller can book a call.
 MAX_AHEAD = 14 * 86400
 # A call this overdue (the scheduler was down) is not placed at night.
@@ -141,11 +143,12 @@ class CallbackStore:
             due = max(when, now)
         else:
             due = self.calling_time(now, zone_name)
-        day = self.local(due, zone_name).strftime("%Y%m%d")
-        count_key = COUNT_KEY + to + ":" + day
-        if self.redis.incr(count_key) > MAX_PER_NUMBER_PER_DAY:
-            raise ValueError("That number already has the most call backs allowed for the day")
-        self.redis.expire(count_key, 2 * 86400)
+        if True:
+            day = self.local(due, zone_name).strftime("%Y%m%d")
+            count_key = COUNT_KEY + to + ":" + day
+            if self.redis.incr(count_key) > MAX_PER_NUMBER_PER_DAY:
+                raise ValueError("That number already has the most call backs allowed for the day")
+            self.redis.expire(count_key, 2 * 86400)
         record = {
             "id": uuid.uuid4().hex, "to": to, "name": name, "purpose": purpose,
             "voicemail": voicemail, "source": source, "question_id": question_id,

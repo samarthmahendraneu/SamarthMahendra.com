@@ -87,6 +87,32 @@ class StoreTests(unittest.TestCase):
         qid = posted_question(self.store, reply="Yes")
         self.assertFalse(self.store.claim_callback(qid))
 
+    def test_a_call_back_covers_every_question_its_conversation_asks(self):
+        first = posted_question(self.store, "Free Thursday?", callback=True)
+        again = posted_question(self.store, "Alice asks: is he free Thursday?")
+        elsewhere = posted_question(self.store, "Free?", origin=CHAT)
+        self.store.answer(again, "Yes")
+        record = self.store.claim_callback(again)
+        self.assertEqual((record["callback_number"], record["callback_state"]), ("+16175550123", "placed"))
+        self.assertIsNone(self.store.claim_callback(again))
+        self.assertIsNotNone(self.store.callback_request(self.store.get(first)))
+        self.assertIsNone(self.store.callback_request(self.store.get(elsewhere)))
+
+    def test_a_call_back_can_be_asked_for_before_the_question(self):
+        self.store.want_callback(CHAT, "Ann", "+14155550123", "America/Los_Angeles")
+        qid = posted_question(self.store, origin=CHAT)
+        self.assertEqual(self.store.callback_request(self.store.get(qid)),
+                         {"name": "Ann", "number": "+14155550123", "timezone": "America/Los_Angeles"})
+
+    def test_a_call_back_that_cant_be_booked_is_not_tried_again_or_claimed_as_booked(self):
+        qid = posted_question(self.store, callback=True, reply="Yes")
+        refusing = Mock(schedule=Mock(side_effect=ValueError("no more today")))
+        with self.assertRaisesRegex(ValueError, "no more today"):
+            self.store.book_answer_call(qid, refusing)
+        self.assertEqual(self.store.get(qid)["callback_state"], "failed")
+        self.assertIsNone(self.store.book_answer_call(qid, refusing))
+        self.assertEqual(refusing.schedule.call_count, 1)
+
     def test_claim_is_atomic_across_processes(self):
         qid = posted_question(self.store, callback=True, reply="Yes")
         self.assertTrue(self.store.claim_callback(qid))
@@ -209,6 +235,12 @@ class CallEventTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.bridge.said), 1)
         self.assertTrue(self.store.get(qid)["delivered_live"])
 
+    async def test_call_end_rings_back_for_a_call_back_asked_on_another_question(self):
+        posted_question(self.store, callback=True)
+        asked_again = posted_question(self.store, "Is he free Thursday, for Alice?", reply="Yes")
+        await call_events.finish_call(CALL, [asked_again], self.events, self.store)
+        self.assertEqual(self.store.pop_callback(), asked_again)
+
     async def test_call_end_hands_an_unspoken_reply_to_the_listener(self):
         missed = posted_question(self.store, reply="Yes", callback=True)
         heard = posted_question(self.store, reply="Yes", callback=True)
@@ -261,11 +293,20 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
         await self.listener.on_reply("Thursday works")
         self.assertEqual(self.store.get(qid)["reply"], "Thursday works")
 
-    async def test_with_several_waiting_a_plain_message_is_not_guessed(self):
-        first, second = posted_question(self.store, "A?"), posted_question(self.store, "B?")
+    async def test_with_two_people_waiting_a_plain_message_is_not_guessed(self):
+        first, second = posted_question(self.store, "A?"), posted_question(self.store, "B?", origin=CHAT)
         await self.listener.on_reply("Yes")
         self.assertEqual({self.store.get(q)["status"] for q in (first, second)}, {"asked"})
         self.assertIn("Reply to the question", self.posted())
+
+    async def test_a_plain_message_answers_the_latest_of_one_callers_questions(self):
+        # The same caller asking twice is still one person waiting.
+        first = posted_question(self.store, "Java role?")
+        again = posted_question(self.store, "The caller asks about a Java role")
+        await self.listener.on_reply("yes")
+        self.assertEqual(self.store.get(again)["reply"], "yes")
+        self.assertEqual(self.store.get(first)["status"], "asked")
+        self.assertNotIn("Reply to the question", self.posted())
 
     async def test_a_reply_to_some_other_message_is_not_guessed(self):
         qid = posted_question(self.store, message_id=111)
@@ -347,6 +388,25 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.booked(), [])
         self.assertIn("already hung up", self.posted())
 
+    async def test_a_caller_who_gave_no_name_is_the_caller(self):
+        qid = self.store.ask("Free?", "", CALL)
+        self.store.pop_for_posting()
+        self.store.remember_post(qid, 111)
+        await self.listener.on_reply("Yes")
+        await self.listener.on_reply("After 3pm", reference=111)
+        self.assertIn("The caller had already hung up", self.posted())
+        self.assertIn("The caller already had your first answer and has hung up", self.posted())
+
+    async def test_a_call_back_asked_on_one_question_rings_with_the_answer_to_another(self):
+        # The call asked twice, and the call back was on the first question.
+        posted_question(self.store, "Java role?", callback=True, message_id=111)
+        again = posted_question(self.store, "The caller asks about a Java role", message_id=222)
+        with patch("time.time", return_value=eastern(14)):
+            await self.listener.on_reply("yes", reference=222)
+        (record,) = self.booked()
+        self.assertEqual((record["to"], record["question_id"]), ("+16175550123", again))
+        self.assertIn("back now", self.posted())
+
     async def test_a_chat_question_is_answered_in_the_chat(self):
         qid = posted_question(self.store, origin=CHAT)
         await self.listener.on_reply("Yes")
@@ -363,6 +423,18 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((record["question_id"], record["origin"]), (qid, CHAT))
         self.chat_followup.assert_called_once_with("a" * 32)       # there if they come back
         self.assertIn("back now", self.posted())
+
+    async def test_a_chat_hears_of_the_call_back_only_once_it_is_booked(self):
+        qid = posted_question(self.store, origin=CHAT, callback=True)
+        seen = {}
+        self.chat_followup.side_effect = lambda session: seen.update(
+            state=self.store.get(qid)["callback_state"], events=len(self.events.read(CHAT)),
+            booked=len(self.booked()))
+        with patch("time.time", return_value=eastern(14)):
+            await self.listener.on_reply("Yes")
+        # Whoever writes the chat's message (this follow-up, or the page's own
+        # stream reacting to the event) sees the call back already booked.
+        self.assertEqual(seen, {"state": "placed", "events": 1, "booked": 1})
 
     async def test_a_chat_visitor_still_there_just_sees_it(self):
         posted_question(self.store, origin=CHAT, callback=True)

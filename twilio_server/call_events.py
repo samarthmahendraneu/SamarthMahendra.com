@@ -115,8 +115,9 @@ async def finish_call(channel, asked, events, questions):
     for question_id in asked:
         try:
             record = await asyncio.to_thread(questions.get, question_id)
-            if (record and record["status"] == "answered" and not record.get("delivered_live")
-                    and record.get("callback_state") == "requested"):
+            if not record or record["status"] != "answered" or record.get("delivered_live"):
+                continue
+            if await asyncio.to_thread(questions.callback_request, record):
                 # Answered in the call's last moments: after the listener saw the
                 # caller as live, before this watch spoke it. The listener rings back.
                 await asyncio.to_thread(questions.queue_callback, question_id)
