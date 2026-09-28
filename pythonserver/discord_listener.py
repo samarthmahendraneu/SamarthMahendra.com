@@ -10,7 +10,7 @@ Responsibilities:
   - match Samarth's replies to their question by Discord's reply-to link
   - tell whoever asked: a live call speaks the reply, a website chat gets a
     message, and a caller who hung up is rung back if they asked to be
-  - place scheduled call backs as they fall due (callback_scheduler.py)
+  - have scheduled call backs dialled as they fall due (callback_scheduler.py)
 """
 
 import asyncio
@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 DISCORD_CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID")
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://twillio-ai-assistant.onrender.com").rstrip("/")
 POLL_INTERVAL = 0.5
 NO_PINGS = discord.AllowedMentions.none()
 WHICH_QUESTION = ("More than one person is waiting on an answer. Reply to the question you're "
@@ -57,13 +56,11 @@ def enqueue_chat_followup(session_id):
 
 
 class Listener(discord.Client):
-    def __init__(self, store, channel_id, twilio_client=None, from_number=None, *,
-                 events=None, callbacks=None, chat_followup=enqueue_chat_followup, **kwargs):
+    def __init__(self, store, channel_id, *, events=None, callbacks=None,
+                 chat_followup=enqueue_chat_followup, **kwargs):
         super().__init__(**kwargs)
         self.store = store
         self.channel_id = channel_id
-        self.twilio_client = twilio_client
-        self.from_number = from_number
         self.events = events or EventStream(store.redis)
         self.callbacks = callbacks or CallbackStore(store.redis)
         self.chat_followup = chat_followup
@@ -73,12 +70,8 @@ class Listener(discord.Client):
 
     async def setup_hook(self):
         # Before the gateway connects: call backs don't wait on Discord.
-        if self.twilio_client is None:
-            logger.warning("Twilio not configured; scheduled call backs will not be placed")
-            return
-        self.scheduler = asyncio.create_task(callback_scheduler.run(
-            self.callbacks, self.twilio_client, self.from_number, PUBLIC_BASE_URL, self.notify))
-        logger.info("Call back scheduler running from %s", self.from_number)
+        self.scheduler = asyncio.create_task(callback_scheduler.run(self.callbacks, self.notify))
+        logger.info("Call back scheduler running; %s dials", callback_scheduler.TWILIO_SERVICE_URL)
 
     async def on_ready(self):
         self.channel = self.get_channel(self.channel_id)
@@ -241,11 +234,7 @@ class Listener(discord.Client):
         record, booked = booking
         name = record["callback_name"]
         logger.info("Callback %s booked for question %s", booked["id"], record["id"])
-        if self.scheduler is None:
-            # Booked, and placed once the worker can dial, but not by this one.
-            await self.notify("I booked the call back, but this worker can't place calls: set "
-                              "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN on it.", about=record)
-        elif booked["due_at"] <= booked["created_at"] + 1:
+        if booked["due_at"] <= booked["created_at"] + 1:
             await self.notify(f"Calling {name or 'them'} back now.", about=record)
         else:
             await self.notify(f"It's outside calling hours where they are, so I'll call "
@@ -262,12 +251,6 @@ def main():
     # handlers each hold a connection only for the length of one command.
     client = redis_pool.connect(max_connections=2)
     store = QuestionStore(client)
-    twilio_client = None
-    if os.getenv("TWILIO_ACCOUNT_SID") and os.getenv("TWILIO_AUTH_TOKEN"):
-        from twilio.rest import Client
-        twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
-    else:
-        logger.warning("Twilio not configured; callbacks will be recorded but not placed")
 
     intents = discord.Intents.default()
     intents.messages = True
@@ -275,8 +258,7 @@ def main():
     # Required to read reply text, and must also be enabled in the bot's
     # settings in the Discord developer portal.
     intents.message_content = True
-    Listener(store, int(DISCORD_CHANNEL_ID), twilio_client,
-             os.getenv("TWILIO_FROM_NUMBER", "+18339703274"),
+    Listener(store, int(DISCORD_CHANNEL_ID),
              events=EventStream(client), callbacks=CallbackStore.from_env(client, os.environ),
              intents=intents).run(DISCORD_TOKEN)
 

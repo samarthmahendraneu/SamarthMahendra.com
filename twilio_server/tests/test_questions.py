@@ -264,13 +264,12 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
         self.callbacks = CallbackStore(redis)
         self.chat_followup = Mock()
         self.listener = load("discord_listener").Listener(
-            self.store, 123, Mock(), "+18339703274", events=self.events,
+            self.store, 123, events=self.events,
             callbacks=self.callbacks, chat_followup=self.chat_followup,
             intents=discord.Intents.none())
         self.message_ids = iter(range(900, 999))
         self.listener.channel = Mock(send=AsyncMock(
             side_effect=lambda *a, **k: Mock(id=next(self.message_ids))))
-        self.listener.scheduler = Mock()        # as setup_hook leaves it when Twilio is set up
 
     def posted(self):
         return " ".join(c.args[0] for c in self.listener.channel.send.await_args_list)
@@ -345,15 +344,12 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Thursday works", record["voicemail"])
         self.assertIn("back now", self.posted())
 
-    async def test_a_worker_that_cant_dial_says_so_instead_of_promising_a_call(self):
-        self.listener.scheduler = None
-        posted_question(self.store, callback=True)
-        with patch("time.time", return_value=eastern(14)):
-            await self.listener.on_reply("Yes")
-        self.assertEqual(len(self.booked()), 1)          # kept for when it can dial
-        self.assertIn("can't place calls", self.posted())
-        self.assertIn("TWILIO_ACCOUNT_SID", self.posted())
-        self.assertNotIn("back now", self.posted())
+    async def test_call_backs_are_dialled_without_twilio_keys_on_the_worker(self):
+        scheduler = type(self.listener).setup_hook.__globals__["callback_scheduler"]
+        with patch.object(scheduler, "run", new=AsyncMock()) as run:
+            await self.listener.setup_hook()
+            await self.listener.scheduler
+        run.assert_awaited_once_with(self.callbacks, self.listener.notify)
 
     async def test_a_late_reply_is_called_back_in_the_morning(self):
         posted_question(self.store, callback=True)

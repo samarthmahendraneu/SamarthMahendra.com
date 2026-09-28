@@ -9,6 +9,7 @@ import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
+from functools import partial
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 from urllib.parse import parse_qs, urlsplit
@@ -17,6 +18,7 @@ from xml.etree import ElementTree
 from fastapi.testclient import TestClient
 
 from memory_redis import MemoryRedis
+from worker_modules import load
 
 mongo = ModuleType("mongo_tool")
 mongo.mongo_save_message = Mock(return_value="message-1")
@@ -429,6 +431,59 @@ class EndpointTests(unittest.TestCase):
         ((_, kind, data),) = main.events.read(chat)
         self.assertEqual((kind, data["status"], data["name"]), ("call.status", "no-answer", "Bob"))
         worker.enqueue_chat_followup.assert_called_once_with("a" * 32)
+
+    def claimed_call_back(self):
+        main.callbacks.schedule("+16175550123", "Ann", "why", "voicemail", when=time.time())
+        (record,) = main.callbacks.claim_due()           # as the worker's scheduler does
+        return record
+
+    def test_a_claimed_call_back_is_dialled_with_its_stored_number(self):
+        record = self.claimed_call_back()
+        with patch.object(main.twilio_client.calls, "create", return_value=SimpleNamespace(sid="CA-cb")) as create:
+            response = self.client.post("/start-calls", json={"callback_id": record["id"], "numbers": []})
+        self.assertEqual(response.json()["calls"], [{"to": "+16175550123", "sid": "CA-cb"}])
+        kwargs = create.call_args.kwargs
+        self.assertEqual(kwargs["to"], "+16175550123")
+        self.assertEqual(kwargs["machine_detection"], "DetectMessageEnd")
+        # What the call is about stays in Redis; the URLs carry only its id.
+        for url, path in ((kwargs["url"], "/callback-call"), (kwargs["status_callback"], "/callback-status")):
+            self.assertEqual((urlsplit(url).path, parse_qs(urlsplit(url).query)), (path, {"cb": [record["id"]]}))
+        stored = main.callbacks.get(record["id"])
+        self.assertEqual((stored["state"], stored["calls"]), ("ringing", {"CA-cb": "ringing"}))
+
+    def test_a_call_back_is_dialled_only_when_due_and_only_once(self):
+        waiting = main.callbacks.schedule("+16175550123", "Ann", "why", "voicemail",
+                                          when=time.time() + 3600)
+        record = self.claimed_call_back()
+        with patch.object(main.twilio_client.calls, "create", return_value=SimpleNamespace(sid="CA-cb")) as create:
+            statuses = [self.client.post("/start-calls", json={"callback_id": callback_id, "numbers": []}).status_code
+                        for callback_id in (waiting["id"], record["id"], record["id"], "../x", "f" * 32)]
+        self.assertEqual(statuses, [409, 200, 409, 409, 409])
+        self.assertEqual(create.call_count, 1)              # never the default number either
+
+    def test_a_try_twilio_refused_is_not_dialled_again_by_a_repeated_request(self):
+        record = self.claimed_call_back()
+        refused = Exception("HTTP 400")
+        refused.msg = "geo permission"
+        with patch.object(main.twilio_client.calls, "create", side_effect=[refused, SimpleNamespace(sid="CA-2")]) as create, \
+                self.assertLogs("main", level="WARNING"):
+            first = self.client.post("/start-calls", json={"callback_id": record["id"], "numbers": []})
+            again = self.client.post("/start-calls", json={"callback_id": record["id"], "numbers": []})
+        self.assertIn("geo permission", first.json()["calls"][0]["error"])
+        self.assertEqual((again.status_code, create.call_count), (409, 1))
+
+    def test_the_workers_scheduler_and_this_service_ring_a_due_call_back_once(self):
+        scheduler = load("callback_scheduler")
+        main.callbacks.schedule("+16175550123", "Ann", "why", "voicemail", when=time.time())
+        # The worker's requests, answered by this service's own /start-calls.
+        post = lambda url, json, timeout: self.client.post(urlsplit(url).path, json=json)
+        placer = partial(scheduler.place, post=post, base_url="https://voice.test")
+        with patch.object(main.twilio_client.calls, "create", return_value=SimpleNamespace(sid="CA-cb")) as create:
+            for _ in range(2):                          # the second tick finds nothing due
+                asyncio.run(scheduler.tick(main.callbacks, None, placer))
+        self.assertEqual(create.call_count, 1)
+        (record,) = [json.loads(v) for k, v in memory.values.items() if k.startswith("callback:")]
+        self.assertEqual((record["state"], record["calls"]), ("ringing", {"CA-cb": "ringing"}))
 
     def test_typed_numbers_are_normalised_to_e164(self):
         cases = {

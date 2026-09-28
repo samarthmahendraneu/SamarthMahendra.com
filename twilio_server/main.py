@@ -519,6 +519,8 @@ async def handle_media_stream_voicemail(websocket: WebSocket):
 @app.post("/start-calls")
 async def start_calls(request: Request):
     body = await request.json()
+    if body.get("callback_id"):
+        return await place_callback(str(body["callback_id"]))
     numbers = body.get("numbers", ["+18577071671"])
     if isinstance(numbers, str):
         # One number sent as a string would otherwise be dialled per character.
@@ -556,6 +558,44 @@ async def start_calls(request: Request):
             results.append({"to": number, "error": f"Call could not be started: {msg}",
                             "twilio_code": code})
     return {"status": "done", "calls": results}
+
+
+async def place_callback(callback_id):
+    """Dial a call back the worker's scheduler has claimed as due (callbacks.py).
+
+    Only its id comes in: the number and what the call is about are the ones
+    stored with it, and each try is dialled once, so this can't be used to
+    ring any number, or to ring someone twice.
+    """
+    try:
+        record = await asyncio.to_thread(callbacks.take_for_dialing, callback_id)
+    except ValueError:
+        record = None
+    if record is None:
+        return JSONResponse({"status": "refused", "calls": [],
+                             "error": "No call back is waiting to be dialled with that id."},
+                            status_code=409)
+    try:
+        call = await asyncio.to_thread(
+            twilio_client.calls.create, to=record["to"], from_=TWILIO_FROM_NUMBER,
+            url=f"{PUBLIC_BASE_URL}/callback-call?cb={callback_id}",
+            status_callback=f"{PUBLIC_BASE_URL}/callback-status?cb={callback_id}",
+            status_callback_event=["completed"], status_callback_method="POST",
+            # Waits out a voicemail greeting, so a message left lands after the beep.
+            machine_detection="DetectMessageEnd")
+    except Exception as exc:
+        code, msg = getattr(exc, "code", None), getattr(exc, "msg", None) or str(exc)
+        logger.warning("Call back %s could not be placed code=%s (%s)", callback_id, code, msg)
+        return {"status": "done", "calls": [{"to": record["to"], "error": f"Call could not be started: {msg}",
+                                              "twilio_code": code}]}
+    try:
+        await asyncio.to_thread(callbacks.dialed, callback_id, call.sid)
+    except Exception as exc:
+        # Its status report still settles it; don't turn a placed call into a retry.
+        logger.warning("Call back %s dialled call=%s but not recorded (%s)",
+                       callback_id, call.sid, type(exc).__name__)
+    logger.info("Call back %s dialled call=%s attempt=%d", callback_id, call.sid, record["attempts"])
+    return {"status": "done", "calls": [{"to": record["to"], "sid": call.sid}]}
 
 
 async def twilio_fields(request):

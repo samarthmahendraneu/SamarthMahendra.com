@@ -130,8 +130,10 @@ conversation is told, and the assistant passes it on without being asked.
   from one caller or chat, a plain message answers its latest question; with
   two people waiting, the bot asks you to reply to the right one. A second
   reply to an answered question is passed on as a follow-up.
-- **Call backs** (`callbacks.py`, placed by `pythonserver/callback_scheduler.py`
-  in the Discord listener): `request_callback` rings the caller when Samarth
+- **Call backs** (`callbacks.py`): the Discord listener's scheduler
+  (`pythonserver/callback_scheduler.py`) finds them as they fall due and has
+  this service dial them through `/start-calls`, sending only the call back's
+  id, so the worker needs no Twilio keys. `request_callback` rings the caller when Samarth
   answers after they hang up. It holds for the whole call or chat, so a
   question asked again in other words is covered, and in the chat it can be
   asked for before the question or, once he has answered, rings straight away
@@ -164,7 +166,7 @@ New settings, all optional:
 | `CALLBACK_TIMEZONE` | voice service and worker | `America/New_York` (for callers whose timezone can't be told from what they said or their number) |
 | `CALLBACK_HOURS` | voice service and worker | `10-20` (local hours for automatic call backs and retries) |
 | `CALLBACK_COUNTRY_CODES` | voice service and worker | `1` (US and Canada; Caribbean +1 numbers are always refused) |
-| `TWILIO_SERVICE_URL` | worker | `https://twillio-ai-assistant.onrender.com` (where chat-requested calls are placed) |
+| `TWILIO_SERVICE_URL` | worker | `https://twillio-ai-assistant.onrender.com` (the voice service, which places chat-requested calls and call backs) |
 | `TWILIO_VERIFY_SERVICE_SID` | chat service | unset (a Twilio Verify service; when set with `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`, chat call backs need a texted code) |
 | `SAMARTH_EMAIL` | chat service | `samarth.mahendragowda@gmail.com` (copy of chat-booked meetings) |
 

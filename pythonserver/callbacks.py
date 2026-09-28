@@ -3,9 +3,10 @@
 Two things schedule one: a caller who asked to be rung back once Samarth
 answers (see question_store), and a caller who asked for a call at a time
 of their choosing (the schedule_callback tool). The Discord listener's
-scheduler places calls as they fall due (pythonserver/callback_scheduler.py);
-Twilio's status webhook on the voice service reports how each went, and a
-missed call is tried again later, up to MAX_ATTEMPTS times.
+scheduler claims calls as they fall due (pythonserver/callback_scheduler.py)
+and has the voice service dial them; Twilio's status webhook on the voice
+service reports how each went, and a missed call is tried again later, up to
+MAX_ATTEMPTS times.
 
 What a call is about stays here, under an unguessable id, rather than riding
 in the call's URL where Twilio logs it.
@@ -30,6 +31,8 @@ import timezones
 CALLBACK_KEY = "callback:"
 DUE_KEY = "callbacks:due"
 COUNT_KEY = "callbacks:count:"
+# One per call back and try: set by whoever dials it.
+DIAL_KEY = "callbacks:dialing:"
 TTL = 7 * 86400
 MAX_ATTEMPTS = 3
 # Wait before the second and third tries.
@@ -206,6 +209,17 @@ class CallbackStore:
             self.save(record)
             claimed.append(record)
         return claimed
+
+    def take_for_dialing(self, callback_id):
+        """For the voice service, asked to dial a call back: the record if the
+        scheduler has claimed it (claim_due) and this try hasn't been dialled
+        yet, else None. Atomic, so a repeated request can't ring twice."""
+        record = self.get(callback_id)
+        if record is None or record["state"] != "dialing":
+            return None
+        if not self.redis.set(f"{DIAL_KEY}{callback_id}:{record['attempts']}", "1", nx=True, ex=TTL):
+            return None
+        return record
 
     def dialed(self, callback_id, call_sid):
         record = self.get(callback_id)

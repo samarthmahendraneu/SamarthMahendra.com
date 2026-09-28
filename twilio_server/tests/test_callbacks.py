@@ -1,5 +1,6 @@
 import time
 import unittest
+from functools import partial
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -183,40 +184,78 @@ class CallbackStoreTests(unittest.TestCase):
 
 
 class SchedulerTests(unittest.IsolatedAsyncioTestCase):
+    """The worker has no Twilio keys: the voice service's /start-calls dials."""
+
     def setUp(self):
         self.scheduler = load("callback_scheduler")
         self.store = CallbackStore(MemoryRedis())
-        self.twilio = Mock()
-        self.twilio.calls.create.return_value = SimpleNamespace(sid="CA7")
         self.notify = AsyncMock()
+        self.posted = []
+        self.voice = lambda body: {"status": "done", "calls": [{"to": NUMBER, "sid": "CA7"}]}
+
+    def post(self, url, json, timeout):
+        self.posted.append((url, json, timeout))
+        answer = self.voice(json)
+        return SimpleNamespace(status_code=200, json=lambda: answer)
+
+    async def tick(self):
+        placer = partial(self.scheduler.place, post=self.post, base_url="https://voice.test")
+        await self.scheduler.tick(self.store, self.notify, placer)
 
     def due_now(self):
         return self.store.schedule(NUMBER, "Alice", "why", "voicemail", when=time.time())
 
-    async def test_due_call_backs_are_placed_with_machine_detection(self):
+    async def test_due_call_backs_are_dialled_by_the_voice_service(self):
         record = self.due_now()
-        await self.scheduler.tick(self.store, self.twilio, "+18339703274", "https://voice.test", self.notify)
-        kwargs = self.twilio.calls.create.call_args.kwargs
-        self.assertEqual((kwargs["to"], kwargs["from_"]), (NUMBER, "+18339703274"))
-        self.assertEqual(kwargs["machine_detection"], "DetectMessageEnd")
-        # What the call is about stays in Redis; the URLs carry only its id.
-        for url in (kwargs["url"], kwargs["status_callback"]):
-            self.assertEqual(parse_qs(urlsplit(url).query), {"cb": [record["id"]]})
-        self.assertEqual(urlsplit(kwargs["status_callback"]).path, "/callback-status")
-        self.assertEqual(self.store.get(record["id"])["state"], "ringing")
+        await self.tick()
+        ((url, body, timeout),) = self.posted
+        self.assertEqual(url, "https://voice.test/start-calls")
+        # Only its id: the voice service rings the number stored with it. An
+        # empty list stops an older voice service ringing its default number.
+        self.assertEqual(body, {"callback_id": record["id"], "numbers": []})
+        self.assertGreaterEqual(timeout, 60)             # time for it to wake up
+        self.assertEqual(self.store.get(record["id"])["state"], "dialing")
+        self.notify.assert_not_awaited()
 
-    async def test_a_call_twilio_rejects_is_retried_and_reported(self):
-        self.twilio.calls.create.side_effect = RuntimeError("geo permission")
+    async def test_a_call_the_voice_service_cant_place_is_retried_and_reported(self):
+        cases = {
+            "geo permission": lambda body: {"calls": [{"to": NUMBER, "error": "Call could not be started: geo permission"}]},
+            "may need redeploying": lambda body: {"status": "done", "calls": []},     # from before this
+        }
+        for reason, voice in cases.items():
+            with self.subTest(reason):
+                self.voice = voice
+                record = self.due_now()
+                await self.tick()
+                self.assertEqual(self.store.get(record["id"])["state"], "scheduled")
+                self.assertIn(reason, self.notify.await_args.args[0])
+                self.assertIn("Trying again", self.notify.await_args.args[0])
+
+    async def test_an_unreachable_voice_service_is_a_missed_try(self):
+        import requests
         record = self.due_now()
-        await self.scheduler.tick(self.store, self.twilio, "+18339703274", "https://voice.test", self.notify)
+        self.voice = Mock(side_effect=requests.ConnectionError("down"))
+        await self.tick()
         self.assertEqual(self.store.get(record["id"])["state"], "scheduled")
-        self.assertIn("geo permission", self.notify.await_args.args[0])
-        self.assertIn("Trying again", self.notify.await_args.args[0])
+        self.assertIn("couldn't be reached", self.notify.await_args.args[0])
+
+    async def test_a_lost_reply_after_dialling_does_not_ring_twice(self):
+        import requests
+        record = self.due_now()
+
+        def dials_then_times_out(body):
+            self.store.dialed(body["callback_id"], "CA7")     # as the voice service does
+            raise requests.Timeout()
+
+        self.voice = dials_then_times_out
+        await self.tick()
+        self.assertEqual(self.store.get(record["id"])["state"], "ringing")
+        self.notify.assert_not_awaited()
 
     async def test_nothing_due_places_nothing(self):
         self.store.schedule(NUMBER, "Alice", "why", "voicemail", when=time.time() + 7 * 86400)
-        await self.scheduler.tick(self.store, self.twilio, "+1", "https://voice.test", self.notify)
-        self.twilio.calls.create.assert_not_called()
+        await self.tick()
+        self.assertEqual(self.posted, [])
 
 
 if __name__ == "__main__":
