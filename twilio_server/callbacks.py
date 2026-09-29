@@ -11,10 +11,11 @@ MAX_ATTEMPTS times.
 What a call is about stays here, under an unguessable id, rather than riding
 in the call's URL where Twilio logs it.
 
-Automatic calls -- a reply that lands late in the evening, a retry -- wait for
-calling hours in the caller's own timezone: the one they gave, else the one
-their number belongs to, else CALLBACK_TIMEZONE. A time the caller chose is
-kept as given.
+Automatic calls -- a reply that lands late in the evening, a retry -- go out
+at any hour, unless calling hours are set (CALLBACK_HOURS): then they wait
+for them in the caller's own timezone, the one they gave, else the one their
+number belongs to, else CALLBACK_TIMEZONE. A time the caller chose is kept as
+given.
 
 Kept byte-identical in twilio_server/ and pythonserver/; the tests fail if the
 copies drift.
@@ -59,21 +60,25 @@ MISSED_STATUSES = ("busy", "no-answer", "failed", "canceled")
 
 
 class CallbackStore:
-    def __init__(self, redis, timezone="America/New_York", hours=(10, 20),
+    def __init__(self, redis, timezone="America/New_York", hours=None,
                  country_codes=("1",)):
         self.redis = redis
         # For callers whose timezone can't be told any other way.
         self.default_zone = timezones.zone(timezone).key
+        # (start, end) local hours for automatic calls; None for any hour.
         self.hours = hours
         self.country_codes = tuple(country_codes)
 
     @classmethod
     def from_env(cls, redis, env):
-        start, _, end = (env.get("CALLBACK_HOURS") or "10-20").partition("-")
+        hours = None
+        if env.get("CALLBACK_HOURS"):
+            start, _, end = env["CALLBACK_HOURS"].partition("-")
+            hours = (int(start), int(end))
         codes = [code.strip().lstrip("+") for code in
                  (env.get("CALLBACK_COUNTRY_CODES") or "1").split(",")]
         return cls(redis, timezone=env.get("CALLBACK_TIMEZONE") or "America/New_York",
-                   hours=(int(start), int(end)), country_codes=[c for c in codes if c])
+                   hours=hours, country_codes=[c for c in codes if c])
 
     def key(self, callback_id):
         if not ID_PATTERN.fullmatch(callback_id or ""):
@@ -103,6 +108,8 @@ class CallbackStore:
     def calling_time(self, timestamp, zone_name=None):
         """The first moment at or after `timestamp` inside calling hours,
         on the callee's clock."""
+        if not self.hours:
+            return timestamp
         start, end = self.hours
         moment = datetime.fromtimestamp(timestamp, timezones.zone(zone_name or self.default_zone))
         if moment.hour < start:

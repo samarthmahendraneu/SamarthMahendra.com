@@ -261,7 +261,8 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
         redis = MemoryRedis()
         self.store = QuestionStore(redis)
         self.events = EventStream(redis)
-        self.callbacks = CallbackStore(redis)
+        # With calling hours, as CALLBACK_HOURS=10-20 sets; there are none by default.
+        self.callbacks = CallbackStore(redis, hours=(10, 20))
         self.chat_followup = Mock()
         self.listener = load("discord_listener").Listener(
             self.store, 123, events=self.events,
@@ -358,6 +359,15 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
         (record,) = self.booked()
         self.assertEqual(record["due_at"], eastern(10) + 86400)
         self.assertIn("outside calling hours", self.posted())
+
+    async def test_without_calling_hours_a_late_reply_is_called_back_now(self):
+        self.listener.callbacks = CallbackStore(self.store.redis)
+        posted_question(self.store, callback=True)
+        with patch("time.time", return_value=eastern(23)):
+            await self.listener.on_reply("Yes")
+        (record,) = self.booked()
+        self.assertEqual(record["due_at"], eastern(23))
+        self.assertIn("back now", self.posted())
 
     async def test_a_late_reply_waits_for_morning_where_the_caller_is(self):
         qid = self.store.ask("Free?", "Bo", CALL)

@@ -29,11 +29,21 @@ def central(day, hour, minute=0):
 
 class CallbackStoreTests(unittest.TestCase):
     def setUp(self):
-        self.store = CallbackStore(MemoryRedis())
+        # With calling hours, as CALLBACK_HOURS=10-20 sets; there are none by default.
+        self.store = CallbackStore(MemoryRedis(), hours=(10, 20))
 
     def book(self, now=None, when=None, to=NUMBER):
         return self.store.schedule(to, "Alice", "why", "voicemail", when=when,
                                    now=eastern(1, 14) if now is None else now)
+
+    def test_without_calling_hours_automatic_calls_go_out_at_any_hour(self):
+        self.store = CallbackStore.from_env(MemoryRedis(), {})
+        self.assertIsNone(self.store.hours)
+        record = self.book(now=eastern(1, 23))
+        self.assertEqual(record["due_at"], eastern(1, 23))
+        self.store.claim_due(now=eastern(1, 23))
+        record, outcome = self.store.dial_failed(record["id"], now=eastern(1, 23))
+        self.assertEqual((outcome, record["due_at"]), ("retrying", eastern(1, 23, 10)))
 
     def test_automatic_calls_wait_for_calling_hours(self):
         self.assertEqual(self.book(now=eastern(1, 14))["due_at"], eastern(1, 14))

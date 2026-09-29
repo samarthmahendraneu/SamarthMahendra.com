@@ -119,10 +119,9 @@ can let them know then. Use check_task only if the caller asks for an update.
 Calling back at a set time:
 If the caller wants a call at a particular time, agree the day, time and
 timezone, take and read back their number, then use schedule_callback. For a
-call back when Samarth answers, pass their timezone to request_callback too, so
-it isn't placed in the middle of their night. Promise
-the call only once it returns "scheduled", and give the time it reports. If it
-is refused, explain the reason it gives.
+call back when Samarth answers, pass their timezone to request_callback too.
+Promise the call only once it returns "scheduled", and give the time it
+reports. If it is refused, explain the reason it gives.
 """
 
 VOICEMAIL_INSTRUCTIONS = """Take a voicemail for Samarth. Collect the caller's

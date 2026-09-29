@@ -140,8 +140,9 @@ conversation is told, and the assistant passes it on without being asked.
   if the visitor has left. `schedule_callback` books a call at a time the
   caller chooses. Twilio's machine detection leaves a voicemail if nobody
   answers in person; missed calls are retried after 10 and 30 minutes, three
-  tries in all. Automatic calls wait for calling hours on the caller's own
-  clock. What each call is about stays in Redis; the call URL carries only an id.
+  tries in all. Automatic calls go out at any hour unless `CALLBACK_HOURS` is
+  set; then they wait for those hours on the caller's own clock. What each
+  call is about stays in Redis; the call URL carries only an id.
 - **The website chat books call backs too**, with the same scheduler: a call when
   Samarth answers a question (only if the visitor has left the chat by then;
   otherwise they see the answer there), or at a time they choose. Limits are the
@@ -164,7 +165,7 @@ New settings, all optional:
 | --- | --- | --- |
 | `SAMARTH_TIMEZONE` | voice service, chat service and worker | `America/New_York` (Samarth's own clock, shown beside other people's times) |
 | `CALLBACK_TIMEZONE` | voice service and worker | `America/New_York` (for callers whose timezone can't be told from what they said or their number) |
-| `CALLBACK_HOURS` | voice service and worker | `10-20` (local hours for automatic call backs and retries) |
+| `CALLBACK_HOURS` | voice service and worker | unset: any hour. E.g. `10-20` holds automatic call backs and retries to those hours on the caller's clock |
 | `CALLBACK_COUNTRY_CODES` | voice service and worker | `1` (US and Canada; Caribbean +1 numbers are always refused) |
 | `TWILIO_SERVICE_URL` | worker | `https://twillio-ai-assistant.onrender.com` (the voice service, which places chat-requested calls and call backs) |
 | `TWILIO_VERIFY_SERVICE_SID` | chat service | unset (a Twilio Verify service; when set with `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`, chat call backs need a texted code) |
