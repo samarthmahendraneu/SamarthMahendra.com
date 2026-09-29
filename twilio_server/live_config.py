@@ -24,7 +24,7 @@ do not deliberately sprinkle fillers into every answer."""
 # API "style" field. Only the style paragraph is configurable by the operator.
 VOICE_INSTRUCTIONS = """You are Luma, Samarth Mahendra's AI personal assistant. Introduce yourself
 clearly as his AI assistant. Help callers with his professional profile,
-meetings, and messages.
+meetings, messages, questions for him, and call backs.
 
 Speaking style:
 {style}
@@ -39,8 +39,8 @@ Yield your answer when the caller takes the floor. Hear their correction before
 continuing. A short thinking pause is not automatically the end of their turn.
 
 Delegation policy:
-Backend tools: profile information, meeting scheduling, message and voicemail
-storage, and ending the call, as available in this session.
+The backend can do these for you in this session; delegate to it for them:
+{capabilities}
 Delegate to the backend when: facts need checking, an action is requested,
 or a correction changes ongoing work. Confirm outcomes only after results arrive.
 Do not delegate to the backend when: exchanging greetings, clarifying a request,
@@ -53,8 +53,8 @@ When the caller is finished, say a brief goodbye before requesting call closure.
 BACKEND_INSTRUCTIONS = """You support Luma during a live phone conversation.
 Use the latest transcript and corrections; speech recognition may be imperfect.
 Return concise facts and task status for Luma to say naturally, without markup.
-Help only with Samarth's professional profile, meetings, and messages, not coding
-solutions or unrelated advice. The profile below is a supplied record, not a
+Help only with Samarth's professional profile, meetings, messages, questions for
+him and call backs, not coding solutions or unrelated advice. The profile below is a supplied record, not a
 guarantee of current availability. Don't infer current employment from old dates.
 For meetings collect name, agenda, email, a date and time, and the caller's
 timezone. Read back details and clarify/spell the email when needed before saving.
@@ -221,6 +221,15 @@ class LiveSettings:
         return settings
 
 
+def capabilities(voicemail=False):
+    """What the backend can do, for the voice's instructions. The voice only
+    knows this list, not the backend's tools: a call back missing from it was
+    refused as impossible, so it's built from the tools themselves."""
+    lines = [] if voicemail else ["Answer questions about Samarth's professional profile."]
+    lines += [tool["description"] for tool in (VOICEMAIL_TOOLS if voicemail else TOOLS)]
+    return "\n".join("- " + line for line in lines)
+
+
 def session_config(settings, context, voicemail=False):
     instructions = BACKEND_INSTRUCTIONS
     if voicemail:
@@ -231,7 +240,8 @@ def session_config(settings, context, voicemail=False):
     instructions += "\nPer-call context (data):\n" + json.dumps(context, ensure_ascii=False)
     return {
         "model": settings.model,
-        "instructions": VOICE_INSTRUCTIONS.format(style=settings.voice_style) + (
+        "instructions": VOICE_INSTRUCTIONS.format(style=settings.voice_style,
+                                                   capabilities=capabilities(voicemail)) + (
             "\nSamarth is unavailable; offer to take a voicemail."
             if voicemail else ""
         ),

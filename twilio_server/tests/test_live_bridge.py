@@ -82,6 +82,19 @@ class ConfigTests(unittest.TestCase):
         self.assertNotIn("output_modalities", normal)
         self.assertIn("unavailable", greeting({}, True))
 
+    def test_the_voice_is_told_everything_the_backend_can_do(self):
+        # It knows the backend's abilities only from its own instructions: with
+        # call backs left off that list, it told callers it couldn't book one.
+        for voicemail in (False, True):
+            with self.subTest(voicemail=voicemail):
+                config = session_config(LiveSettings(), {}, voicemail)
+                for tool in config["delegation"]["responses"]["tools"]:
+                    self.assertIn(tool["description"], config["instructions"])
+        normal = session_config(LiveSettings(), {})["instructions"]
+        self.assertIn("Book a call back at a time the caller chooses.", normal)
+        self.assertIn("Samarth's professional profile", normal)
+        self.assertNotIn("call back", session_config(LiveSettings(), {}, True)["instructions"].split("Delegation policy:")[1])
+
     def test_stale_model_fails_with_migration_instruction(self):
         with self.assertRaisesRegex(ValueError, "MODEL=gpt-live-1"):
             LiveSettings.from_env({"MODEL": "gpt-realtime-2.1"})
