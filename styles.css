@@ -2274,6 +2274,30 @@ img {
     min-width: 0;
 }
 
+/* Each organisation's logo as its own homepage shows it (assets/logos/). */
+.showcase-logo {
+    display: inline-flex;
+    align-items: center;
+    height: 56px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    border-radius: 16px;
+    background: #FFFFFF;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.showcase-logo img {
+    display: block;
+    width: auto;
+    height: 100%;
+}
+
+/* Northeastern's wordmark is white: on its homepage it sits on dark photos. */
+.showcase-logo--dark {
+    background: #000000;
+    border-color: transparent;
+}
+
 .showcase-kicker {
     margin-bottom: 16px;
     color: rgba(15, 23, 42, 0.56);
@@ -3681,6 +3705,13 @@ footer {
         border-radius: 28px;
         position: relative;
         top: auto;
+    }
+
+    .showcase-logo {
+        height: 48px;
+        padding: 8px 12px;
+        margin-bottom: 14px;
+        border-radius: 14px;
     }
 
     .about-editorial,
@@ -6230,6 +6261,10 @@ body[data-theme="dark"] .theme-choice.is-active {
 body[data-theme="dark"] .font-choice-card.is-active::after {
     background: rgba(139, 128, 255, 0.18);
     color: #C9C3FF;
+}
+
+body[data-theme="dark"] .showcase-logo--dark {
+    border-color: rgba(255, 255, 255, 0.14);
 }
 
 body[data-theme="dark"] .showcase-org,
