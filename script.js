@@ -441,15 +441,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Initialize AOS Animation
+    // Scroll animations are draup-motion.js's (GSAP), after this file.
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (window.AOS) AOS.init({
-        duration: 800,
-        easing: 'ease-out-cubic',
-        once: true,
-        offset: 50,
-        disable: () => window.innerWidth <= 768 || reducedMotion.matches
-    });
 
     // Update Year
     document.getElementById('year').textContent = new Date().getFullYear();
@@ -1269,25 +1262,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (lcTotal) {
                     lcTotal.textContent = '0';
                     lcTotal.setAttribute('data-target', totalCount);
-                    animateCounter(lcTotal, totalCount, 1500);
+                    animateCounter(lcTotal, totalCount);
                     animatedCounters.add('lc-total'); // Mark as animated
                 }
                 if (lcEasy) {
                     lcEasy.textContent = '0';
                     lcEasy.setAttribute('data-target', easyCount);
-                    animateCounter(lcEasy, easyCount, 1500);
+                    animateCounter(lcEasy, easyCount);
                     animatedCounters.add('lc-easy'); // Mark as animated
                 }
                 if (lcMedium) {
                     lcMedium.textContent = '0';
                     lcMedium.setAttribute('data-target', mediumCount);
-                    animateCounter(lcMedium, mediumCount, 1500);
+                    animateCounter(lcMedium, mediumCount);
                     animatedCounters.add('lc-medium'); // Mark as animated
                 }
                 if (lcHard) {
                     lcHard.textContent = '0';
                     lcHard.setAttribute('data-target', hardCount);
-                    animateCounter(lcHard, hardCount, 1500);
+                    animateCounter(lcHard, hardCount);
                     animatedCounters.add('lc-hard'); // Mark as animated
                 }
 
@@ -1400,7 +1393,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (ghTotalContributions) {
                 ghTotalContributions.textContent = '0';
                 // Animate counter, then snap to shorthand at the end
-                animateCounter(ghTotalContributions, totalContributionsAllTime, 1500);
+                animateCounter(ghTotalContributions, totalContributionsAllTime);
                 setTimeout(() => {
                     ghTotalContributions.textContent = formatShortK(totalContributionsAllTime);
                 }, 1600);
@@ -1409,20 +1402,20 @@ document.addEventListener('DOMContentLoaded', function () {
             if (ghRepos) {
                 ghRepos.textContent = '0';
                 ghRepos.setAttribute('data-target', totalRepos);
-                animateCounter(ghRepos, totalRepos, 1500);
+                animateCounter(ghRepos, totalRepos);
                 animatedCounters.add('gh-repos');
             }
 
             if (ghLastYear) {
                 ghLastYear.textContent = '0';
                 ghLastYear.setAttribute('data-target', lastYearContributions);
-                animateCounter(ghLastYear, lastYearContributions, 1500);
+                animateCounter(ghLastYear, lastYearContributions);
                 animatedCounters.add('gh-last-year');
             }
             if (ghPast5Years) {
                 ghPast5Years.textContent = '0';
                 ghPast5Years.setAttribute('data-target', past5YearsContributions);
-                animateCounter(ghPast5Years, past5YearsContributions, 1500);
+                animateCounter(ghPast5Years, past5YearsContributions);
                 animatedCounters.add('gh-past-5-years');
             }
 
@@ -1672,8 +1665,19 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // 4. Counter Animations for Stats
+    // Counts like draup.com's figures: from zero over two seconds, once the
+    // figure is on screen rather than whenever its data happens to arrive.
     function animateCounter(element, target, duration = 2000) {
-        console.log('animateCounter called:', element.id, 'target:', target);
+        if ('IntersectionObserver' in window && !element.dataset.counterSeen) {
+            const watcher = new IntersectionObserver((entries) => {
+                if (!entries.some(entry => entry.isIntersecting)) return;
+                watcher.disconnect();
+                element.dataset.counterSeen = 'yes';
+                animateCounter(element, target, duration);
+            }, { threshold: 0.4 });
+            watcher.observe(element);
+            return;
+        }
         const start = 0;
         const increment = target / (duration / 16); // 60fps
         let current = start;
@@ -1719,7 +1723,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const target = parseInt(element.getAttribute('data-target'));
                     console.log('checkCounters:', counter.id, 'data-target:', element.getAttribute('data-target'), 'parsed:', target, 'inView:', inView);
                     if (!isNaN(target) && target > 0) {
-                        animateCounter(element, target, 1500);
+                        animateCounter(element, target);
                         animatedCounters.add(counter.id);
                     }
                 }
