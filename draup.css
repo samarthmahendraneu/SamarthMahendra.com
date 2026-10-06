@@ -993,6 +993,12 @@ body[data-theme="dark"] .dr-aurora-layer.coral {
     opacity: 1;
 }
 
+/* OpenAI's mark is solid black. Dark mode's skill chips are nearly clear,
+   so there it turns white; the strip's logos get white tiles instead. */
+body[data-theme="dark"] .skill-logo[src$="openai.svg"] {
+    filter: invert(1);
+}
+
 .dr-worked {
     padding: 8px 20px 64px;
     text-align: center;
