@@ -297,3 +297,10 @@ def save_screening_report(call_id, report):
     doc = dict(report, call_id=call_id, timestamp=datetime.datetime.utcnow())
     insert_result = db["calls_screened"].insert_one(doc)
     return str(insert_result.inserted_id)
+
+
+def save_call_intake(call_id, intake):
+    """Save who an incoming caller is and why they called."""
+    doc = dict(intake, call_id=call_id, timestamp=datetime.datetime.utcnow())
+    insert_result = db["calls_intake"].insert_one(doc)
+    return str(insert_result.inserted_id)

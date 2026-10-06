@@ -27,6 +27,16 @@ do not deliberately sprinkle fillers into every answer."""
 INBOUND_IDENTITY = """You are Luma, Samarth Mahendra's personal assistant. Introduce yourself
 as his assistant. If a caller sincerely asks whether you are an AI or a person,
 say honestly that you are an AI assistant."""
+# Incoming calls start by finding out who is calling and why; the voice needs
+# this too, since it speaks first and decides what to delegate.
+INBOUND_INTAKE = """
+
+Incoming call policy:
+Before anything else, find out who is calling and what the call is about. Ask
+one question at a time and follow up on vague answers: their company or office
+and role, how they got this number or who referred them, the specifics, and any
+deadline. If something doesn't add up, ask about it calmly. Be warm, not an
+interrogation: once the purpose is clear, help them."""
 OUTBOUND_IDENTITY = """You are Luma, Samarth Mahendra's AI personal assistant. Introduce yourself
 clearly as his AI assistant."""
 
@@ -137,6 +147,27 @@ Promise the call only once it returns "scheduled", and give the time it
 reports. If it is refused, explain the reason it gives.
 """
 
+INTAKE_INSTRUCTIONS = """
+Incoming call intake:
+This is an incoming call (script "1"). First find out who is calling and why,
+before answering questions or taking actions. Gather, one question at a time,
+asking follow-ups until each answer is specific:
+- their full name, their company or office, and their role;
+- the reason for the call, with specifics: for a job, the role, team, location
+  and stage; for a meeting, the topic; for anything else, what they need;
+- how they got this number, or who referred them;
+- the best callback number (offer the one they're calling from) and email;
+- any deadline or urgency.
+Cross-check, politely: if details conflict, are vague ("a company", "an
+opportunity"), or don't match what they said earlier, ask a clarifying question.
+Don't ask for anything sensitive: no ID numbers, birth dates or account details.
+Stop once the purpose is clear; don't repeat questions already answered, and
+let a caller who prefers not to say something move on.
+Then save it once with record_call_intake, before or alongside any other action,
+and carry on helping. If the call turns out to be suspicious, use
+report_suspicious_call instead; never both.
+"""
+
 SCREENING_INSTRUCTIONS = """
 Screening suspicious callers:
 The per-call context may include "screening": what the phone network says about
@@ -223,6 +254,18 @@ TOOLS = [
         "timezone": "The caller's timezone, e.g. America/Chicago, or an empty string to use their number's",
         "reason": "What the call back is about, in a few words",
     }),
+    function("record_call_intake", "Save who an incoming caller is and why they called, and send it to "
+             "Samarth on Discord.", {
+        "caller_name": "Their full name, or an empty string",
+        "organization": "Company or office they're calling from, or an empty string",
+        "role": "Their role or title, or an empty string",
+        "reason": "Why they called, with the specifics they gave",
+        "referral": "How they got the number or who referred them, or an empty string",
+        "callback_number": "Best callback number in E.164 form, or an empty string",
+        "email": "Email they gave, or an empty string",
+        "urgency": "Deadline or urgency they mentioned, or an empty string",
+        "details": "Anything else worth knowing, including answers to follow-up questions",
+    }),
     function("lookup_caller_number", "Reverse-look up a phone number: line type, carrier, registered "
              "caller name, spam reputation and spoofing signals.", {
         "phone_number": "Number to check in E.164 form, or an empty string for this call's caller ID",
@@ -291,12 +334,15 @@ def session_config(settings, context, voicemail=False):
         instructions += "\n" + VOICEMAIL_INSTRUCTIONS
     else:
         instructions += "\n" + CALL_INSTRUCTIONS + SCREENING_INSTRUCTIONS
+        if is_inbound(context):
+            instructions += INTAKE_INSTRUCTIONS
         instructions += "\nSupplied profile record:\n" + PROFILE
     instructions += "\nPer-call context (data):\n" + json.dumps(context, ensure_ascii=False)
     return {
         "model": settings.model,
         "instructions": VOICE_INSTRUCTIONS.format(
-            identity=INBOUND_IDENTITY if is_inbound(context, voicemail) else OUTBOUND_IDENTITY,
+            identity=(INBOUND_IDENTITY + ("" if voicemail else INBOUND_INTAKE))
+            if is_inbound(context, voicemail) else OUTBOUND_IDENTITY,
             style=settings.voice_style, capabilities=capabilities(voicemail)) + (
             "\nSamarth is unavailable; offer to take a voicemail."
             if voicemail else ""
@@ -325,4 +371,4 @@ def greeting(context, voicemail=False):
     if context.get("script") == "2" or context.get("message"):
         return ("Greet the caller now as Samarth's AI assistant calling on his behalf. "
                 "Ask if this is a good time. Delegate the call's purpose to the backend, then listen.")
-    return "Greet the caller now as Samarth's assistant. Ask how you can help with his profile or a meeting, then listen."
+    return "Greet the caller now as Samarth's assistant, then ask who is calling and what the call is about. Listen."

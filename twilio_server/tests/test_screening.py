@@ -206,6 +206,64 @@ class AppScreeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Privacy policy", config["instructions"])
 
 
+class IntakeTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        reset()
+        mongo.save_call_intake = Mock(return_value="intake-1")
+        mongo.save_screening_report = Mock(return_value="screen-1")
+
+    def call(self):
+        return {"channel": CHANNEL, "call_sid": "CA" + "3" * 32, "caller_number": "+14155550123",
+                "screening": cs.screen_webhook({"From": "+14155550123", "FromCity": "SAN FRANCISCO",
+                                                "FromState": "CA"}, [OURS])}
+
+    async def test_intake_is_saved_and_sent_once(self):
+        call = self.call()
+        execute = main.make_tool_executor(call)
+        args = {key: "" for key in main.INTAKE_FIELDS}
+        args.update(caller_name="Priya Shah", organization="Stripe", role="Technical recruiter",
+                    reason="Scheduling a new grad SWE onsite, Payments team, Seattle",
+                    referral="His application on the careers site", urgency="Needs times by Friday")
+        result = await execute("record_call_intake", "c1", args)
+        self.assertEqual((result["status"], result["relay"]), ("recorded", "queued"))
+        posted = started_jobs("discord.send")[-1]["args"]["content"]
+        for part in ("Incoming call from Priya Shah (Technical recruiter, Stripe)", "+14155550123",
+                     "San Francisco, CA", "screening low", "Reason: Scheduling", "Got the number from: His application",
+                     "Urgency: Needs times by Friday"):
+            self.assertIn(part, posted)
+        self.assertNotIn("Email:", posted)
+        self.assertEqual(mongo.save_call_intake.call_args.args[1]["number"], "+14155550123")
+        again = await execute("record_call_intake", "c2", args)
+        self.assertEqual(again["status"], "already_recorded")
+
+    async def test_empty_intake_is_refused_and_a_suspicious_report_still_goes_through(self):
+        call = self.call()
+        execute = main.make_tool_executor(call)
+        empty = await execute("record_call_intake", "c1", {key: "" for key in main.INTAKE_FIELDS})
+        self.assertEqual(empty["status"], "invalid")
+        filled = dict({key: "" for key in main.INTAKE_FIELDS}, reason="Says he's from the IRS")
+        await execute("record_call_intake", "c2", filled)
+        report = await execute("report_suspicious_call", "c3",
+                               dict({key: "" for key in main.SCREENING_CLAIMS}, organization="IRS"))
+        self.assertEqual(report["status"], "reported")
+        # After a suspicious report, no ordinary intake is sent as well.
+        execute2 = main.make_tool_executor(dict(self.call(), screening_reported=True))
+        self.assertEqual((await execute2("record_call_intake", "c4", filled))["status"], "already_recorded")
+
+    def test_incoming_calls_start_with_who_and_why(self):
+        inbound = main.session_config(main.SETTINGS, {"script": "1"})
+        outbound = main.session_config(main.SETTINGS, {"script": "2"})
+        self.assertIn("ask who is calling and what the call is about", main.greeting({"script": "1"}))
+        self.assertIn("Incoming call policy", inbound["instructions"])
+        self.assertIn("Incoming call intake", inbound["delegation"]["responses"]["instructions"])
+        self.assertIn("Cross-check", inbound["delegation"]["responses"]["instructions"])
+        self.assertNotIn("Incoming call policy", outbound["instructions"])
+        self.assertNotIn("Incoming call intake", outbound["delegation"]["responses"]["instructions"])
+        voicemail = main.session_config(main.SETTINGS, {}, voicemail=True)
+        self.assertNotIn("Incoming call policy", voicemail["instructions"])
+        self.assertIn("record_call_intake", {t["name"] for t in main.TOOLS})
+
+
 class ScreenedStreamTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         reset()

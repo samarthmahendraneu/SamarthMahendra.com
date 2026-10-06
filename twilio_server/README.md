@@ -223,6 +223,17 @@ listener still recognises questions asked by the old code.
 - **The chat service's unused endpoints** (`/talk_to_samarth_discord`,
   `/mongo_query` and the practice dashboard's `/api/...`) need `ADMIN_TOKEN`.
 
+## Incoming call intake
+
+An incoming call (`/incoming-call`, script 1) starts with who is calling and why.
+Luma asks one question at a time and follows up on vague or conflicting answers:
+name, company or office and role, the reason with specifics, how they got the
+number or who referred them, a callback number and email, and any deadline. It
+doesn't ask for anything sensitive, and moves on once the purpose is clear. The
+answers are saved with `record_call_intake` (MongoDB `calls_intake`) and posted
+to Discord with the caller's number, location and screening level. A suspicious
+call is reported with `report_suspicious_call` instead.
+
 ## Spam and spoofing screening
 
 Every inbound call (to `/incoming-call` or `/voice-mail`) is screened in

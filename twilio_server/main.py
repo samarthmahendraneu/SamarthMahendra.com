@@ -331,6 +331,40 @@ def greeting_to(name):
     return f"Hi {name}," if name else "Hi,"
 
 
+# Arguments of record_call_intake: anything the caller didn't say stays empty.
+INTAKE_FIELDS = ("caller_name", "organization", "role", "reason", "referral", "callback_number",
+                 "email", "urgency", "details")
+
+
+def intake_text(call, intake):
+    """The Discord note for an incoming caller: who, why, and how to reach them."""
+    screening = call.get("screening") or {}
+    number = screening.get("number") or call.get("caller_number") or "a withheld number"
+    who = ", ".join(v for v in (intake.get("role"), intake.get("organization")) if v)
+    head = f"Incoming call from {intake.get('caller_name') or 'an unnamed caller'}" + (f" ({who})" if who else "")
+    risk = call_screening.level_for(screening.get("score", 0)) if screening else None
+    lines = [head, f"Calling from: {number}" + (f", {screening['location']}" if screening.get("location") else "")
+             + (f" · screening {risk}" if risk else "")]
+    for label, key in (("Reason", "reason"), ("Got the number from", "referral"),
+                       ("Callback number", "callback_number"), ("Email", "email"),
+                       ("Urgency", "urgency"), ("Details", "details")):
+        if intake.get(key):
+            lines.append(f"{label}: {intake[key]}")
+    return "\n".join(lines)
+
+
+def record_intake(call, intake):
+    """Save an incoming caller's intake and post it; the post is queued even if saving fails."""
+    try:
+        intake_id = mongo_tool.save_call_intake(call.get("call_sid", ""), {
+            "number": (call.get("screening") or {}).get("number") or call.get("caller_number"), **intake})
+    except Exception as exc:
+        logger.warning("Call intake not saved (%s: %s)", type(exc).__name__, exc)
+        intake_id = None
+    relayed = queue_discord_message(intake_text(call, intake), call.get("channel"))
+    return intake_id, relayed
+
+
 # Arguments of report_suspicious_call: whatever the caller wouldn't say stays empty.
 SCREENING_CLAIMS = ("caller_name", "organization", "department", "official_id", "case_number",
                     "callback_number", "category", "reason", "demands", "other_details")
@@ -392,7 +426,8 @@ def report_screened_call_end(call):
 # can be about nothing in particular, and a timezone can often be worked out
 # from their number; every other argument is needed. A suspicious caller's
 # claims are often partial, and the caller ID is the default number to look up.
-MAY_BE_EMPTY = {"caller_name", "phone_no", "reason", "timezone", "phone_number", *SCREENING_CLAIMS}
+MAY_BE_EMPTY = {"caller_name", "phone_no", "reason", "timezone", "phone_number", *SCREENING_CLAIMS,
+                *INTAKE_FIELDS}
 
 
 async def lookup_done(call):
@@ -481,6 +516,16 @@ def make_tool_executor(context, voicemail=False, asked=None):
                 return await asyncio.to_thread(book_callback, args, channel)
             except ValueError as exc:
                 return {"status": "refused", "message": str(exc)}
+        if name == "record_call_intake":
+            if context.get("intake_recorded") or context.get("screening_reported"):
+                return {"status": "already_recorded", "message": "This call's details were already sent to Samarth."}
+            if not any(args.values()):
+                return {"status": "invalid", "message": "Nothing to record yet: ask who is calling and why first."}
+            context["intake_recorded"] = True
+            intake_id, relayed = await asyncio.to_thread(record_intake, context, args)
+            return {"status": "recorded", "intake_id": intake_id,
+                    "relay": "queued" if relayed else "incomplete; delivery must be checked",
+                    "message": "Saved and sent to Samarth. Carry on helping the caller."}
         if name == "lookup_caller_number":
             await lookup_done(context)
             return await asyncio.to_thread(lookup_for_model, context, args["phone_number"])
