@@ -1,5 +1,7 @@
 import hmac
 import os
+import time
+from threading import Lock
 from fastapi import Depends, FastAPI, HTTPException, Request
 import re
 
@@ -22,12 +24,19 @@ celery = Celery(__name__, broker=os.getenv("REDIS_URL"))  # Reads REDIS_URL from
 
 from fastapi.middleware.cors import CORSMiddleware
 
+# Browsers may call this API only from the website (and a local copy of it).
+# CORS stops other sites using a visitor's browser; it isn't authentication:
+# anything not meant for the public also needs require_admin below.
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
+    "ALLOWED_ORIGINS",
+    "https://samarthmahendra.com,https://www.samarthmahendra.com,https://samarthmahendra.github.io,"
+    "http://localhost:5500,http://127.0.0.1:5500").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Or restrict to your frontend domain(s)
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,   # no cookies; a credentialed wildcard was never valid anyway
+    allow_methods=["GET", "POST", "PUT"],
+    allow_headers=["Content-Type", "Authorization", "Last-Event-ID"],
 )
 
 # For the endpoints the website doesn't use (the Discord relay, the profile
@@ -45,6 +54,35 @@ def client_address(request):
     """The visitor's IP. On Render, Cloudflare sets CF-Connecting-IP on every
     request and overwrites any the caller sent, so it can't be forged."""
     return request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "")
+
+
+class Throttle:
+    """Requests per visitor per minute, in this process. Enough to stop a script
+    using the public proxies to burn the LeetCode or GitHub quota."""
+
+    def __init__(self, per_minute):
+        self.per_minute = per_minute
+        self.hits = {}
+        self.lock = Lock()
+
+    def allow(self, address):
+        window = int(time.time() // 60)
+        with self.lock:
+            if len(self.hits) > 10000:
+                self.hits = {k: v for k, v in self.hits.items() if k[1] == window}
+            key = (address or "unknown", window)
+            self.hits[key] = self.hits.get(key, 0) + 1
+            return self.hits[key] <= self.per_minute
+
+
+def throttled(throttle):
+    def check(request: Request):
+        if not throttle.allow(client_address(request)):
+            raise HTTPException(status_code=429, detail="Too many requests; try again in a minute")
+    return check
+
+
+PROXY_THROTTLE = Throttle(int(os.getenv("PROXY_REQUESTS_PER_MINUTE", "20")))
 
 
 
@@ -601,21 +639,34 @@ def _build_github_stats(usernames, today=None):
     }
 
 
-@app.post("/leetcode/proxy")
+# The two queries the website makes, each about Samarth's own profile. Anything
+# else was an open relay into LeetCode's API through this server.
+LEETCODE_USERNAME = os.getenv("LEETCODE_USERNAME", "samarthmahendra")
+LEETCODE_OPERATIONS = {"userProfileUserQuestionProgressV2": "userSlug", "userProfileCalendar": "username"}
+
+
+@app.post("/leetcode/proxy", dependencies=[Depends(throttled(PROXY_THROTTLE))])
 async def leetcode_proxy(request: Request):
-    """
-    Proxy any GraphQL request to the LeetCode GraphQL API.
-    Bypasses CORS restrictions by doing the request server-side.
-    """
+    """Proxy the website's LeetCode GraphQL queries, which LeetCode's CORS blocks
+    in the browser. Only its own two operations, only for Samarth's profile."""
     try:
         payload = await request.json()
-
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Expected a JSON body")
+    operation = payload.get("operationName") if isinstance(payload, dict) else None
+    variables = payload.get("variables") if isinstance(payload, dict) else None
+    if operation not in LEETCODE_OPERATIONS or not isinstance(variables, dict) \
+            or variables.get(LEETCODE_OPERATIONS[operation]) != LEETCODE_USERNAME \
+            or not isinstance(payload.get("query"), str) or f"query {operation}" not in payload["query"]:
+        raise HTTPException(status_code=403, detail="Only the website's own LeetCode queries are proxied")
+    try:
         resp = requests.post(
             LEETCODE_GRAPHQL_URL,
-            json=payload,
+            json={"query": payload["query"], "variables": variables, "operationName": operation},
             headers={
                 "Content-Type": "application/json",
-            }
+            },
+            timeout=10,
         )
 
         # Forward response back to browser
@@ -626,9 +677,13 @@ async def leetcode_proxy(request: Request):
         raise HTTPException(status_code=500, detail="Error contacting LeetCode API")
 
 
-@app.get("/github/stats")
+@app.get("/github/stats", dependencies=[Depends(throttled(PROXY_THROTTLE))])
 async def github_stats_proxy(usernames: str = None):
     resolved_usernames = _resolve_github_usernames(usernames)
+    # Only Samarth's own accounts: any others would spend this server's GitHub quota.
+    allowed = {u.lower() for u in _resolve_github_usernames(None)}
+    if any(u.lower() not in allowed for u in resolved_usernames):
+        raise HTTPException(status_code=403, detail="Only the site's own GitHub accounts are counted")
     cache_key = ",".join(resolved_usernames)
     now = datetime.utcnow()
 

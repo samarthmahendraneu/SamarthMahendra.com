@@ -101,10 +101,44 @@ out = {key: stats[key] for key in ("past_5_years_contributions", "last_year_cont
 client = TestClient(app.app)
 for complete in (True, False):
     app._github_stats_cache.clear()
-    with patch.object(app, "_build_github_stats", return_value={"complete": complete}):
+    with patch.object(app, "_build_github_stats", return_value={"complete": complete}), \
+            patch.object(app, "DEFAULT_GITHUB_USERNAMES", ["a", "b"]):
         client.get("/github/stats?usernames=a%2Cb")
     left = app._github_stats_cache["a,b"]["expires_at"] - datetime.utcnow()
     out[f"cached_minutes_when_complete_{complete}"] = round(left.total_seconds() / 60)
+print(json.dumps(out))
+"""
+
+
+PUBLIC_API = """
+import json
+from unittest.mock import Mock, patch
+from fastapi.testclient import TestClient
+import app
+
+client = TestClient(app.app)
+out = {}
+calendar = {"query": "query userProfileCalendar($username: String!) { matchedUser(username: $username) { id } }",
+            "variables": {"username": "samarthmahendra"}, "operationName": "userProfileCalendar"}
+forwarded = Mock(return_value=Mock(json=Mock(return_value={"data": {}})))
+with patch.object(app.requests, "post", forwarded):
+    out["site_query"] = client.post("/leetcode/proxy", json=calendar).status_code
+    out["other_user"] = client.post("/leetcode/proxy", json=dict(calendar, variables={"username": "someone"})).status_code
+    out["other_operation"] = client.post("/leetcode/proxy", json=dict(calendar, operationName="globalData")).status_code
+    out["smuggled_query"] = client.post("/leetcode/proxy", json=dict(calendar, query="query globalData { x }")).status_code
+    out["not_json"] = client.post("/leetcode/proxy", content=b"nope").status_code
+out["forwarded_once_with_timeout"] = [forwarded.call_count, forwarded.call_args.kwargs.get("timeout")]
+with patch.object(app, "_build_github_stats", return_value={"complete": True}):
+    app._github_stats_cache.clear()
+    out["own_accounts"] = client.get("/github/stats?usernames=SamarthMahendra").status_code
+    out["someone_else"] = client.get("/github/stats?usernames=torvalds").status_code
+site = client.options("/chat", headers={"Origin": "https://samarthmahendra.com",
+                                        "Access-Control-Request-Method": "POST"})
+other = client.options("/chat", headers={"Origin": "https://evil.example",
+                                         "Access-Control-Request-Method": "POST"})
+out["cors"] = [site.headers.get("access-control-allow-origin"), other.headers.get("access-control-allow-origin")]
+throttle = app.Throttle(2)
+out["throttle"] = [throttle.allow("1.2.3.4") for _ in range(3)] + [throttle.allow("5.6.7.8")]
 print(json.dumps(out))
 """
 
@@ -162,6 +196,16 @@ class WorkerStartupTests(unittest.TestCase):
             # ...and an incomplete total is fetched again in minutes, not a day.
             "cached_minutes_when_complete_True": 1440,
             "cached_minutes_when_complete_False": 10,
+        })
+
+    def test_the_public_proxies_only_serve_the_site(self):
+        result = json.loads(self.run_in_worker_folder(PUBLIC_API).stdout.strip().splitlines()[-1])
+        self.assertEqual(result, {
+            "site_query": 200, "other_user": 403, "other_operation": 403, "smuggled_query": 403,
+            "not_json": 400, "forwarded_once_with_timeout": [1, 10],
+            "own_accounts": 200, "someone_else": 403,
+            "cors": ["https://samarthmahendra.com", None],
+            "throttle": [True, True, False, True],
         })
 
     def test_the_worker_runs_without_the_features_for_several_workers(self):
