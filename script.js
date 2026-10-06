@@ -823,7 +823,7 @@ document.addEventListener('DOMContentLoaded', function () {
         "How does Samarth’s coding style align with FAANG engineering culture?",
         "Which aspects of Samarth’s work show FAANG-level rigor?",
         "Does Samarth demonstrate scalability thinking expected at Google?",
-        "How does Samarth handle ambiguity—important for Meta and Uber?",
+        "How does Samarth handle ambiguity, which Meta and Uber both look for?",
         "Evaluate Samarth’s readiness for distributed systems design interviews.",
         "Would Samarth excel in Netflix’s freedom-and-responsibility model?",
         "Does Samarth show the craftsmanship Apple values in engineers?",
@@ -916,7 +916,7 @@ document.addEventListener('DOMContentLoaded', function () {
         /* ============================
            🎯 SECTION 9 — GENERAL JOB-FIT & INSIGHT PROMPTS (156–175)
            ============================ */
-        "Which company category—AI labs, FAANG, quant, infra—best suits Samarth?",
+        "Which company category best suits Samarth: AI labs, FAANG, quant, or infra?",
         "How does Samarth compare to top 1% backend candidates?",
         "Which companies would value Samarth’s distributed systems experience most?",
         "Where would Samarth’s AI + backend combination be most impactful?",
