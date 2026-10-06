@@ -628,6 +628,80 @@ body:not([data-theme="dark"]) .project-browser-column > span {
     color: var(--dr-slate-50);
 }
 
+/* Phones: the boxes beside each card's copy kept their desktop size (a
+   122-180px floor, 18-28px padding and corners, one to a row), so a card's
+   side alone ran 420-720px. Two to a row where the values are short, sized
+   to their content, with tighter padding, corners and type. */
+@media (max-width: 768px) {
+    body .showcase-side,
+    body .project-showcase-media,
+    body .project-media-stack {
+        gap: 10px;
+    }
+
+    /* The browser mock's columns stay one to a row: inside its own padding,
+       two came out 123px wide and broke words mid-line. */
+    body .showcase-side-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    body .showcase-side-grid,
+    body .project-surface-browser-body {
+        gap: 10px;
+    }
+
+    body .showcase-side-note,
+    body .showcase-mini-card,
+    body .project-surface-card,
+    body .project-browser-column {
+        min-height: 0;
+        padding: 12px 14px;
+        border-radius: 14px;
+    }
+
+    body .project-surface-terminal,
+    body .project-surface-browser {
+        padding: 14px;
+        border-radius: 16px;
+    }
+
+    body .project-surface-terminal-bar,
+    body .project-surface-browser-top {
+        margin-bottom: 10px;
+    }
+
+    body .showcase-side-label,
+    body .showcase-mini-card > span,
+    body .project-surface-card > span,
+    body .project-browser-column > span {
+        margin-bottom: 4px;
+    }
+
+    body .project-browser-column strong {
+        margin-bottom: 6px;
+    }
+
+    body[data-font-preset="draup"] .showcase-side-note strong,
+    body[data-font-preset="draup"] .showcase-mini-card strong,
+    body[data-font-preset="draup"] .project-surface-card strong,
+    body[data-font-preset="draup"] .project-browser-column strong {
+        font-size: 0.9375rem;
+        line-height: 1.4;
+    }
+
+    /* The metrics and themes, a step up on desktop, come down with them. */
+    body[data-font-preset="draup"] .showcase-side-grid--metrics .showcase-mini-card strong,
+    body[data-font-preset="draup"] .project-surface-card--compact strong {
+        font-size: 1rem;
+        line-height: 1.35;
+    }
+
+    body[data-font-preset="draup"] .project-surface-terminal p {
+        font-size: 0.75rem;
+        line-height: 1.6;
+    }
+}
+
 
 /* ---------- Short laptop screens: keep the call to action above the fold ---------- */
 /* Most Windows laptops give the page 580-730px of height at 100% zoom
