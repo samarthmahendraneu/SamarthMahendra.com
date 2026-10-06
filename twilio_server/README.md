@@ -170,6 +170,11 @@ New settings, all optional:
 | `TWILIO_SERVICE_URL` | worker | `https://twillio-ai-assistant.onrender.com` (the voice service, which places chat-requested calls and call backs) |
 | `TWILIO_VERIFY_SERVICE_SID` | chat service | unset (a Twilio Verify service; when set with `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`, chat call backs need a texted code) |
 | `SAMARTH_EMAIL` | chat service | `samarth.mahendragowda@gmail.com` (copy of chat-booked meetings) |
+| `VOICE_API_TOKEN` | voice service and worker | required: one random value on both; `/start-calls` refuses every request without it |
+| `CHAT_CALLS_PASSWORD` | chat service and worker | unset: the chat can't place calls. Use 16 or more random characters |
+| `DISCORD_ANSWER_USER_IDS` | worker | unset: anyone who can post in the channel counts as Samarth. Comma-separated Discord user ids |
+| `ADMIN_TOKEN` | chat service | unset: the endpoints the website doesn't use stay closed |
+| `TWILIO_SKIP_SIGNATURE_CHECK` | voice service | unset. `1` lets unsigned requests reach the call webhooks; only for an emergency |
 
 New voice-service routes, called by Twilio only: `/callback-call` and
 `/callback-status` for call backs, `/call-status` for outbound calls a chat
@@ -194,6 +199,27 @@ new services queue work only it knows. Change its start command to
 (`--pool=threads --concurrency=8`) beside the Discord listener, then deploy
 the voice and chat services. Calls already in progress keep working: the new
 listener still recognises questions asked by the old code.
+
+## Security
+
+- **Call webhooks answer only Twilio.** `/incoming-call`, `/voice-mail`,
+  `/call-status`, `/callback-call` and `/callback-status` check Twilio's
+  `X-Twilio-Signature` against `TWILIO_AUTH_TOKEN`. The stream token for
+  `/media-stream` comes only from a signed `/incoming-call`, so nobody else can
+  talk to the assistant or its tools.
+- **`/start-calls` answers only the worker**, which sends `VOICE_API_TOKEN` as a
+  Bearer token. For a call back it sends only the call back's id, and each try
+  is dialled once.
+- **The website chat** has limits, since it is anonymous: per address
+  and per day for messages (each one is a model call), per chat and per day for
+  posts to Discord and meeting invites, three call backs per chat, and a
+  password from `CHAT_CALLS_PASSWORD` for placing calls, locked after five
+  wrong tries. The visitor's address is Cloudflare's `CF-Connecting-IP`, which a
+  caller can't set.
+- **Only `DISCORD_ANSWER_USER_IDS` answer callers**; other people's and bots'
+  messages in the channel are ignored.
+- **The chat service's unused endpoints** (`/talk_to_samarth_discord`,
+  `/mongo_query` and the practice dashboard's `/api/...`) need `ADMIN_TOKEN`.
 
 ## Offline tests
 

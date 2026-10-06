@@ -80,6 +80,21 @@ def send_email(args, env=os.environ, smtp=smtplib.SMTP):
     return {"status": "sent", "to": args["to"]}
 
 
+def voice_headers():
+    """The worker's key to the voice service's /start-calls (VOICE_API_TOKEN)."""
+    token = os.getenv("VOICE_API_TOKEN", "")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
+def call_service_refusal(status):
+    """Why /start-calls said no, in words that say what to fix."""
+    if status == 401:
+        return "the call service refused: VOICE_API_TOKEN on the worker doesn't match the voice service's"
+    if status == 503:
+        return "the call service refused: VOICE_API_TOKEN isn't set on the voice service"
+    return f"the call service refused (HTTP {status})"
+
+
 def place_calls(args, post=requests.post, base_url=TWILIO_SERVICE_URL):
     """Have the voice service dial; it spaces the calls out, so allow time."""
     numbers = list(args["numbers"])
@@ -87,11 +102,11 @@ def place_calls(args, post=requests.post, base_url=TWILIO_SERVICE_URL):
         response = post(f"{base_url}/start-calls", json={
             "numbers": numbers, "name": args.get("name", ""), "message": args.get("message", ""),
             "origin": args.get("origin"),
-        }, timeout=30 + 20 * len(numbers))
+        }, headers=voice_headers(), timeout=30 + 20 * len(numbers))
     except requests.RequestException as exc:
         raise JobError(f"the call service couldn't be reached ({type(exc).__name__})") from None
     if response.status_code >= 300:
-        raise JobError(f"the call service refused (HTTP {response.status_code})")
+        raise JobError(call_service_refusal(response.status_code))
     calls = response.json().get("calls", [])
     placed = [{"to": call.get("to"), "sid": call["sid"]} for call in calls if call.get("sid")]
     failed = [{"to": call.get("to"), "error": call.get("error")} for call in calls if not call.get("sid")]

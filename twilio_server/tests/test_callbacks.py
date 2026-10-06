@@ -1,9 +1,10 @@
+import os
 import time
 import unittest
 from functools import partial
 from datetime import datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 from urllib.parse import parse_qs, urlsplit
 from zoneinfo import ZoneInfo
 
@@ -201,12 +202,16 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.store = CallbackStore(MemoryRedis())
         self.notify = AsyncMock()
         self.posted = []
+        self.status = 200
         self.voice = lambda body: {"status": "done", "calls": [{"to": NUMBER, "sid": "CA7"}]}
+        key = patch.dict(os.environ, {"VOICE_API_TOKEN": "worker-key"})
+        key.start()
+        self.addCleanup(key.stop)
 
-    def post(self, url, json, timeout):
-        self.posted.append((url, json, timeout))
+    def post(self, url, json, timeout, headers):
+        self.posted.append((url, json, timeout, headers))
         answer = self.voice(json)
-        return SimpleNamespace(status_code=200, json=lambda: answer)
+        return SimpleNamespace(status_code=self.status, json=lambda: answer)
 
     async def tick(self):
         placer = partial(self.scheduler.place, post=self.post, base_url="https://voice.test")
@@ -218,8 +223,9 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
     async def test_due_call_backs_are_dialled_by_the_voice_service(self):
         record = self.due_now()
         await self.tick()
-        ((url, body, timeout),) = self.posted
+        ((url, body, timeout, headers),) = self.posted
         self.assertEqual(url, "https://voice.test/start-calls")
+        self.assertEqual(headers, {"Authorization": "Bearer worker-key"})     # VOICE_API_TOKEN
         # Only its id: the voice service rings the number stored with it. An
         # empty list stops an older voice service ringing its default number.
         self.assertEqual(body, {"callback_id": record["id"], "numbers": []})
@@ -240,6 +246,13 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(self.store.get(record["id"])["state"], "scheduled")
                 self.assertIn(reason, self.notify.await_args.args[0])
                 self.assertIn("Trying again", self.notify.await_args.args[0])
+
+    async def test_a_key_the_voice_service_refuses_says_which_setting_to_fix(self):
+        record = self.due_now()
+        self.status = 401
+        await self.tick()
+        self.assertEqual(self.store.get(record["id"])["state"], "scheduled")
+        self.assertIn("VOICE_API_TOKEN", self.notify.await_args.args[0])
 
     async def test_an_unreachable_voice_service_is_a_missed_try(self):
         import requests

@@ -1,5 +1,6 @@
+import hmac
 import os
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 import re
 
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -10,6 +11,8 @@ from celery_worker import celery_app  # noqa: F401 -- also configures logging
 import chat_agent
 
 STREAM_ID = re.compile(r"\d{1,20}-\d{1,20}")
+# Longer than any real question; each message is a model call.
+MAX_MESSAGE = 2000
 
 
 
@@ -26,6 +29,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# For the endpoints the website doesn't use (the Discord relay, the profile
+# dump, the practice dashboard's API): only with this, as a Bearer token.
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
+
+
+def require_admin(request: Request):
+    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not ADMIN_TOKEN or not hmac.compare_digest(supplied.encode(), ADMIN_TOKEN.encode()):
+        raise HTTPException(status_code=403)
+
+
+def client_address(request):
+    """The visitor's IP. On Render, Cloudflare sets CF-Connecting-IP on every
+    request and overwrites any the caller sent, so it can't be forged."""
+    return request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "")
 
 
 
@@ -57,14 +76,14 @@ def talk_to_manager_discord(message, wait_user_id=None, timeout=60):
     finally:
         loop.close()
 
-@app.post("/talk_to_samarth_discord")
+@app.post("/talk_to_samarth_discord", dependencies=[Depends(require_admin)])
 async def talk_to_samarth_discord_api(request: Request):
     data = await request.json()
     message = data.get("message")
     result = talk_to_manager_discord(message)
     return {"result": result}
 
-@app.post("/mongo_query")
+@app.post("/mongo_query", dependencies=[Depends(require_admin)])
 async def mongo_query_api():
     result = mongo_tool.query_mongo_db_for_candidate_profile()
     return {"result": result}
@@ -93,7 +112,7 @@ except Exception as e:
     print(f"Failed to connect to practice DB: {e}")
     practice_db = None
 
-@app.get("/api/dashboard_stats")
+@app.get("/api/dashboard_stats", dependencies=[Depends(require_admin)])
 async def get_dashboard_stats():
     """Return calendar check-ins, streak, and tag card statistics."""
     if practice_db is None:
@@ -142,7 +161,7 @@ from fastapi import Query
 import math
 import random
 
-@app.get("/api/table")
+@app.get("/api/table", dependencies=[Depends(require_admin)])
 async def get_practice_table(
     page: int = 1, 
     limit: int = 50, 
@@ -211,7 +230,7 @@ async def get_practice_table(
     }
 
 import time
-@app.get("/api/daily_queue")
+@app.get("/api/daily_queue", dependencies=[Depends(require_admin)])
 async def get_daily_queue():
     """Compute and return the daily queue of flashcards."""
     if practice_db is None:
@@ -267,7 +286,7 @@ class AttemptPayload(BaseModel):
     code: str
     notes: str
 
-@app.post("/api/flashcard/submit")
+@app.post("/api/flashcard/submit", dependencies=[Depends(require_admin)])
 async def submit_flashcard_attempt(payload: AttemptPayload):
     """Handle attempt submission, update item stats and global streak."""
     if practice_db is None:
@@ -337,7 +356,7 @@ class EditPayload(BaseModel):
     topics: Optional[List[str]] = None
     techniques: Optional[List[str]] = None
 
-@app.put("/api/problem/{id}")
+@app.put("/api/problem/{id}", dependencies=[Depends(require_admin)])
 async def update_problem(id: str, payload: EditPayload):
     if practice_db is None:
         return JSONResponse(status_code=500, content={"error": "Database connection failed"})
@@ -364,7 +383,7 @@ async def update_problem(id: str, payload: EditPayload):
     
     return {"success": True}
 
-@app.get("/api/problem/{id}")
+@app.get("/api/problem/{id}", dependencies=[Depends(require_admin)])
 async def get_problem(id: str):
     if practice_db is None:
          return JSONResponse(status_code=500, content={"error": "Database connection failed"})
@@ -389,7 +408,14 @@ async def chat(request: Request):
     message = (data.get("message") or "").strip()
     if not message:
         return JSONResponse({"error": "Empty message"}, status_code=400)
+    if len(message) > MAX_MESSAGE:
+        return JSONResponse({"output": "That message is too long for me; please shorten it.",
+                             "pending": 0, "updates": []}, status_code=413)
     session_id = chat_agent.session_id_for(data.get("session_id"), data.get("username"))
+    if not await asyncio.to_thread(chat_agent.agent().allow_turn, client_address(request)):
+        return JSONResponse({"output": "You're sending messages faster than I can answer. "
+                                       "Please try again in a few minutes.",
+                             "pending": 0, "updates": []}, status_code=429)
     cursor = data.get("cursor") or chat_agent.START
     if not isinstance(cursor, str) or not STREAM_ID.fullmatch(cursor):
         cursor = chat_agent.START

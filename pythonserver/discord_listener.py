@@ -16,6 +16,7 @@ Responsibilities:
 import asyncio
 import logging
 import os
+import re
 
 import discord
 from dotenv import load_dotenv
@@ -57,10 +58,13 @@ def enqueue_chat_followup(session_id):
 
 class Listener(discord.Client):
     def __init__(self, store, channel_id, *, events=None, callbacks=None,
-                 chat_followup=enqueue_chat_followup, **kwargs):
+                 chat_followup=enqueue_chat_followup, answerers=frozenset(), **kwargs):
         super().__init__(**kwargs)
         self.store = store
         self.channel_id = channel_id
+        # Discord user ids whose words count as Samarth's answers; empty for
+        # anyone in the channel.
+        self.answerers = answerers
         self.events = events or EventStream(store.redis)
         self.callbacks = callbacks or CallbackStore(store.redis)
         self.chat_followup = chat_followup
@@ -128,7 +132,10 @@ class Listener(discord.Client):
         logger.info("Posted question %s to Discord", record["id"])
 
     async def on_message(self, message):
-        if message.author.id == self.user.id:
+        if message.author.id == self.user.id or message.author.bot is True:
+            return
+        if self.answerers and message.author.id not in self.answerers:
+            # Only Samarth's words reach callers, and only his ring them back.
             return
         if message.channel.id == self.channel_id:
             reference = message.reference.message_id if message.reference else None
@@ -251,6 +258,10 @@ def main():
     # handlers each hold a connection only for the length of one command.
     client = redis_pool.connect(max_connections=2)
     store = QuestionStore(client)
+    answerers = frozenset(int(i) for i in re.findall(r"\d+", os.getenv("DISCORD_ANSWER_USER_IDS", "")))
+    if not answerers:
+        logger.warning("DISCORD_ANSWER_USER_IDS not set: anyone who can post in the channel "
+                       "can answer callers")
 
     intents = discord.Intents.default()
     intents.messages = True
@@ -260,7 +271,7 @@ def main():
     intents.message_content = True
     Listener(store, int(DISCORD_CHANNEL_ID),
              events=EventStream(client), callbacks=CallbackStore.from_env(client, os.environ),
-             intents=intents).run(DISCORD_TOKEN)
+             answerers=answerers, intents=intents).run(DISCORD_TOKEN)
 
 
 if __name__ == "__main__":

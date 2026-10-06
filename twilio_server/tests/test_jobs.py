@@ -1,7 +1,8 @@
+import os
 import smtplib
 import unittest
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 from events import START, EventStream
 from jobs import JobStore
@@ -233,9 +234,11 @@ class HandlerTests(unittest.TestCase):
     def test_calls_are_placed_through_the_voice_service_with_their_origin(self):
         post = Mock(return_value=response(200, {"calls": [
             {"to": "+16175550123", "sid": "CA1"}, {"to": "123", "error": "Not a valid phone number."}]}))
-        result = self.handlers.place_calls({"numbers": ["+16175550123", "123"], "name": "Bob",
-                                            "message": "Hiring?", "origin": CHAT},
-                                           post=post, base_url="https://voice.test")
+        with patch.dict(os.environ, {"VOICE_API_TOKEN": "worker-key"}):
+            result = self.handlers.place_calls({"numbers": ["+16175550123", "123"], "name": "Bob",
+                                                "message": "Hiring?", "origin": CHAT},
+                                               post=post, base_url="https://voice.test")
+        self.assertEqual(post.call_args.kwargs["headers"], {"Authorization": "Bearer worker-key"})
         self.assertEqual(result["placed"], [{"to": "+16175550123", "sid": "CA1"}])
         self.assertEqual(result["failed"][0]["to"], "123")
         self.assertEqual(post.call_args.kwargs["json"]["origin"], CHAT)

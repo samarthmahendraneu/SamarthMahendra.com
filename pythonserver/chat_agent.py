@@ -15,6 +15,7 @@ and the browser picks that message up from /chat/events.
 
 import asyncio
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -60,6 +61,24 @@ SAMARTH_ADDRESS = "samarth@samarthmahendra.com"
 # A chat is anonymous and easy to script: however many numbers it tries, it
 # can only book this many calls.
 MAX_CALLBACKS_PER_CHAT = 3
+# Likewise for what it can send to Samarth's Discord or, as a meeting invite
+# with text of its choosing, to anyone's inbox: per chat, and across every chat
+# in a day.
+CHAT_ALLOWANCE = {"discord": 6, "meeting": 2}
+DAILY_ALLOWANCE = {"discord": 80, "meeting": 25}
+ALLOWANCE_KEY = "chat:allowance:"
+ALLOWANCE_SPENT = {
+    "discord": "This chat has passed on as much to Samarth as it can; suggest emailing him instead.",
+    "meeting": "This chat can't book any more meetings; suggest emailing Samarth instead.",
+}
+# Wrong passwords for placing calls before a chat stops accepting any.
+MAX_PASSWORD_TRIES = 5
+# Each visitor message is a model call: at most this many from one address in
+# RATE_WINDOW seconds, and this many from everyone in a day.
+TURNS_PER_ADDRESS = 30
+RATE_WINDOW = 600
+TURNS_PER_DAY = 1500
+RATE_KEY = "chat:rate:"
 # Don't text a second code to the same number sooner than this.
 CODE_RESEND_AFTER = 60
 
@@ -638,6 +657,7 @@ class ChatAgent:
         question = (args.get("question") or "").strip()
         if not question:
             raise ToolRefused("Say what to ask him.")
+        self.use_allowance(session, "discord")
         who = (args.get("visitor_name") or "").strip() or "A website visitor"
         question_id = self.questions.ask(question, who, self.channel(session["id"]))
         self.expect(session, question_id)
@@ -649,6 +669,7 @@ class ChatAgent:
         message = (args.get("message") or "").strip()
         if not message:
             raise ToolRefused("There's no message to pass on.")
+        self.use_allowance(session, "discord")
         who = (args.get("visitor_name") or "").strip() or "a website visitor"
         task_id = self.jobs.start("discord.send", {"content": f"Chat message from {who}: {message}"},
                                   origin=self.channel(session["id"]), announce="failure",
@@ -689,6 +710,7 @@ class ChatAgent:
             raise ToolRefused(str(exc)) from None
         members = [m.strip() for m in args.get("members") or [] if isinstance(m, str) and m.strip()]
         agenda = (args.get("agenda") or "").strip() or "A meeting with Samarth"
+        self.use_allowance(session, "meeting")
         url = self.meeting_url()
         meeting_id = self.save_meeting(members + [SAMARTH_ADDRESS], agenda, moment.isoformat(), url)
         channel = self.channel(session["id"])
@@ -718,6 +740,29 @@ class ChatAgent:
         return {"status": "saved", "meeting_id": meeting_id, "meeting_url": url, "task_id": invite,
                 "when": timezones.readable(moment), "samarth_time": for_samarth,
                 "message": "Booked. The invite email is on its way; you'll be told here once it's sent."}
+
+    def use_allowance(self, session, kind):
+        """Count one more Discord post or meeting against this chat's allowance
+        and the day's (CHAT_ALLOWANCE, DAILY_ALLOWANCE), or refuse once either
+        is spent."""
+        used = session.setdefault("allowance", {})
+        if used.get(kind, 0) >= CHAT_ALLOWANCE[kind]:
+            raise ToolRefused(ALLOWANCE_SPENT[kind])
+        key = f"{ALLOWANCE_KEY}{kind}:{time.strftime('%Y%m%d', time.gmtime())}"
+        if self.redis.incr(key) > DAILY_ALLOWANCE[kind]:
+            raise ToolRefused(ALLOWANCE_SPENT[kind])
+        self.redis.expire(key, 2 * 86400)
+        used[kind] = used.get(kind, 0) + 1
+
+    def allow_turn(self, address):
+        """Whether a visitor's message may go to the model (TURNS_PER_ADDRESS,
+        TURNS_PER_DAY): a script can't run up the bill or crowd others out."""
+        keys = (f"{RATE_KEY}{address or 'unknown'}:{int(time.time() // RATE_WINDOW)}",
+                f"{RATE_KEY}day:{time.strftime('%Y%m%d', time.gmtime())}")
+        counts = [self.redis.incr(key) for key in keys]
+        self.redis.expire(keys[0], RATE_WINDOW)
+        self.redis.expire(keys[1], 2 * 86400)
+        return counts[0] <= TURNS_PER_ADDRESS and counts[1] <= TURNS_PER_DAY
 
     def start_job(self, kind, args, origin=None, announce="failure", label=""):
         """Start a job; its id, or None if it couldn't be queued."""
@@ -866,7 +911,12 @@ class ChatAgent:
                 "timezone": zone_name, "message": "Booked. If they miss it, it is tried again later."}
 
     def tool_calls(self, args, session):
+        if self.check_password is None:
+            raise ToolRefused("Placing calls from the chat isn't turned on.")
+        if session.get("password_tries", 0) >= MAX_PASSWORD_TRIES:
+            raise ToolRefused("Too many wrong passwords in this chat, so it can't place calls.")
         if not self.check_password(args.get("password") or ""):
+            session["password_tries"] = session.get("password_tries", 0) + 1
             raise ToolRefused("That password isn't right, so no calls were made.")
         numbers = [n for n in args.get("numbers") or [] if isinstance(n, str) and n.strip()]
         if not numbers:
@@ -897,16 +947,23 @@ class PhoneVerifier:
 
 def default_agent():
     """The agent wired to the real services; imported lazily so tests need none."""
-    import bcrypt
     from openai import OpenAI
 
     import mongo_tool
     from celery_worker import redis_client, run_job
 
-    password_hash = b"$2b$12$v8KgvocjUlYSKOOm4/Ybiuiq7.j7CCfT.jypvNC8biDX/ZPUA0IyS"
+    # The password for placing calls from the chat: a secret on the server,
+    # not a hash in this public repository, where a short one is soon guessed.
+    calls_password = os.getenv("CHAT_CALLS_PASSWORD", "")
+    check_password = None
+    if calls_password:
+        if len(calls_password) < 16:
+            logger.warning("CHAT_CALLS_PASSWORD is short; use 16 or more random characters")
 
-    def check_password(password):
-        return bool(password) and bcrypt.checkpw(password.encode("utf-8"), password_hash)
+        def check_password(password):
+            return hmac.compare_digest(password.encode("utf-8"), calls_password.encode("utf-8"))
+    else:
+        logger.warning("CHAT_CALLS_PASSWORD not set: the chat can't place calls")
 
     def meeting_url():
         return f"https://meet.jit.si/samarth-{datetime.now():%Y%m%d%H%M%S}-{uuid.uuid4().hex[:6]}"

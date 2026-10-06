@@ -13,7 +13,7 @@ import logging
 
 import requests
 
-from job_handlers import TWILIO_SERVICE_URL
+from job_handlers import TWILIO_SERVICE_URL, call_service_refusal, voice_headers
 
 logger = logging.getLogger(__name__)
 INTERVAL = 5
@@ -33,11 +33,11 @@ def place(record, post=requests.post, base_url=TWILIO_SERVICE_URL):
     """
     try:
         response = post(f"{base_url}/start-calls", json={"callback_id": record["id"], "numbers": []},
-                        timeout=PLACE_TIMEOUT)
+                        headers=voice_headers(), timeout=PLACE_TIMEOUT)
     except requests.RequestException as exc:
         raise NotPlaced(f"the call service couldn't be reached ({type(exc).__name__})") from None
     if response.status_code >= 300:
-        raise NotPlaced(f"the call service refused (HTTP {response.status_code})")
+        raise NotPlaced(call_service_refusal(response.status_code))
     calls = response.json().get("calls") or []
     if not calls:
         raise NotPlaced("the call service placed no call; it may need redeploying")

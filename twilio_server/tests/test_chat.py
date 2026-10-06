@@ -3,7 +3,7 @@ import threading
 import unittest
 from datetime import datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 import timezones
@@ -247,6 +247,52 @@ class ChatTests(unittest.TestCase):
         self.agent(calls(("c1", "make_calls", args)), reply("Sorry.")).respond(SESSION, "Call Bob")
         self.assertEqual(self.outputs()["c1"]["status"], "refused")
         self.assertEqual(self.jobs(), [])
+
+    def test_a_chat_stops_taking_passwords_after_a_few_wrong_ones(self):
+        wrong = {"numbers": ["+16175550123"], "name": "Bob", "message": "Hi", "password": "guess"}
+        for _ in range(chat_agent.MAX_PASSWORD_TRIES):
+            self.agent(calls(("c1", "make_calls", wrong)), reply("No.")).respond(SESSION, "Call Bob")
+        right = dict(wrong, password="open sesame")
+        self.agent(calls(("c1", "make_calls", right)), reply("No.")).respond(SESSION, "Call Bob")
+        self.assertIn("Too many wrong passwords", self.outputs()["c1"]["message"])
+        self.assertEqual(self.jobs(), [])
+
+    def test_with_no_password_set_the_chat_places_no_calls(self):
+        args = {"numbers": ["+16175550123"], "name": "Bob", "message": "Hi", "password": ""}
+        agent = self.agent(calls(("c1", "make_calls", args)), reply("No."))
+        agent.check_password = None                 # CHAT_CALLS_PASSWORD unset
+        agent.respond(SESSION, "Call Bob")
+        self.assertIn("isn't turned on", self.outputs()["c1"]["message"])
+        self.assertEqual(self.jobs(), [])
+
+    def test_a_chat_passes_on_only_so_much_to_samarths_discord(self):
+        allowance = chat_agent.CHAT_ALLOWANCE["discord"]
+        for n in range(allowance):
+            self.agent(calls(("c1", "send_message_to_samarth", {"message": f"hi {n}", "visitor_name": ""})),
+                       reply("Ok.")).respond(SESSION, "Tell him")
+        # Questions draw on the same allowance.
+        self.agent(calls(("c1", "ask_samarth", {"question": "Free?", "visitor_name": ""})),
+                   reply("Ok.")).respond(SESSION, "Ask him")
+        self.assertEqual(self.outputs()["c1"]["status"], "refused")
+        self.assertEqual(len(self.jobs("discord.send")), allowance)
+        self.assertEqual([k for k in self.redis.values if k.startswith("discord:q:")], [])
+
+    def test_all_chats_together_book_only_so_many_meetings_a_day(self):
+        args = {"members": [], "agenda": "Intro", "timing": self.tomorrow_at(15, "America/New_York"),
+                "timezone": "America/New_York", "user_email": "ann@example.com"}
+        with patch.dict(chat_agent.DAILY_ALLOWANCE, {"meeting": 2}):
+            for n in range(3):
+                self.agent(calls(("c1", "schedule_meeting_on_jitsi", args)), reply("Ok.")).respond(
+                    f"{n:032x}", "Book a meeting")         # a new chat each time
+        self.assertEqual(self.outputs()["c1"]["status"], "refused")
+        self.assertEqual(self.save_meeting.call_count, 2)
+
+    def test_one_address_or_everyone_together_gets_only_so_many_turns(self):
+        agent = self.agent()
+        with patch.object(chat_agent, "TURNS_PER_ADDRESS", 2), patch.object(chat_agent, "TURNS_PER_DAY", 4):
+            self.assertEqual([agent.allow_turn("198.51.100.1") for _ in range(3)], [True, True, False])
+            # Within its own limit, but the day's is spent.
+            self.assertEqual([agent.allow_turn("198.51.100.2") for _ in range(2)], [True, False])
 
     def test_calls_report_back_as_they_are_placed_and_answered(self):
         args = {"numbers": ["+16175550123"], "name": "Bob", "message": "Hiring?", "password": "open sesame"}

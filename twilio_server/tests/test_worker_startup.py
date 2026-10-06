@@ -34,6 +34,31 @@ print(json.dumps({
 }))
 """
 
+WEB_APP_SECURITY = """
+import json
+from unittest.mock import Mock, patch
+from fastapi.testclient import TestClient
+import app, chat_agent, mongo_tool
+client = TestClient(app.app)
+unused = [("post", "/talk_to_samarth_discord"), ("post", "/mongo_query"), ("get", "/api/dashboard_stats"),
+          ("get", "/api/table"), ("get", "/api/daily_queue"), ("post", "/api/flashcard/submit"),
+          ("get", "/api/problem/two-sum"), ("put", "/api/problem/two-sum")]
+out = {"locked": sorted({client.request(method, path, json={}).status_code for method, path in unused})}
+out["wrong_key"] = client.post("/mongo_query", headers={"Authorization": "Bearer guess"}).status_code
+with patch.object(app, "ADMIN_TOKEN", "admin-key"), \\
+        patch.object(mongo_tool, "query_mongo_db_for_candidate_profile", return_value={}):
+    out["right_key"] = client.post("/mongo_query", headers={"Authorization": "Bearer admin-key"}).status_code
+stub = Mock()
+stub.allow_turn.return_value = False
+with patch.object(chat_agent, "agent", return_value=stub):
+    busy = client.post("/chat", json={"message": "hi", "session_id": "ab" * 16},
+                       headers={"CF-Connecting-IP": "203.0.113.9"})
+    out["rate_limited"] = [busy.status_code, "try again" in busy.json()["output"]]
+    out["address"] = stub.allow_turn.call_args.args[0]
+    out["too_long"] = client.post("/chat", json={"message": "x" * 5000, "session_id": "ab" * 16}).status_code
+print(json.dumps(out))
+"""
+
 
 @unittest.skipUnless(all(importlib.util.find_spec(name) for name in ("celery", "pymongo", "bcrypt", "openai")),
                      "needs pythonserver's requirements")
@@ -62,6 +87,13 @@ class WorkerStartupTests(unittest.TestCase):
             "result_backend": None, "ignore_result": True, "sending_connections": 1,
             "remote_control": False, "pool": "BlockingConnectionPool", "max_connections": 4,
             "chat_shares_the_client": True})
+
+    def test_the_web_app_locks_what_the_site_doesnt_use_and_paces_the_chat(self):
+        proc = self.run_in_worker_folder(WEB_APP_SECURITY)
+        result = json.loads(proc.stdout.strip().splitlines()[-1])
+        self.assertEqual(result, {"locked": [403], "wrong_key": 403, "right_key": 200,
+                                  "rate_limited": [429, True], "address": "203.0.113.9",
+                                  "too_long": 413})
 
     def test_the_worker_runs_without_the_features_for_several_workers(self):
         script = (REPO / "pythonserver" / "start_workers.sh").read_text()

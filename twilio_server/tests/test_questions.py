@@ -489,6 +489,24 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
             await self.listener.on_message(ignored)
         self.listener.on_reply.assert_not_awaited()
 
+    async def test_only_the_listed_people_and_no_bots_count_as_answering(self):
+        self.listener.on_reply = AsyncMock()
+        user = patch.object(type(self.listener), "user", new_callable=PropertyMock, return_value=Mock(id=1))
+        user.start()
+        self.addCleanup(user.stop)
+
+        def said_by(author_id, bot=False):
+            return Mock(author=Mock(id=author_id, bot=bot), channel=Mock(id=123), reference=None)
+
+        cases = [(frozenset({42}), said_by(42), True), (frozenset({42}), said_by(7), False),
+                 (frozenset(), said_by(7), True), (frozenset(), said_by(9, bot=True), False)]
+        for answerers, message, heard in cases:
+            with self.subTest(answerers=answerers, author=message.author.id):
+                self.listener.answerers = answerers
+                self.listener.on_reply.reset_mock()
+                await self.listener.on_message(message)
+                self.assertEqual(self.listener.on_reply.await_count, int(heard))
+
     async def test_posting_a_question_remembers_its_message(self):
         qid = self.store.ask("Free?", "Alice", CHAT)
         self.listener.is_closed = Mock(side_effect=[False, True])

@@ -16,6 +16,7 @@ from urllib.parse import parse_qs, urlsplit
 from xml.etree import ElementTree
 
 from fastapi.testclient import TestClient
+from twilio.request_validator import RequestValidator
 
 from memory_redis import MemoryRedis
 from worker_modules import load
@@ -34,11 +35,32 @@ memory = MemoryRedis()
 with patch.dict(sys.modules, {"mongo_tool": mongo, "worker_client": worker}), \
         patch.dict(os.environ, {"OPENAI_API_KEY": "test-key", "MODEL": "gpt-live-1",
                                "TWILIO_ACCOUNT_SID": "AC" + "0" * 32,
-                               "TWILIO_AUTH_TOKEN": "test-token"}, clear=True), \
+                               "TWILIO_AUTH_TOKEN": "test-token",
+                               "VOICE_API_TOKEN": "test-voice-token"}, clear=True), \
         patch("dotenv.load_dotenv"), patch("redis_pool.connect", return_value=memory):
     main = importlib.import_module("main")
 
 CHANNEL = "call:CA" + "1" * 32
+WORKER_KEY = {"Authorization": "Bearer test-voice-token"}
+
+
+def sign_like_twilio(request, url=None):
+    """Sign an outgoing test request as Twilio signs its webhooks: the URL it
+    called, then each form field, blank ones included."""
+    params = {}
+    if request.headers.get("content-type", "").startswith("application/x-www-form-urlencoded"):
+        params = {key: values[0] for key, values in
+                  parse_qs(request.read().decode(), keep_blank_values=True).items()}
+    request.headers["X-Twilio-Signature"] = RequestValidator("test-token").compute_signature(
+        url or str(request.url), params)
+
+
+def caller_client():
+    """A client sending what the real callers send: Twilio's signature on its
+    webhooks, and the worker's key for /start-calls."""
+    client = TestClient(main.app, headers=WORKER_KEY)
+    client.event_hooks = {"request": [sign_like_twilio], "response": []}
+    return client
 
 
 def local_time(zone_name, **delta):
@@ -346,7 +368,7 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
 class EndpointTests(unittest.TestCase):
     def setUp(self):
         reset()
-        self.client = TestClient(main.app)
+        self.client = caller_client()
 
     def test_health_reports_live_model(self):
         self.assertEqual(self.client.get("/").json()["model"], "gpt-live-1")
@@ -476,9 +498,11 @@ class EndpointTests(unittest.TestCase):
         scheduler = load("callback_scheduler")
         main.callbacks.schedule("+16175550123", "Ann", "why", "voicemail", when=time.time())
         # The worker's requests, answered by this service's own /start-calls.
-        post = lambda url, json, timeout: self.client.post(urlsplit(url).path, json=json)
+        post = lambda url, json, timeout, headers: self.client.post(urlsplit(url).path, json=json,
+                                                                  headers=headers)
         placer = partial(scheduler.place, post=post, base_url="https://voice.test")
-        with patch.object(main.twilio_client.calls, "create", return_value=SimpleNamespace(sid="CA-cb")) as create:
+        with patch.object(main.twilio_client.calls, "create", return_value=SimpleNamespace(sid="CA-cb")) as create, \
+                patch.dict(os.environ, {"VOICE_API_TOKEN": "test-voice-token"}):
             for _ in range(2):                          # the second tick finds nothing due
                 asyncio.run(scheduler.tick(main.callbacks, None, placer))
         self.assertEqual(create.call_count, 1)
@@ -531,7 +555,7 @@ class EndpointTests(unittest.TestCase):
 class CallbackEndpointTests(unittest.TestCase):
     def setUp(self):
         reset()
-        self.client = TestClient(main.app)
+        self.client = caller_client()
         self.record = main.callbacks.schedule(
             "+16175550123", "Alice", purpose="You asked: Free Friday? Samarth's answer is: Yes",
             voicemail="Hi Alice, Samarth says yes.", now=time.time())
@@ -579,6 +603,68 @@ class CallbackEndpointTests(unittest.TestCase):
         record = main.callbacks.get(self.record["id"])
         self.assertEqual((record["state"], record["outcome"]), ("done", "answered"))
         self.assertIn("picked up", started_jobs("discord.send")[0]["args"]["content"])
+
+
+class SecurityTests(unittest.TestCase):
+    """Only Twilio reaches the call webhooks, and only the worker /start-calls."""
+
+    WEBHOOKS = [("POST", "/incoming-call"), ("GET", "/incoming-call"), ("POST", "/voice-mail"),
+                ("POST", "/call-status"), ("POST", "/callback-call?cb=" + "a" * 32),
+                ("POST", "/callback-status?cb=" + "a" * 32)]
+
+    def setUp(self):
+        reset()
+        self.client = TestClient(main.app)          # neither signed nor keyed
+        self.sign = RequestValidator("test-token").compute_signature
+
+    def test_unsigned_or_forged_webhooks_are_refused(self):
+        # Before this, anyone could fetch a stream token from /incoming-call
+        # and talk to the assistant, tools and all.
+        for method, path in self.WEBHOOKS:
+            for headers in ({}, {"X-Twilio-Signature": "bm90IGEgc2lnbmF0dXJl"}):
+                with self.subTest(method=method, path=path, forged=bool(headers)), \
+                        self.assertLogs("main", level="WARNING"):
+                    data = {"From": "+16175550123"} if method == "POST" else None
+                    response = self.client.request(method, path, data=data, headers=headers)
+                    self.assertEqual(response.status_code, 403)
+        self.assertEqual([k for k in memory.values if k.startswith("live:call:")], [])
+
+    def test_a_signature_for_other_fields_or_another_address_is_refused(self):
+        body = {"From": "+16175550123", "CallSid": "CA1"}
+        cases = {"fields changed": (self.sign("http://testserver/incoming-call", body), dict(body, From="+19995550123")),
+                 "another route": (self.sign("http://testserver/voice-mail", body), body)}
+        for label, (signature, sent) in cases.items():
+            with self.subTest(label), self.assertLogs("main", level="WARNING"):
+                response = self.client.post("/incoming-call", data=sent, headers={"X-Twilio-Signature": signature})
+                self.assertEqual(response.status_code, 403)
+
+    def test_a_request_signed_for_the_public_address_is_accepted(self):
+        # Behind Render's proxy the service sees plain http; Twilio signed the
+        # https URL it called, blank fields and all.
+        body = {"From": "+16175550123", "ForwardedFrom": ""}
+        signature = self.sign(main.PUBLIC_BASE_URL + "/incoming-call?script=1", body)
+        response = self.client.post("/incoming-call?script=1", data=body,
+                                    headers={"X-Twilio-Signature": signature})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<Stream", response.text)
+
+    def test_the_check_can_be_turned_off_in_an_emergency(self):
+        with patch.object(main, "SKIP_TWILIO_SIGNATURE", True):
+            self.assertEqual(self.client.post("/incoming-call", data={"From": "+16175550123"}).status_code, 200)
+
+    def test_start_calls_needs_the_workers_key(self):
+        bodies = [{"numbers": ["+16175550123"], "name": "A"}, {"callback_id": "a" * 32, "numbers": []}]
+        with patch.object(main.twilio_client.calls, "create") as create:
+            for body in bodies:
+                with self.subTest(body=body):
+                    with self.assertLogs("main", level="WARNING"):
+                        self.assertEqual(self.client.post("/start-calls", json=body).status_code, 401)
+                        self.assertEqual(self.client.post("/start-calls", json=body,
+                                                          headers={"Authorization": "Bearer guess"}).status_code, 401)
+                    with patch.object(main, "VOICE_API_TOKEN", ""):           # not set up
+                        self.assertEqual(self.client.post("/start-calls", json=body,
+                                                          headers=WORKER_KEY).status_code, 503)
+        create.assert_not_called()
 
 
 class StreamTests(unittest.IsolatedAsyncioTestCase):

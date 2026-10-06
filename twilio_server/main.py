@@ -1,6 +1,7 @@
 """Twilio phone assistant using GPT-Live 1 with Responses delegation."""
 
 import asyncio
+import hmac
 import json
 import logging
 import os
@@ -12,9 +13,10 @@ from urllib.parse import parse_qs, urlencode
 
 import websockets
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, WebSocket
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.websockets import WebSocketDisconnect
+from twilio.request_validator import RequestValidator
 from twilio.rest import Client
 from twilio.twiml.voice_response import Connect, VoiceResponse
 
@@ -67,8 +69,62 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://twillio-ai-assistant.onr
 if not OPENAI_API_KEY:
     raise ValueError("Missing OPENAI_API_KEY. Set it in the server environment.")
 
-twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+# Twilio signs each webhook with the account's auth token; one without a good
+# signature is someone else. 1 turns the check off, only for getting calls
+# working again while a URL mismatch is sorted out.
+SKIP_TWILIO_SIGNATURE = os.getenv("TWILIO_SKIP_SIGNATURE_CHECK") == "1"
+if SKIP_TWILIO_SIGNATURE:
+    logger.warning("TWILIO_SKIP_SIGNATURE_CHECK=1: anyone can reach the call webhooks")
+# The worker's key to /start-calls; the same value is set on both services.
+VOICE_API_TOKEN = os.getenv("VOICE_API_TOKEN", "")
+if not VOICE_API_TOKEN:
+    logger.warning("VOICE_API_TOKEN not set: /start-calls refuses every request")
+
+twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), TWILIO_AUTH_TOKEN)
+twilio_signatures = RequestValidator(TWILIO_AUTH_TOKEN)
 app = FastAPI()
+
+
+def form_fields(body):
+    """A form body's fields, parsed by hand so the service needs no multipart
+    library. Blank ones are kept: Twilio's signature covers them too."""
+    return {key: values[0] for key, values in
+            parse_qs(body.decode("utf-8", "replace"), keep_blank_values=True).items()}
+
+
+async def twilio_fields(request):
+    """A Twilio webhook's parameters: its form body, then the query string."""
+    return {**dict(request.query_params), **form_fields(await request.body())}
+
+
+async def require_twilio(request: Request):
+    """Only Twilio may call the call webhooks. Without this, anyone could
+    fetch a stream token from /incoming-call and talk to the assistant, tools
+    and all, at our expense, or fake how a call ended."""
+    if SKIP_TWILIO_SIGNATURE:
+        return
+    signature = request.headers.get("X-Twilio-Signature", "")
+    if signature and TWILIO_AUTH_TOKEN:
+        params = form_fields(await request.body())
+        target = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        # Twilio signs the URL it called; behind Render's proxy this service
+        # sees plain http, so the public https address is tried too.
+        for url in (PUBLIC_BASE_URL + target, str(request.url.replace(scheme="https")), str(request.url)):
+            if twilio_signatures.validate(url, params, signature):
+                return
+    logger.warning("Refused %s %s: not signed by Twilio", request.method, request.url.path)
+    raise HTTPException(status_code=403)
+
+
+def require_worker(request: Request):
+    """/start-calls rings any number from ours, so only the worker may use it."""
+    if not VOICE_API_TOKEN:
+        raise HTTPException(status_code=503, detail="VOICE_API_TOKEN isn't set on the voice service")
+    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not hmac.compare_digest(supplied.encode(), VOICE_API_TOKEN.encode()):
+        logger.warning("Refused /start-calls: wrong or missing VOICE_API_TOKEN")
+        raise HTTPException(status_code=401)
 
 
 class CallContextStore:
@@ -413,12 +469,12 @@ async def stream_twiml(request, context, voicemail=False):
     return HTMLResponse(content=str(response), media_type="application/xml")
 
 
-@app.api_route("/incoming-call", methods=["GET", "POST"])
+@app.api_route("/incoming-call", methods=["GET", "POST"], dependencies=[Depends(require_twilio)])
 async def handle_incoming_call(request: Request):
     return await call_twiml(request)
 
 
-@app.api_route("/voice-mail", methods=["GET", "POST"])
+@app.api_route("/voice-mail", methods=["GET", "POST"], dependencies=[Depends(require_twilio)])
 async def handle_incoming_call_voicemail(request: Request):
     return await call_twiml(request, voicemail=True)
 
@@ -516,7 +572,7 @@ async def handle_media_stream_voicemail(websocket: WebSocket):
     await handle_stream(websocket, voicemail=True)
 
 
-@app.post("/start-calls")
+@app.post("/start-calls", dependencies=[Depends(require_worker)])
 async def start_calls(request: Request):
     body = await request.json()
     if body.get("callback_id"):
@@ -598,17 +654,7 @@ async def place_callback(callback_id):
     return {"status": "done", "calls": [{"to": record["to"], "sid": call.sid}]}
 
 
-async def twilio_fields(request):
-    """A Twilio webhook's parameters: its form body, then the query string.
-
-    Parsed by hand so the service needs no multipart library for them.
-    """
-    fields = {key: values[0] for key, values in
-              parse_qs((await request.body()).decode("utf-8", "replace")).items()}
-    return {**dict(request.query_params), **fields}
-
-
-@app.post("/call-status")
+@app.post("/call-status", dependencies=[Depends(require_twilio)])
 async def outbound_call_status(request: Request):
     """How an outbound call a chat asked for ended, when nobody answered it."""
     fields = await twilio_fields(request)
@@ -633,7 +679,7 @@ def callback_notice(record, outcome):
     return f"Couldn't reach {who} after {record['attempts']} tries, so I've stopped trying."
 
 
-@app.api_route("/callback-call", methods=["GET", "POST"])
+@app.api_route("/callback-call", methods=["GET", "POST"], dependencies=[Depends(require_twilio)])
 async def callback_call(request: Request):
     """TwiML for a scheduled call back, once Twilio knows who answered."""
     fields = await twilio_fields(request)
@@ -662,7 +708,7 @@ async def callback_call(request: Request):
     return await stream_twiml(request, context)
 
 
-@app.post("/callback-status")
+@app.post("/callback-status", dependencies=[Depends(require_twilio)])
 async def callback_status(request: Request):
     """Twilio's report on how a call back ended; a missed one is retried."""
     fields = await twilio_fields(request)
