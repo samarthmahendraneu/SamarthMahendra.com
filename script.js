@@ -1365,7 +1365,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- GitHub Stats ---
     async function fetchGitHubStats() {
         try {
-            const response = await fetch(`${SERVER_URL}/github/stats`);
+            // Exactly the accounts linked beside the figure, whatever the
+            // server's own default.
+            const accounts = [...document.querySelectorAll('.prose-stat-accounts .prose-gh-link')]
+                .map(link => new URL(link.href).pathname.split('/')[1])
+                .filter(Boolean);
+            const query = accounts.length ? `?usernames=${encodeURIComponent(accounts.join(','))}` : '';
+            const response = await fetch(`${SERVER_URL}/github/stats${query}`);
             if (!response.ok) {
                 throw new Error(`GitHub stats proxy failed with ${response.status}`);
             }
@@ -1376,27 +1382,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const lastYearContributions = githubStats.last_year_contributions || 0;
             const past5YearsContributions = githubStats.past_5_years_contributions || 0;
 
-            // Helper: format number as shorthand (2537 → "2.5k+")
-            function formatShortK(n) {
-                if (n >= 1000) {
-                    const k = n / 1000;
-                    return (Number.isInteger(k) ? k : Math.floor(k * 10) / 10) + 'k+';
-                }
-                return String(n);
-            }
-
             const ghTotalContributions = document.getElementById('gh-total-contributions');
             const ghRepos = document.getElementById('gh-repos');
             const ghLastYear = document.getElementById('gh-last-year');
             const ghPast5Years = document.getElementById('gh-past-5-years');
 
+            // The headline figure: the past five years, across every account.
             if (ghTotalContributions) {
                 ghTotalContributions.textContent = '0';
-                // Animate counter, then snap to shorthand at the end
-                animateCounter(ghTotalContributions, totalContributionsAllTime);
-                setTimeout(() => {
-                    ghTotalContributions.textContent = formatShortK(totalContributionsAllTime);
-                }, 1600);
+                animateCounter(ghTotalContributions, past5YearsContributions);
                 animatedCounters.add('gh-total-contributions');
             }
             if (ghRepos) {
@@ -1436,7 +1430,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         } catch (error) {
             console.error('Error fetching GitHub stats:', error);
-            document.getElementById('gh-total-contributions').textContent = '5000+';
+            document.getElementById('gh-total-contributions').textContent = '3.9k+';
             document.getElementById('gh-repos').textContent = '80+';
             const lastYear = document.getElementById('gh-last-year');
             const pastFiveYears = document.getElementById('gh-past-5-years');

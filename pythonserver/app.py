@@ -467,7 +467,10 @@ LEETCODE_GRAPHQL_URL = "https://leetcode.com/graphql/"
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_CONTRIBUTIONS_URL = "https://github-contributions-api.jogruber.de/v4"
 GITHUB_STATS_CACHE_TTL = timedelta(days=1)
-DEFAULT_GITHUB_USERNAMES = ["SamarthMahendraneu", "SamarthMahendra-Draup"]
+# A total missing an account (the contributions API timed out, say) is
+# fetched again soon rather than shown short for a whole day.
+GITHUB_STATS_RETRY_TTL = timedelta(minutes=10)
+DEFAULT_GITHUB_USERNAMES = ["SamarthMahendraneu", "SamarthMahendra-Draup", "SamarthMahendra"]
 PREFERRED_GITHUB_LANGUAGES = ["Python", "Java", "C++", "JavaScript", "TypeScript"]
 _github_stats_cache = {}
 _github_stats_cache_lock = Lock()
@@ -499,9 +502,24 @@ def _github_headers():
     return headers
 
 
-def _build_github_stats(usernames):
+def _years_before(day, years):
+    try:
+        return day.replace(year=day.year - years)
+    except ValueError:              # 29 February
+        return day.replace(year=day.year - years, day=28)
+
+
+def _build_github_stats(usernames, today=None):
+    """Repos, languages and contributions summed across the accounts.
+
+    Contributions are counted day by day over windows ending today: the last
+    five years and the last year (not calendar years, which made "the past
+    five years" six, counting this one), and all time.
+    """
     session = requests.Session()
     session.headers.update(_github_headers())
+    today = today or datetime.utcnow().date()
+    five_years_ago, one_year_ago = _years_before(today, 5), _years_before(today, 1)
 
     total_repos = 0
     total_contributions_all_time = 0
@@ -509,10 +527,7 @@ def _build_github_stats(usernames):
     past_5_years_contributions = 0
     all_languages = {}
     warnings = []
-
-    current_year = datetime.utcnow().year
-    contribution_start_year = 2018
-    past_5_years_start = current_year - 5
+    complete = True
 
     for username in usernames:
         try:
@@ -522,7 +537,7 @@ def _build_github_stats(usernames):
             total_repos += user_data.get("public_repos", 0) or 0
         except Exception as exc:
             warnings.append(f"Could not fetch user profile for {username}: {exc}")
-            continue
+            complete = False
 
         try:
             repos_response = session.get(
@@ -540,25 +555,29 @@ def _build_github_stats(usernames):
         except Exception as exc:
             warnings.append(f"Could not fetch repositories for {username}: {exc}")
 
-        for year in range(contribution_start_year, current_year + 1):
+        # Every year's days in one request, rather than one request a year.
+        try:
+            contributions_response = session.get(
+                f"{GITHUB_CONTRIBUTIONS_URL}/{username}", params={"y": "all"}, timeout=20)
+            contributions_response.raise_for_status()
+            days = contributions_response.json().get("contributions", [])
+        except Exception as exc:
+            warnings.append(f"Could not fetch contributions for {username}: {exc}")
+            complete = False
+            continue
+        for day in days:
             try:
-                contributions_response = session.get(
-                    f"{GITHUB_CONTRIBUTIONS_URL}/{username}",
-                    params={"y": year},
-                    timeout=15
-                )
-                contributions_response.raise_for_status()
-                contributions_data = contributions_response.json()
-                year_contributions = contributions_data.get("total", {}).get(str(year), 0) or 0
-                total_contributions_all_time += year_contributions
-
-                if year == current_year:
-                    last_year_contributions += year_contributions
-
-                if year >= past_5_years_start:
-                    past_5_years_contributions += year_contributions
-            except Exception as exc:
-                warnings.append(f"Could not fetch contributions for {username} in {year}: {exc}")
+                date = datetime.strptime(day["date"], "%Y-%m-%d").date()
+            except (KeyError, TypeError, ValueError):
+                continue
+            count = day.get("count") or 0
+            if date > today:
+                continue
+            total_contributions_all_time += count
+            if date > five_years_ago:
+                past_5_years_contributions += count
+            if date > one_year_ago:
+                last_year_contributions += count
 
     ranked_languages = sorted(all_languages.items(), key=lambda item: (-item[1], item[0]))
     top_languages = [language for language, _ in ranked_languages[:3]]
@@ -569,7 +588,6 @@ def _build_github_stats(usernames):
     if preferred_languages:
         top_languages = preferred_languages[:3]
 
-    generated_at = datetime.utcnow()
     return {
         "usernames": usernames,
         "repos": total_repos,
@@ -577,8 +595,8 @@ def _build_github_stats(usernames):
         "last_year_contributions": last_year_contributions,
         "past_5_years_contributions": past_5_years_contributions,
         "top_languages": top_languages,
-        "generated_at": generated_at.isoformat() + "Z",
-        "expires_at": (generated_at + GITHUB_STATS_CACHE_TTL).isoformat() + "Z",
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "complete": complete,
         "warnings": warnings[:10],
     }
 
@@ -627,7 +645,8 @@ async def github_stats_proxy(usernames: str = None):
         print("❌ GitHub Stats Proxy Error:", exc)
         raise HTTPException(status_code=500, detail="Error contacting GitHub APIs")
 
-    expires_at = now + GITHUB_STATS_CACHE_TTL
+    expires_at = now + (GITHUB_STATS_CACHE_TTL if payload.get("complete") else GITHUB_STATS_RETRY_TTL)
+    payload["expires_at"] = expires_at.isoformat() + "Z"
     with _github_stats_cache_lock:
         _github_stats_cache[cache_key] = {
             "payload": payload,

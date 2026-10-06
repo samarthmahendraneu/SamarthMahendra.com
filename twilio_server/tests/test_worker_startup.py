@@ -60,6 +60,55 @@ print(json.dumps(out))
 """
 
 
+GITHUB_STATS = """
+import json
+from datetime import date, datetime
+from unittest.mock import Mock, patch
+from fastapi.testclient import TestClient
+import app
+
+calendars = {
+    "old-hand": [("2019-05-01", 7), ("2021-10-05", 2), ("2021-10-07", 3), ("2026-01-02", 4)],
+    "newcomer": [("2025-10-06", 1), ("2025-10-07", 5), ("2026-10-06", 2), ("2026-12-31", 0)],
+}
+
+def fake_get(url, params=None, timeout=None):
+    response = Mock()
+    name = url.rstrip("/").split("/")[-1]
+    if "contributions" in url:
+        if name == "broken":
+            response.raise_for_status.side_effect = RuntimeError("timed out")
+        out["contribution_params"].add(json.dumps(params))
+        response.json.return_value = {"contributions": [
+            {"date": d, "count": n, "level": 1} for d, n in calendars.get(name, [])]}
+    elif name == "repos":
+        response.json.return_value = [{"language": "Python"}]
+    else:
+        response.json.return_value = {"public_repos": 2}
+    return response
+
+out = {"contribution_params": set()}
+session = Mock(headers={})
+session.get.side_effect = fake_get
+with patch.object(app.requests, "Session", return_value=session):
+    stats = app._build_github_stats(["old-hand", "newcomer"], today=date(2026, 10, 6))
+    partial = app._build_github_stats(["newcomer", "broken"], today=date(2026, 10, 6))
+out = {key: stats[key] for key in ("past_5_years_contributions", "last_year_contributions",
+                                   "total_contributions", "repos", "complete")} | {
+    "contribution_params": sorted(out["contribution_params"]),
+    "partial": [partial["complete"], partial["past_5_years_contributions"]],
+    "default_accounts": app.DEFAULT_GITHUB_USERNAMES}
+client = TestClient(app.app)
+for complete in (True, False):
+    app._github_stats_cache.clear()
+    with patch.object(app, "_build_github_stats", return_value={"complete": complete}):
+        client.get("/github/stats?usernames=a%2Cb")
+    left = app._github_stats_cache["a,b"]["expires_at"] - datetime.utcnow()
+    out[f"cached_minutes_when_complete_{complete}"] = round(left.total_seconds() / 60)
+print(json.dumps(out))
+"""
+
+
 @unittest.skipUnless(all(importlib.util.find_spec(name) for name in ("celery", "pymongo", "bcrypt", "openai")),
                      "needs pythonserver's requirements")
 class WorkerStartupTests(unittest.TestCase):
@@ -94,6 +143,26 @@ class WorkerStartupTests(unittest.TestCase):
         self.assertEqual(result, {"locked": [403], "wrong_key": 403, "right_key": 200,
                                   "rate_limited": [429, True], "address": "203.0.113.9",
                                   "too_long": 413})
+
+    def test_github_contributions_are_the_last_five_years_across_every_account(self):
+        result = json.loads(self.run_in_worker_folder(GITHUB_STATS).stdout.strip().splitlines()[-1])
+        self.assertEqual(result, {
+            # Days after 6 Oct 2021, up to today: old-hand's 3 + 4, newcomer's 1 + 5 + 2.
+            "past_5_years_contributions": 15,
+            # Days after 6 Oct 2025: old-hand's 4, newcomer's 5 + 2.
+            "last_year_contributions": 11,
+            "total_contributions": 24,
+            "repos": 4,
+            "complete": True,
+            # One request an account, for every year at once.
+            "contribution_params": ['{"y": "all"}'],
+            # An account that couldn't be counted marks the total incomplete...
+            "partial": [False, 8],
+            "default_accounts": ["SamarthMahendraneu", "SamarthMahendra-Draup", "SamarthMahendra"],
+            # ...and an incomplete total is fetched again in minutes, not a day.
+            "cached_minutes_when_complete_True": 1440,
+            "cached_minutes_when_complete_False": 10,
+        })
 
     def test_the_worker_runs_without_the_features_for_several_workers(self):
         script = (REPO / "pythonserver" / "start_workers.sh").read_text()
