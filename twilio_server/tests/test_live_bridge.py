@@ -108,7 +108,7 @@ class ConfigTests(unittest.TestCase):
                 default = session_config(LiveSettings(), {}, voicemail)
                 self.assertIn(style, config["instructions"])
                 self.assertNotIn(DEFAULT_VOICE_STYLE, config["instructions"])
-                for policy in ("AI personal assistant", "Backchannel policy:",
+                for policy in ("personal assistant", "Backchannel policy:",
                                "Interruption policy:", "Delegation policy:"):
                     self.assertIn(policy, config["instructions"])
                 self.assertEqual(config["delegation"], default["delegation"])
@@ -116,6 +116,21 @@ class ConfigTests(unittest.TestCase):
                 self.assertNotIn("style", config)
                 if voicemail:
                     self.assertIn("Samarth is unavailable", config["instructions"])
+
+    def test_incoming_calls_say_assistant_and_outgoing_say_ai_assistant(self):
+        for context, voicemail, inbound in (({}, False, True), ({"script": "1"}, False, True), ({}, True, True),
+                                            ({"script": "2"}, False, False), ({"script": "3"}, False, False)):
+            with self.subTest(context=context, voicemail=voicemail):
+                spoken = session_config(LiveSettings(), context, voicemail)["instructions"]
+                hello = greeting(context, voicemail)
+                if inbound:
+                    self.assertNotIn("AI assistant", hello)
+                    self.assertIn("Samarth's assistant", hello)
+                    self.assertIn("Introduce yourself\nas his assistant", spoken)
+                    self.assertIn("say honestly that you are an AI assistant", spoken)
+                else:
+                    self.assertIn("AI assistant", hello)
+                    self.assertIn("clearly as his AI assistant", spoken)
 
     def test_missing_or_blank_style_keeps_reviewed_default(self):
         for env in ({}, {"VOICE_STYLE": ""}, {"VOICE_STYLE": "  \n  "}):

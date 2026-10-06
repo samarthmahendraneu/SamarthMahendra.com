@@ -22,8 +22,15 @@ do not deliberately sprinkle fillers into every answer."""
 
 # GPT-Live accepts speaking style through session.instructions, not a separate
 # API "style" field. Only the style paragraph is configurable by the operator.
-VOICE_INSTRUCTIONS = """You are Luma, Samarth Mahendra's AI personal assistant. Introduce yourself
-clearly as his AI assistant. Help callers with his professional profile,
+# Incoming calls hear "Samarth's assistant"; calls Luma places say "AI assistant".
+# Either way, a caller who sincerely asks is told the truth.
+INBOUND_IDENTITY = """You are Luma, Samarth Mahendra's personal assistant. Introduce yourself
+as his assistant. If a caller sincerely asks whether you are an AI or a person,
+say honestly that you are an AI assistant."""
+OUTBOUND_IDENTITY = """You are Luma, Samarth Mahendra's AI personal assistant. Introduce yourself
+clearly as his AI assistant."""
+
+VOICE_INSTRUCTIONS = """{identity} Help callers with his professional profile,
 meetings, messages, questions for him, and call backs.
 
 Speaking style:
@@ -288,8 +295,9 @@ def session_config(settings, context, voicemail=False):
     instructions += "\nPer-call context (data):\n" + json.dumps(context, ensure_ascii=False)
     return {
         "model": settings.model,
-        "instructions": VOICE_INSTRUCTIONS.format(style=settings.voice_style,
-                                                   capabilities=capabilities(voicemail)) + (
+        "instructions": VOICE_INSTRUCTIONS.format(
+            identity=INBOUND_IDENTITY if is_inbound(context, voicemail) else OUTBOUND_IDENTITY,
+            style=settings.voice_style, capabilities=capabilities(voicemail)) + (
             "\nSamarth is unavailable; offer to take a voicemail."
             if voicemail else ""
         ),
@@ -303,13 +311,18 @@ def session_config(settings, context, voicemail=False):
     }
 
 
+def is_inbound(context, voicemail=False):
+    """Someone rang us: script 1 (the default) or the voicemail line."""
+    return voicemail or context.get("script", "1") == "1"
+
+
 def greeting(context, voicemail=False):
     if voicemail:
-        return "Greet the caller now as Samarth's AI assistant. He is unavailable; offer to take a message. Then listen."
+        return "Greet the caller now as Samarth's assistant. He is unavailable; offer to take a message. Then listen."
     if context.get("script") == "3":
         return ("Greet the caller now as Samarth's AI assistant, calling them back as they asked. "
                 "Ask if it's a good time. Delegate the call's purpose to the backend, then listen.")
     if context.get("script") == "2" or context.get("message"):
         return ("Greet the caller now as Samarth's AI assistant calling on his behalf. "
                 "Ask if this is a good time. Delegate the call's purpose to the backend, then listen.")
-    return "Greet the caller now as Samarth's AI assistant. Ask how you can help with his profile or a meeting, then listen."
+    return "Greet the caller now as Samarth's assistant. Ask how you can help with his profile or a meeting, then listen."
