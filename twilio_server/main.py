@@ -35,6 +35,13 @@ from question_store import QuestionStore
 import redis_pool
 from live_config import LIVE_URL, TOOLS, VOICEMAIL_TOOLS, LiveSettings, greeting, session_config
 
+# Render runs `uvicorn main:app`, which sets up only uvicorn's own loggers: without
+# this, every logger.info here and in the bridge was dropped, and warnings printed
+# bare. A handler someone else already installed is left alone.
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper(),
+                    format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+# Twilio's client logs every API request, headers and all, at INFO.
+logging.getLogger("twilio.http_client").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SETTINGS = LiveSettings.from_env(os.environ)
@@ -830,5 +837,4 @@ async def callback_status(request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    logging.basicConfig(level=logging.INFO)
     uvicorn.run(app, host="0.0.0.0", port=PORT)
