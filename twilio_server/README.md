@@ -138,7 +138,9 @@ conversation is told, and the assistant passes it on without being asked.
   question asked again in other words is covered, and in the chat it can be
   asked for before the question or, once he has answered, rings straight away
   if the visitor has left. `schedule_callback` books a call at a time the
-  caller chooses. Twilio's machine detection leaves a voicemail if nobody
+  caller chooses; an answer of Samarth's that lands after they've hung up,
+  before that call rings, goes along on it, and Discord says so. Twilio's
+  machine detection leaves a voicemail if nobody
   answers in person; missed calls are retried after 10 and 30 minutes, three
   tries in all. Automatic calls go out at any hour unless `CALLBACK_HOURS` is
   set; then they wait for those hours on the caller's own clock. What each

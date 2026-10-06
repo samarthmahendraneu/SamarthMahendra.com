@@ -1,5 +1,6 @@
 import asyncio
 import re
+import time
 import unittest
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock, PropertyMock, patch
@@ -393,6 +394,53 @@ class ListenerTests(unittest.IsolatedAsyncioTestCase):
         await self.listener.on_reply("Thursday works")
         self.assertEqual(self.booked(), [])
         self.assertIn("already hung up", self.posted())
+
+    def book_timed(self, origin=CALL, when=None, source="request"):
+        """A call back the person booked for a time of their own (schedule_callback)."""
+        return self.callbacks.schedule(
+            "+16175550123", "Alice", "They asked to be called back at this time about: his current role",
+            "Hi Alice, calling back. Goodbye.", when=when or time.time() + 300, source=source, origin=origin)
+
+    async def test_a_reply_after_hang_up_goes_on_the_call_back_they_booked(self):
+        # 6 October: the caller booked a call for five minutes later and hung
+        # up; the reply was then said to be unwanted, and the call would have
+        # rung without it.
+        qid = posted_question(self.store, "What exact role are you in right now?", message_id=111)
+        booked = self.book_timed()
+        await self.listener.on_reply("Research engineer at Northeastern", reference=111)
+        self.assertEqual(self.store.get(qid)["reply"], "Research engineer at Northeastern")
+        self.assertEqual(self.callbacks.answers(booked["id"]), [
+            {"question": "What exact role are you in right now?", "reply": "Research engineer at Northeastern"}])
+        self.assertIn("Samarth's answer is: Research engineer at Northeastern",
+                      self.callbacks.call_message(booked))
+        self.assertIn("has hung up, but Luma calls them back on", self.posted())
+        self.assertNotIn("didn't ask for a call back", self.posted())
+        # No second call: the one they booked carries it.
+        self.assertEqual([r["id"] for r in self.booked()], [booked["id"]])
+
+    async def test_a_follow_up_after_hang_up_goes_on_the_booked_call_too(self):
+        posted_question(self.store, "Free Thursday?", reply="Yes", message_id=111)
+        booked = self.book_timed()
+        await self.listener.on_reply("After 3pm", reference=111)
+        self.assertEqual(self.callbacks.answers(booked["id"]),
+                         [{"question": "Free Thursday?", "reply": "After 3pm"}])
+        self.assertIn("will pass this on", self.posted())
+
+    async def test_once_their_booked_call_has_gone_out_the_reply_is_saved_and_it_says_so(self):
+        posted_question(self.store)
+        booked = self.book_timed(when=time.time())
+        self.callbacks.claim_due(now=time.time() + 1)
+        await self.listener.on_reply("Thursday works")
+        self.assertEqual(self.callbacks.answers(booked["id"]), [])
+        self.assertIn("the call back they booked has already gone out", self.posted())
+        self.assertNotIn("didn't ask for a call back", self.posted())
+
+    async def test_a_chat_visitor_who_left_hears_the_answer_on_the_call_they_booked(self):
+        posted_question(self.store, origin=CHAT)
+        booked = self.book_timed(origin=CHAT, source="chat")
+        await self.listener.on_reply("Yes")
+        self.assertEqual(self.callbacks.answers(booked["id"])[0]["reply"], "Yes")
+        self.assertIn("Luma will also pass it on when it calls them", self.posted())
 
     async def test_a_caller_who_gave_no_name_is_the_caller(self):
         qid = self.store.ask("Free?", "", CALL)

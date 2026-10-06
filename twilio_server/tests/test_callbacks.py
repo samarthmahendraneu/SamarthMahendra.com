@@ -193,6 +193,43 @@ class CallbackStoreTests(unittest.TestCase):
         self.assertEqual(self.store.when_text(eastern(2, 10)), "Friday 10:00 AM EDT")
         self.assertEqual(self.store.when_text(eastern(2, 15, 30)), "Friday 3:30 PM EDT")
 
+    def booked_by(self, origin, when, source="request"):
+        return self.store.schedule(NUMBER, "Bo", "They asked to be called back at this time about: his role",
+                                   "Hi Bo, calling back. Goodbye.", when=when, source=source,
+                                   origin=origin, now=eastern(1, 10))
+
+    def test_a_conversations_timed_call_back_waits_for_an_answer_until_it_rings(self):
+        later = self.booked_by("call:A", eastern(1, 16))
+        sooner = self.booked_by("call:A", eastern(1, 11))
+        self.booked_by("call:B", eastern(1, 12))
+        self.assertEqual([r["id"] for r in self.store.pending_for("call:A")], [sooner["id"], later["id"]])
+        self.store.claim_due(now=eastern(1, 11))
+        # Ringing, it's too late to add to; it still counts as booked.
+        self.assertEqual([r["id"] for r in self.store.pending_for("call:A")], [later["id"]])
+        self.assertEqual(len(self.store.timed_for("call:A")), 2)
+        self.assertEqual(self.store.pending_for(None), [])
+
+    def test_a_call_back_booked_to_deliver_an_answer_takes_no_others(self):
+        self.booked_by("call:A", None, source="question")
+        self.assertEqual(self.store.timed_for("call:A"), [])
+
+    def test_an_answer_added_later_is_in_the_calls_message_and_voicemail(self):
+        record = self.booked_by("call:A", eastern(1, 16))
+        self.assertEqual(self.store.call_message(record), record["purpose"])
+        self.assertEqual(self.store.call_voicemail(record), "Hi Bo, calling back. Goodbye.")
+        self.store.add_answer(record["id"], "What exact role are you in right now?",
+                              "Research engineer at Northeastern")
+        message = self.store.call_message(record)
+        self.assertTrue(message.startswith(record["purpose"]))
+        self.assertIn("Samarth has answered. They asked: What exact role are you in right now? "
+                      "Samarth's answer is: Research engineer at Northeastern", message)
+        voicemail = self.store.call_voicemail(record)
+        self.assertTrue(voicemail.startswith("Hi Bo, this is Luma"))
+        self.assertIn("You asked: What exact role are you in right now? "
+                      "He says: Research engineer at Northeastern.", voicemail)
+        # Kept off the record, which the scheduler and voice service rewrite.
+        self.assertNotIn("answers", self.store.get(record["id"]))
+
 
 class SchedulerTests(unittest.IsolatedAsyncioTestCase):
     """The worker has no Twilio keys: the voice service's /start-calls dials."""

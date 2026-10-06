@@ -698,10 +698,12 @@ async def callback_call(request: Request):
         # after the beep.
         await asyncio.to_thread(callbacks.note_answered_by, callback_id, answered_by)
         if answered_by != "fax":
-            response.say(record["voicemail"], voice=VOICEMAIL_VOICE)
+            # With any answer of Samarth's that came in after it was booked.
+            response.say(await asyncio.to_thread(callbacks.call_voicemail, record), voice=VOICEMAIL_VOICE)
         response.hangup()
         return HTMLResponse(content=str(response), media_type="application/xml")
-    context = {"script": "3", "name": record["name"], "message": record["purpose"],
+    message = await asyncio.to_thread(callbacks.call_message, record)
+    context = {"script": "3", "name": record["name"], "message": message,
                "callback_id": callback_id, "caller_number": record["to"]}
     if record.get("timezone"):
         context["caller_timezone"] = record["timezone"]

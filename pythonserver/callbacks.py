@@ -9,7 +9,9 @@ service reports how each went, and a missed call is tried again later, up to
 MAX_ATTEMPTS times.
 
 What a call is about stays here, under an unguessable id, rather than riding
-in the call's URL where Twilio logs it.
+in the call's URL where Twilio logs it. An answer of Samarth's that lands
+after the caller has gone, but before a call they booked for a time of their
+choosing rings, goes along on that call (pending_for, add_answer).
 
 Automatic calls -- a reply that lands late in the evening, a retry -- go out
 at any hour, unless calling hours are set (CALLBACK_HOURS): then they wait
@@ -34,6 +36,12 @@ DUE_KEY = "callbacks:due"
 COUNT_KEY = "callbacks:count:"
 # One per call back and try: set by whoever dials it.
 DIAL_KEY = "callbacks:dialing:"
+# Each conversation's (call's or chat's) call backs, for pending_for.
+ORIGIN_KEY = "callbacks:origin:"
+# Answers a call back is to pass on. Not on the record: the scheduler and the
+# voice service rewrite that as the call moves on, and an edit landing between
+# one of their reads and its write would be lost, or would undo theirs.
+ANSWERS_KEY = "callbacks:answers:"
 TTL = 7 * 86400
 MAX_ATTEMPTS = 3
 # Wait before the second and third tries.
@@ -57,6 +65,16 @@ NANP_ELSEWHERE = frozenset((
 ))
 FINAL_STATUSES = ("completed", "busy", "no-answer", "failed", "canceled")
 MISSED_STATUSES = ("busy", "no-answer", "failed", "canceled")
+
+
+def _text(value):
+    return value.decode() if isinstance(value, bytes) else value
+
+
+def _sentence(text):
+    """Text ending in a full stop unless it already ends a sentence."""
+    text = str(text).strip()
+    return text if text.endswith((".", "?", "!")) else text + "."
 
 
 class CallbackStore:
@@ -170,6 +188,9 @@ class CallbackStore:
         }
         self.save(record)
         self.redis.zadd(DUE_KEY, {record["id"]: due})
+        if origin:
+            self.redis.rpush(ORIGIN_KEY + origin, record["id"])
+            self.redis.expire(ORIGIN_KEY + origin, TTL)
         return record
 
     def get(self, callback_id):
@@ -188,6 +209,51 @@ class CallbackStore:
         record["state"] = "cancelled"
         self.save(record)
         return record
+
+    # ---- answers that land before a booked call rings ----
+
+    def timed_for(self, origin):
+        """The conversation's call backs at a time they chose, soonest first.
+        Those booked to deliver an answer are left out: they carry theirs."""
+        if not origin:
+            return []
+        records = (self.get(_text(i)) for i in self.redis.lrange(ORIGIN_KEY + origin, 0, -1))
+        return sorted((r for r in records if r and r["source"] != "question"),
+                      key=lambda r: r["due_at"])
+
+    def pending_for(self, origin):
+        """Of those, the ones that haven't started ringing yet."""
+        return [r for r in self.timed_for(origin) if r["state"] == "scheduled"]
+
+    def add_answer(self, callback_id, question, reply):
+        """Have the call pass on Samarth's answer to a question."""
+        key = ANSWERS_KEY + callback_id
+        self.redis.rpush(key, json.dumps({"question": question, "reply": reply}))
+        self.redis.expire(key, TTL)
+
+    def answers(self, callback_id):
+        return [json.loads(_text(raw)) for raw in self.redis.lrange(ANSWERS_KEY + callback_id, 0, -1)]
+
+    def call_message(self, record):
+        """What the call is for, as the voice agent is told it, with any
+        answers that came in since it was booked."""
+        answers = self.answers(record["id"])
+        if not answers:
+            return record["purpose"]
+        said = " ".join(f"They asked: {a['question']} Samarth's answer is: {a['reply']}" for a in answers)
+        return f"{record['purpose']} Since it was booked, Samarth has answered. {said}"
+
+    def call_voicemail(self, record):
+        """The call's voicemail, giving any answers that came in since."""
+        answers = self.answers(record["id"])
+        if not answers:
+            return record["voicemail"]
+        name = record.get("name") or ""
+        said = " ".join(f"You asked: {_sentence(a['question'])} He says: {_sentence(a['reply'])}"
+                        for a in answers)
+        return (f"{'Hi ' + name if name else 'Hi'}, this is Luma, Samarth Mahendra's AI assistant, "
+                f"calling you back as you asked, with his answer. {said} To talk it through, call "
+                "this number back. Goodbye.")
 
     # ---- placing and following up ----
 

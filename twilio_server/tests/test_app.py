@@ -571,6 +571,19 @@ class CallbackEndpointTests(unittest.TestCase):
                          ("3", "Alice", self.record["id"]))
         self.assertIn("Samarth's answer is: Yes", context["message"])
 
+    def test_an_answer_that_came_in_since_booking_is_passed_on(self):
+        main.callbacks.add_answer(self.record["id"], "Free Friday?", "Yes, after 2pm")
+        response = self.client.post("/callback-call", params={"cb": self.record["id"]},
+                                    data={"AnsweredBy": "human"})
+        token = ElementTree.fromstring(response.text).find("./Connect/Stream/Parameter").attrib["value"]
+        self.assertIn("Samarth's answer is: Yes, after 2pm", main.contexts.take(token)["message"])
+
+    def test_a_machine_hears_an_answer_that_came_in_since_booking(self):
+        main.callbacks.add_answer(self.record["id"], "Free Friday?", "Yes, after 2pm")
+        response = self.client.post("/callback-call", params={"cb": self.record["id"]},
+                                    data={"AnsweredBy": "machine_end_beep"})
+        self.assertIn("He says: Yes, after 2pm.", ElementTree.fromstring(response.text).find("Say").text)
+
     def test_a_machine_gets_the_voicemail_instead(self):
         response = self.client.post("/callback-call", params={"cb": self.record["id"]},
                                     data={"AnsweredBy": "machine_end_beep"})

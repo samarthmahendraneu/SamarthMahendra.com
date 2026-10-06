@@ -198,7 +198,13 @@ class Listener(discord.Client):
                 await self.notify("They're still in the chat, so they'll see it there; no call needed.",
                                   about=record)
             elif not wants_call:
-                await self.notify("Sent to their chat window.", about=record)
+                booked = None if here else await asyncio.to_thread(self.ride_along, origin, record, text)
+                if booked:
+                    await self.notify("Sent to their chat window. They've left it, so Luma will also "
+                                      f"pass it on when it calls them on {self.callbacks.when_for_samarth(booked)}, "
+                                      "as they booked.", about=record)
+                else:
+                    await self.notify("Sent to their chat window.", about=record)
             return
         if origin:
             await asyncio.to_thread(self.events.publish, origin, kind,
@@ -210,12 +216,33 @@ class Listener(discord.Client):
             await self.notify(f"{who} is still on the call, so they'll hear that now.", about=record)
         elif wants_call:
             await self.maybe_call_back(record)
+        elif booked := await asyncio.to_thread(self.ride_along, origin, record, text):
+            # They booked a call for a time of their own instead of asking to
+            # be rung with the answer: that call takes it.
+            await self.notify(f"{who} has hung up, but Luma calls them back on "
+                              f"{self.callbacks.when_for_samarth(booked)} as they asked, and will pass "
+                              "this on.", about=record)
         elif kind == "question.followup":
             await self.notify(f"{who} already had your first answer and has hung up. This is saved.",
                               about=record)
+        elif await asyncio.to_thread(self.callbacks.timed_for, origin):
+            await self.notify(f"{who} has hung up, and the call back they booked has already gone "
+                              "out. The reply is saved.", about=record)
         else:
             await self.notify(f"{who} had already hung up and didn't ask for a call back. "
                               "The reply is saved.", about=record)
+
+    def ride_along(self, origin, record, text=None):
+        """Give Samarth's words (an answer, or `text` following one up) to the
+        call back this conversation booked for a time of its own, if it hasn't
+        rung yet, so the call passes them on: that call back, or None."""
+        pending = self.callbacks.pending_for(origin)
+        if not pending:
+            return None
+        booked = pending[0]
+        self.callbacks.add_answer(booked["id"], clip(record["question"], 300),
+                                  clip(text or record["reply"], 900))
+        return booked
 
     def caller_on_line(self, origin, question_id):
         if origin and self.events.is_live(origin):
