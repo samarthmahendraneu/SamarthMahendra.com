@@ -22,6 +22,7 @@ from twilio.twiml.voice_response import Connect, VoiceResponse
 
 load_dotenv()
 
+import call_screening
 import mongo_tool
 import worker_client
 from call_events import finish_call, watch_call
@@ -157,6 +158,11 @@ events = EventStream(contexts.redis)
 # Looked up on each call, not bound here, so tests can swap the client.
 jobs = JobStore(contexts.redis, enqueue=lambda job_id: worker_client.enqueue_job(job_id))
 callbacks = CallbackStore.from_env(contexts.redis, os.environ)
+screener = call_screening.CallScreener.from_env(contexts.redis, twilio_client, os.environ)
+# A caller ID showing one of these, or sharing their first six digits, is spoofed.
+OWN_NUMBERS = [TWILIO_FROM_NUMBER] + [n.strip() for n in os.getenv("SCREENING_OWN_NUMBERS", "").split(",") if n.strip()]
+# 1 sends Samarth a screening note for every inbound call, not just risky ones.
+SCREENING_REPORT_ALL = os.getenv("SCREENING_REPORT_ALL") == "1"
 SAMARTH_EMAIL = "samarth.mahendragowda@gmail.com"
 # Spoken to an answering machine on a scheduled call back.
 VOICEMAIL_VOICE = "Polly.Joanna-Neural"
@@ -318,10 +324,75 @@ def greeting_to(name):
     return f"Hi {name}," if name else "Hi,"
 
 
+# Arguments of report_suspicious_call: whatever the caller wouldn't say stays empty.
+SCREENING_CLAIMS = ("caller_name", "organization", "department", "official_id", "case_number",
+                    "callback_number", "category", "reason", "demands", "other_details")
+
+
+def lookup_for_model(call, raw_number):
+    """lookup_caller_number: the lookup, with a verdict the model can act on."""
+    screening = call.get("screening") or {}
+    own = not raw_number or call_screening._e164(raw_number) == screening.get("number")
+    number = screening.get("number") if own else raw_number
+    if not number:
+        return {"status": "unavailable", "message": "This caller withheld their number, so it can't be looked up."}
+    result = screener.lookup(number)
+    verdict = call_screening.assess(screening if own else {}, result)
+    return {**{k: v for k, v in result.items() if k != "sources"},
+            "risk": verdict["level"], "reasons": verdict["reasons"], "spoofing": verdict["spoofing"],
+            "note": "For your judgement only; don't tell the caller what this says."}
+
+
+def screening_report(call, claims=None, ended_early=False):
+    """Save a screened call and send Samarth everything known about it.
+
+    The lookup comes from the cache filled when the call connected, so this
+    rarely waits on the network. Saving and posting are independent: one
+    failing doesn't stop the other.
+    """
+    screening = call.get("screening") or {}
+    lookup = screener.lookup(screening["number"]) if screening.get("number") else None
+    callback = call_screening._e164((claims or {}).get("callback_number") or "")
+    callback_lookup = screener.lookup(callback) if callback and callback != screening.get("number") else None
+    verdict = call_screening.assess(screening, lookup, claims)
+    text = call_screening.report_text(screening, verdict, lookup, claims, callback_lookup,
+                                      call.get("call_sid", ""), ended_early)
+    try:
+        report_id = mongo_tool.save_screening_report(call.get("call_sid", ""), {
+            "number": screening.get("number"), "screening": screening, "lookup": lookup,
+            "callback_lookup": callback_lookup, "claims": claims or {}, "verdict": verdict,
+            "ended_early": ended_early})
+    except Exception as exc:
+        logger.warning("Screening report not saved (%s: %s)", type(exc).__name__, exc)
+        report_id = None
+    relayed = queue_discord_message(text, None if ended_early else call.get("channel"))
+    return verdict, report_id, relayed
+
+
+def report_screened_call_end(call):
+    """At hang-up: if a risky call never got reported, report what the network told us."""
+    screening = call.get("screening")
+    if not screening or call.get("screening_reported"):
+        return
+    lookup = screener.lookup(screening["number"]) if screening.get("number") else None
+    verdict = call_screening.assess(screening, lookup)
+    if verdict["level"] != "low" or SCREENING_REPORT_ALL:
+        screening_report(call, ended_early=True)
+        logger.info("Reported screened call at hang-up call=%s risk=%s", call.get("call_sid"), verdict["level"])
+
+
 # A caller needn't give their name, or a number for a voicemail, a call back
 # can be about nothing in particular, and a timezone can often be worked out
-# from their number; every other argument is needed.
-MAY_BE_EMPTY = {"caller_name", "phone_no", "reason", "timezone"}
+# from their number; every other argument is needed. A suspicious caller's
+# claims are often partial, and the caller ID is the default number to look up.
+MAY_BE_EMPTY = {"caller_name", "phone_no", "reason", "timezone", "phone_number", *SCREENING_CLAIMS}
+
+
+async def lookup_done(call):
+    """Wait for the call's prefetched lookup, if one is running; it never raises."""
+    task = call.get("lookup_task")
+    if task is not None:
+        await asyncio.gather(task, return_exceptions=True)
 
 
 def make_tool_executor(context, voicemail=False, asked=None):
@@ -403,6 +474,20 @@ def make_tool_executor(context, voicemail=False, asked=None):
                 return await asyncio.to_thread(book_callback, args, channel)
             except ValueError as exc:
                 return {"status": "refused", "message": str(exc)}
+        if name == "lookup_caller_number":
+            await lookup_done(context)
+            return await asyncio.to_thread(lookup_for_model, context, args["phone_number"])
+        if name == "report_suspicious_call":
+            if context.get("screening_reported"):
+                return {"status": "already_reported", "message": "This call was already reported to Samarth."}
+            context["screening_reported"] = True
+            await lookup_done(context)
+            verdict, report_id, relayed = await asyncio.to_thread(screening_report, context, args)
+            return {"status": "reported", "report_id": report_id,
+                    "relay": "queued" if relayed else "incomplete; delivery must be checked",
+                    "risk": verdict["level"], "red_flags": verdict["red_flags"],
+                    "message": ("Saved and passed to Samarth with the number's screening results. Tell the "
+                                "caller he will follow up through official channels; don't reveal the screening.")}
         if name == "send_messages_to_samarth":
             return await asyncio.to_thread(relay_message_to_samarth, call_id, args, channel)
         if name == "save_reponse_from_caller":
@@ -443,6 +528,11 @@ async def call_twiml(request, voicemail=False):
     fields = await twilio_fields(request)
     outbound = fields.get("Direction", "").startswith("outbound")
     add_caller(context, fields.get("To") if outbound else fields.get("From"))
+    if not outbound and fields.get("From") is not None:
+        # Free checks from what Twilio sent; the paid lookup runs once the call connects.
+        context["screening"] = call_screening.screen_webhook(fields, OWN_NUMBERS)
+        logger.info("Screened inbound call risk=%s score=%d",
+                    call_screening.level_for(context["screening"]["score"]), context["screening"]["score"])
     return await stream_twiml(request, context, voicemail)
 
 
@@ -510,9 +600,16 @@ async def handle_stream(websocket, voicemail=False):
         prompt_context = {key: context[key] for key in
                           ("script", "name", "message", "caller_number", "caller_timezone")
                           if key in context}
+        if context.get("screening"):
+            prompt_context["screening"] = call_screening.summary_for_model(context["screening"])
         call_sid = start.get("callSid") or stream_sid
         channel = "call:" + call_sid if valid_channel("call:" + call_sid) else None
         call = dict(context, call_sid=call_sid, channel=channel)
+        if (call.get("screening") or {}).get("number"):
+            # Warm the cache while the greeting plays; the tool and hang-up report wait
+            # for it rather than paying for the same lookup twice.
+            call["lookup_task"] = asyncio.create_task(
+                asyncio.to_thread(screener.lookup, call["screening"]["number"]))
         stage = "live_connect"
         async with websockets.connect(
             LIVE_URL, extra_headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
@@ -537,6 +634,11 @@ async def handle_stream(websocket, voicemail=False):
                     watch.cancel()
                     await asyncio.gather(watch, return_exceptions=True)
                     await finish_call(channel, asked, events, questions)
+                try:
+                    await lookup_done(call)
+                    await asyncio.to_thread(report_screened_call_end, call)
+                except Exception as exc:
+                    logger.warning("Hang-up screening report failed (%s: %s)", type(exc).__name__, exc)
         stage = "done"
     except WebSocketDisconnect:
         logger.info("Twilio disconnected stream=%s stage=%s after=%.1fs",

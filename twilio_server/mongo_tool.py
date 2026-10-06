@@ -290,3 +290,10 @@ if __name__ == "__main__":
     print("Inserted profile ID:", insert_candidate_profile(profile_dict))
     # Example: query
     print(query_mongo_db_for_candidate_profile())
+
+
+def save_screening_report(call_id, report):
+    """Save a screened call: the number's signals, the lookup and what the caller said."""
+    doc = dict(report, call_id=call_id, timestamp=datetime.datetime.utcnow())
+    insert_result = db["calls_screened"].insert_one(doc)
+    return str(insert_result.inserted_id)

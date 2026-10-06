@@ -223,6 +223,53 @@ listener still recognises questions asked by the old code.
 - **The chat service's unused endpoints** (`/talk_to_samarth_discord`,
   `/mongo_query` and the practice dashboard's `/api/...`) need `ADMIN_TOKEN`.
 
+## Spam and spoofing screening
+
+Every inbound call (to `/incoming-call` or `/voice-mail`) is screened in
+`call_screening.py`. Outbound calls and call backs are not.
+
+1. **When the call arrives**, the webhook alone is checked, at no cost: a withheld
+   caller ID, a caller ID that isn't a number, our own number (or one sharing its
+   first six digits, "neighbour spoofing") calling us, the STIR/SHAKEN attestation
+   Twilio passes as `StirVerstat` (a failed validation means the caller ID was
+   likely spoofed), and the caller-name (CNAM) Twilio sends as `CallerName`.
+2. **When the call connects**, the number is reverse-looked-up in the background:
+   Twilio Lookup v2 (line type, carrier, registered caller name), and
+   IPQualityScore's spam reputation if `IPQS_API_KEY` is set. The result is cached
+   in Redis for a day per number.
+3. **During the call**, the backend sees the screening as data and has two tools:
+   `lookup_caller_number` (the caller ID, or a callback number the caller gives)
+   and `report_suspicious_call`. When a call looks risky, or the caller claims to
+   be a government office, bank, utility or tech support, or asks for money,
+   gift cards, crypto, codes, ID numbers or remote access, Luma politely collects
+   their name, organization, department, badge or employee ID, case number,
+   callback number and demands, shares nothing about Samarth beyond his public
+   profile, and files the report. It never tells the caller they were flagged.
+4. **The report** is saved to MongoDB (`calls_screened`) and posted to Discord with
+   the number, location, spoofing signals, STIR/SHAKEN result, both lookups, what
+   the caller claimed, red flags (gift cards, arrest threats, urgency…), the
+   agency's publicly listed number to verify through when one is impersonated
+   (IRS, SSA, USCIS, FBI, Medicare), and a search link for the number.
+5. **At hang-up**, a medium- or high-risk call that wasn't reported is reported
+   with what the network told us.
+
+Genuine callers, recruiters included, aren't questioned because of a low or
+medium score alone.
+
+Settings, all optional, on the voice service:
+
+| Variable | Default |
+| --- | --- |
+| `SCREENING_LOOKUP` | `1`. `0` turns off the paid reverse lookup; the webhook checks still run |
+| `IPQS_API_KEY` | unset. An IPQualityScore key adds spam reputation (fraud score, spammer, recent abuse) |
+| `SCREENING_OWN_NUMBERS` | unset. Comma-separated numbers, besides `TWILIO_FROM_NUMBER`, a caller ID must not show |
+| `SCREENING_REPORT_ALL` | unset. `1` sends a screening note for every inbound call, not just risky ones |
+
+Twilio Lookup is billed per lookup (line type intelligence and caller name are
+priced separately); the cache keeps repeat callers to one lookup a day. For
+`CallerName` on the webhook, turn on Caller ID Lookup (CNAM) for the number in
+the Twilio console. `StirVerstat` arrives only on calls the network signed.
+
 ## Offline tests
 
 With both folders' requirements installed (the tests also cover the worker in

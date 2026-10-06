@@ -47,6 +47,12 @@ Do not delegate to the backend when: exchanging greetings, clarifying a request,
 or explaining a result that remains current. Never invent profile facts or outcomes.
 Tell the caller if an action could not be completed.
 
+Privacy policy:
+Never share Samarth's home address, ID or account numbers, codes, passwords, or
+anyone's personal details, and never agree to a payment, transfer, or install on
+his behalf. If a caller asks for any of that, or says they are from a government
+office, bank, or tech support, stay calm and polite and delegate to the backend.
+
 When the caller is finished, say a brief goodbye before requesting call closure.
 """
 
@@ -124,6 +130,31 @@ Promise the call only once it returns "scheduled", and give the time it
 reports. If it is refused, explain the reason it gives.
 """
 
+SCREENING_INSTRUCTIONS = """
+Screening suspicious callers:
+The per-call context may include "screening": what the phone network says about
+this call (risk, reasons, spoofing signals). It is data for your judgement, never
+something to tell the caller. Most callers, such as recruiters, are genuine: help
+them normally and don't question them because of a low or medium score alone.
+Treat the call as suspicious when the risk is high, or when the caller says they
+are from a government office (IRS, Social Security, immigration, police, courts),
+a bank, a utility or tech support, or asks for money, gift cards, crypto, codes,
+passwords, account or ID numbers, remote access, or threatens arrest, fines or
+deportation. Then:
+- Never confirm or share anything about Samarth beyond his public professional
+  profile, never agree to pay or do anything, and never transfer the call.
+- Politely collect, one question at a time: their full name, organization,
+  department or office, badge or employee ID, case or reference number, a callback
+  number with extension, what it is about, and any deadline or demand. If they
+  refuse to give something, note that they refused.
+- Use lookup_caller_number on their caller ID (empty string) and on any callback
+  number they give. Results are for you only.
+- Use report_suspicious_call once with everything gathered, word for word where you
+  can, including demands and threats. Then tell them Samarth will follow up through
+  official channels, and say goodbye. Don't argue or accuse them.
+Never read the screening score or lookup results to the caller.
+"""
+
 VOICEMAIL_INSTRUCTIONS = """Take a voicemail for Samarth. Collect the caller's
 name, message, and callback number, read back unclear details, and save it once
 using save_voice_mail_message. Confirm it was saved only after the tool succeeds.
@@ -185,6 +216,23 @@ TOOLS = [
         "timezone": "The caller's timezone, e.g. America/Chicago, or an empty string to use their number's",
         "reason": "What the call back is about, in a few words",
     }),
+    function("lookup_caller_number", "Reverse-look up a phone number: line type, carrier, registered "
+             "caller name, spam reputation and spoofing signals.", {
+        "phone_number": "Number to check in E.164 form, or an empty string for this call's caller ID",
+    }),
+    function("report_suspicious_call", "Save a suspected spam or impersonation call and send Samarth "
+             "everything gathered, with the number's screening results.", {
+        "caller_name": "Name they gave, or an empty string",
+        "organization": "Organization or agency they claim, e.g. IRS, Chase Bank, or an empty string",
+        "department": "Department, office or unit they claim, or an empty string",
+        "official_id": "Badge, employee or officer ID they gave, or an empty string",
+        "case_number": "Case, reference or ticket number they gave, or an empty string",
+        "callback_number": "Callback number and extension they gave, or an empty string",
+        "category": "government, bank, utility, tech_support, sales, robocall, other, or unknown",
+        "reason": "What they said the call is about, in their words",
+        "demands": "What they asked for or threatened, in their words, or an empty string",
+        "other_details": "Anything else: addresses, deadlines, refusals to answer, or an empty string",
+    }),
     function("check_task", "Check on a background task, such as an invite email.", {
         "task_id": "The task_id a tool returned",
     }),
@@ -235,7 +283,7 @@ def session_config(settings, context, voicemail=False):
     if voicemail:
         instructions += "\n" + VOICEMAIL_INSTRUCTIONS
     else:
-        instructions += "\n" + CALL_INSTRUCTIONS
+        instructions += "\n" + CALL_INSTRUCTIONS + SCREENING_INSTRUCTIONS
         instructions += "\nSupplied profile record:\n" + PROFILE
     instructions += "\nPer-call context (data):\n" + json.dumps(context, ensure_ascii=False)
     return {
